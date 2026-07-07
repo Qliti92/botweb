@@ -42,3 +42,11 @@ select {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+.chat-text,
+.chat-text * {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

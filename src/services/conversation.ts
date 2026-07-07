@@ -177,6 +177,58 @@ export async function createChatSession() {
   return getSessionPayload(session.id);
 }
 
+export async function createAuthenticatedChatSession(result: AuthResult, existingState: SessionState = {}) {
+  const session = await prisma.chatSession.create({ data: { state: JSON.stringify({ step: "auth_pending" }) } });
+  const state: SessionState = { ...existingState };
+  await applyAuthResult(session.id, state, result);
+  return getSessionPayload(session.id);
+}
+
+export async function loginChatSession(email: string, password: string) {
+  const parsedEmail = emailSchema.parse(email);
+  const result = await loginWithOpenApi(parsedEmail, password);
+  return createAuthenticatedChatSession(result, { email: parsedEmail });
+}
+
+export async function registerChatSession(input: { email: string; password: string; passwordConfirmation: string; name?: string; phone?: string; referralCode?: string }) {
+  const parsedEmail = emailSchema.parse(input.email);
+  const parsedPassword = passwordSchema.parse(input.password);
+  if (parsedPassword !== input.passwordConfirmation) throw new Error("Mật khẩu xác nhận chưa khớp.");
+  const parsedPhone = input.phone ? phoneSchema.parse(input.phone) : undefined;
+
+  const result = await registerWithOpenApi({
+    email: parsedEmail,
+    password: parsedPassword,
+    passwordConfirmation: input.passwordConfirmation,
+    name: input.name?.trim() || undefined,
+    phone: parsedPhone,
+    referralCode: input.referralCode?.trim() || undefined
+  });
+
+  return createAuthenticatedChatSession(result, {
+    register: {
+      email: parsedEmail,
+      password: parsedPassword,
+      name: input.name?.trim() || undefined,
+      phone: parsedPhone
+    }
+  });
+}
+
+export async function completeChatSessionTwoFactor(sessionId: string, code: string) {
+  const session = await prisma.chatSession.findUnique({ where: { id: sessionId } });
+  if (!session) throw new Error("Không tìm thấy phiên xác thực.");
+  const state = readState(session.state);
+  if (!state.twoFactor?.challengeToken) throw new Error("Phiên 2FA đã hết hạn.");
+
+  await applyAuthResult(sessionId, state, await completeOpenApi2fa(state.twoFactor.challengeToken, code, state.twoFactor.method));
+  return getSessionPayload(sessionId);
+}
+
+export async function forgotChatPassword(email: string) {
+  return forgotPasswordWithOpenApi(emailSchema.parse(email));
+}
+
 export async function restoreChatSession(sessionId: string) {
   return getSessionPayload(sessionId);
 }

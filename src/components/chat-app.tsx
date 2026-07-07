@@ -38,6 +38,8 @@ type LoginErrorData = {
   message?: string;
 };
 
+type AuthMode = "login" | "register" | "forgot" | "2fa";
+
 const quickCommands = [
   { label: "Hướng dẫn", command: "/huongdan", icon: BookOpen },
   { label: "Số dư", command: "/taikhoan", icon: WalletCards },
@@ -135,6 +137,16 @@ export function ChatApp() {
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authPasswordConfirmation, setAuthPasswordConfirmation] = useState("");
+  const [authName, setAuthName] = useState("");
+  const [authPhone, setAuthPhone] = useState("");
+  const [authReferralCode, setAuthReferralCode] = useState("");
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [pendingTwoFactorSessionId, setPendingTwoFactorSessionId] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [history, setHistory] = useState<ChatHistoryItem[]>([]);
@@ -151,7 +163,7 @@ export function ChatApp() {
       restoreSession(existing);
       return;
     }
-    createSession();
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -190,11 +202,16 @@ export function ChatApp() {
       const response = await fetch(`/api/chat/session?sessionId=${encodeURIComponent(sessionId)}`);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
+      if (!data.user) {
+        window.localStorage.removeItem("chat_session_id");
+        setSession(null);
+        return;
+      }
       setSession(data);
       window.localStorage.setItem("chat_session_id", data.id);
     } catch {
       window.localStorage.removeItem("chat_session_id");
-      await createSession();
+      setSession(null);
     } finally {
       setLoading(false);
     }
@@ -246,20 +263,76 @@ export function ChatApp() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/chat/logout", {
+      await fetch("/api/chat/logout", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ sessionId: session.id })
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
-      setSession(data);
+      setSession(null);
       setHistory([]);
       setShowHistory(false);
       setShowSideMenu(false);
-      window.localStorage.setItem("chat_session_id", data.id);
+      window.localStorage.removeItem("chat_session_id");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể đăng xuất.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitAuth(event: FormEvent) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+    setAuthMessage("");
+
+    try {
+      const body =
+        authMode === "register"
+          ? {
+              mode: "register",
+              email: authEmail,
+              password: authPassword,
+              passwordConfirmation: authPasswordConfirmation,
+              name: authName,
+              phone: authPhone,
+              referralCode: authReferralCode
+            }
+          : authMode === "forgot"
+            ? { mode: "forgot", email: authEmail }
+            : authMode === "2fa"
+              ? { mode: "2fa", sessionId: pendingTwoFactorSessionId, code: twoFactorCode }
+              : { mode: "login", email: authEmail, password: authPassword };
+
+      const response = await fetch("/api/chat/auth", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+
+      if (authMode === "forgot") {
+        setAuthMessage(data.message || "Đã gửi hướng dẫn đặt lại mật khẩu nếu email tồn tại.");
+        setAuthMode("login");
+        return;
+      }
+
+      if (!data.user) {
+        setPendingTwoFactorSessionId(data.id);
+        setAuthMode("2fa");
+        setAuthMessage("Vui lòng nhập mã xác thực để hoàn tất đăng nhập.");
+        return;
+      }
+
+      setSession(data);
+      window.localStorage.setItem("chat_session_id", data.id);
+      setAuthPassword("");
+      setAuthPasswordConfirmation("");
+      setTwoFactorCode("");
+      setPendingTwoFactorSessionId("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể xác thực.");
     } finally {
       setLoading(false);
     }
@@ -319,11 +392,42 @@ export function ChatApp() {
     }
   }
 
+  if (!session?.user) {
+    return (
+      <AuthScreen
+        mode={authMode}
+        loading={loading}
+        error={error}
+        message={authMessage}
+        email={authEmail}
+        password={authPassword}
+        passwordConfirmation={authPasswordConfirmation}
+        name={authName}
+        phone={authPhone}
+        referralCode={authReferralCode}
+        twoFactorCode={twoFactorCode}
+        onModeChange={(mode) => {
+          setAuthMode(mode);
+          setError("");
+          setAuthMessage("");
+        }}
+        onEmailChange={setAuthEmail}
+        onPasswordChange={setAuthPassword}
+        onPasswordConfirmationChange={setAuthPasswordConfirmation}
+        onNameChange={setAuthName}
+        onPhoneChange={setAuthPhone}
+        onReferralCodeChange={setAuthReferralCode}
+        onTwoFactorCodeChange={setTwoFactorCode}
+        onSubmit={submitAuth}
+      />
+    );
+  }
+
   return (
     <main className="mx-auto flex h-dvh max-w-3xl flex-col bg-[#e9edf5] shadow-soft md:my-6 md:h-[calc(100dvh-48px)] md:overflow-hidden md:rounded-lg">
       <header className="flex items-center justify-between gap-3 border-b border-red-950/10 bg-brand-red px-4 py-3 text-white">
         <div className="flex min-w-0 items-center gap-3">
-          <img src="/bot-logo.svg" alt="Hoàn Tiền Mua Hàng" className="h-10 w-10 shrink-0 rounded-full bg-white p-1" />
+          <img src="/logo.png" alt="Hoàn Tiền Mua Hàng" className="h-10 w-10 shrink-0 rounded-full bg-white p-1 object-cover" />
           <div className="min-w-0">
             <h1 className="truncate text-base font-semibold">Bot Hoàn tiền Shopee, Tiktok</h1>
             <p className="mt-0.5 truncate text-xs text-white/80">{status}</p>
@@ -463,6 +567,138 @@ export function ChatApp() {
   );
 }
 
+function AuthScreen({
+  mode,
+  loading,
+  error,
+  message,
+  email,
+  password,
+  passwordConfirmation,
+  name,
+  phone,
+  referralCode,
+  twoFactorCode,
+  onModeChange,
+  onEmailChange,
+  onPasswordChange,
+  onPasswordConfirmationChange,
+  onNameChange,
+  onPhoneChange,
+  onReferralCodeChange,
+  onTwoFactorCodeChange,
+  onSubmit
+}: {
+  mode: AuthMode;
+  loading: boolean;
+  error: string;
+  message: string;
+  email: string;
+  password: string;
+  passwordConfirmation: string;
+  name: string;
+  phone: string;
+  referralCode: string;
+  twoFactorCode: string;
+  onModeChange: (mode: AuthMode) => void;
+  onEmailChange: (value: string) => void;
+  onPasswordChange: (value: string) => void;
+  onPasswordConfirmationChange: (value: string) => void;
+  onNameChange: (value: string) => void;
+  onPhoneChange: (value: string) => void;
+  onReferralCodeChange: (value: string) => void;
+  onTwoFactorCodeChange: (value: string) => void;
+  onSubmit: (event: FormEvent) => void;
+}) {
+  const isRegister = mode === "register";
+  const isForgot = mode === "forgot";
+  const isTwoFactor = mode === "2fa";
+
+  return (
+    <main className="flex min-h-dvh items-center justify-center bg-[#e9edf5] px-4 py-8">
+      <section className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-soft">
+        <div className="mb-5 flex flex-col items-center text-center">
+          <img src="/logo.png" alt="Hoàn Tiền Mua Hàng" className="h-20 w-20 rounded-full bg-white object-cover ring-1 ring-red-100" />
+          <h1 className="mt-3 text-lg font-bold text-brand-ink">Hoàn Tiền Mua Hàng</h1>
+          <p className="mt-1 text-sm text-neutral-500">Đăng nhập để vào chat tạo link hoàn tiền.</p>
+        </div>
+
+        <form onSubmit={onSubmit} className="grid gap-3">
+          {!isTwoFactor ? (
+            <label className="grid gap-1 text-sm font-semibold text-brand-ink">
+              Email
+              <input value={email} onChange={(event) => onEmailChange(event.target.value)} type="email" autoComplete="email" required className="h-11 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+            </label>
+          ) : null}
+
+          {isRegister ? (
+            <>
+              <label className="grid gap-1 text-sm font-semibold text-brand-ink">
+                Họ tên
+                <input value={name} onChange={(event) => onNameChange(event.target.value)} autoComplete="name" className="h-11 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+              </label>
+              <label className="grid gap-1 text-sm font-semibold text-brand-ink">
+                Số điện thoại
+                <input value={phone} onChange={(event) => onPhoneChange(event.target.value)} autoComplete="tel" className="h-11 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+              </label>
+              <label className="grid gap-1 text-sm font-semibold text-brand-ink">
+                Mã giới thiệu
+                <input value={referralCode} onChange={(event) => onReferralCodeChange(event.target.value)} autoComplete="off" className="h-11 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+              </label>
+            </>
+          ) : null}
+
+          {!isForgot && !isTwoFactor ? (
+            <label className="grid gap-1 text-sm font-semibold text-brand-ink">
+              Mật khẩu
+              <input value={password} onChange={(event) => onPasswordChange(event.target.value)} type="password" autoComplete={isRegister ? "new-password" : "current-password"} required className="h-11 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+            </label>
+          ) : null}
+
+          {isRegister ? (
+            <label className="grid gap-1 text-sm font-semibold text-brand-ink">
+              Nhập lại mật khẩu
+              <input value={passwordConfirmation} onChange={(event) => onPasswordConfirmationChange(event.target.value)} type="password" autoComplete="new-password" required className="h-11 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+            </label>
+          ) : null}
+
+          {isTwoFactor ? (
+            <label className="grid gap-1 text-sm font-semibold text-brand-ink">
+              Mã xác thực
+              <input value={twoFactorCode} onChange={(event) => onTwoFactorCodeChange(event.target.value)} inputMode="numeric" required className="h-11 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+            </label>
+          ) : null}
+
+          {error ? <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+          {message ? <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</div> : null}
+
+          <button type="submit" disabled={loading} className="mt-1 flex h-11 items-center justify-center gap-2 rounded-full bg-brand-red px-4 text-sm font-semibold text-white disabled:opacity-60">
+            <LogIn className="h-4 w-4" />
+            {isForgot ? "Gửi hướng dẫn" : isRegister ? "Đăng ký" : isTwoFactor ? "Xác thực" : "Đăng nhập"}
+          </button>
+        </form>
+
+        {!isTwoFactor ? (
+          <div className="mt-4 flex items-center justify-between gap-3 text-sm">
+            <button type="button" onClick={() => onModeChange("forgot")} className="font-semibold text-neutral-500 hover:text-brand-red">
+              Quên mật khẩu
+            </button>
+            <button type="button" onClick={() => onModeChange(isRegister ? "login" : "register")} className="font-semibold text-brand-red">
+              {isRegister ? "Đăng nhập" : "Đăng ký"}
+            </button>
+          </div>
+        ) : null}
+
+        {isForgot ? (
+          <button type="button" onClick={() => onModeChange("login")} className="mt-4 w-full text-center text-sm font-semibold text-brand-red">
+            Quay lại đăng nhập
+          </button>
+        ) : null}
+      </section>
+    </main>
+  );
+}
+
 function SideMenu({
   open,
   onClose,
@@ -493,7 +729,7 @@ function SideMenu({
       >
         <div className="flex items-center justify-between border-b border-red-950/10 bg-brand-red px-4 py-4 text-white">
           <div className="flex items-center gap-3">
-            <img src="/bot-logo.svg" alt="Hoàn Tiền Mua Hàng" className="h-9 w-9 rounded-full bg-white p-1" />
+            <img src="/logo.png" alt="Hoàn Tiền Mua Hàng" className="h-9 w-9 rounded-full bg-white p-1 object-cover" />
             <h2 className="text-base font-semibold">Menu</h2>
           </div>
           <button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-md bg-white/10" title="Đóng menu" aria-label="Đóng menu">
@@ -529,14 +765,14 @@ function MessageBubble({ message, onSend }: { message: ChatMessage; onSend: (mes
   return (
     <div className={`mb-3 flex items-end gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser ? <BotAvatar /> : null}
-      <div className={isUser ? "flex max-w-[78%] min-w-0 justify-end" : "min-w-0 max-w-[calc(100%-44px)] sm:max-w-md"}>
+      <div className={isUser ? "flex min-w-0 max-w-[78%] justify-end overflow-hidden" : "min-w-0 w-[calc(100%-44px)] max-w-[calc(100%-44px)] overflow-hidden sm:w-full sm:max-w-md"}>
         {cashback ? (
           <CashbackCard data={cashback} />
         ) : loginError ? (
           <LoginErrorCard data={loginError} onSend={onSend} />
         ) : (
           isUser ? (
-            <div className="whitespace-pre-line break-words rounded-2xl rounded-br-md border border-sky-200 bg-sky-100 px-4 py-3 text-sm leading-relaxed text-brand-ink shadow-sm [overflow-wrap:anywhere]">{message.content}</div>
+            <div className="chat-text whitespace-pre-line rounded-2xl rounded-br-md border border-sky-200 bg-sky-100 px-4 py-3 text-sm leading-relaxed text-brand-ink shadow-sm">{message.content}</div>
           ) : (
             <BotCard content={message.content} onSend={onSend} />
           )
@@ -549,7 +785,7 @@ function MessageBubble({ message, onSend }: { message: ChatMessage; onSend: (mes
 function BotAvatar() {
   return (
     <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-black/5">
-      <img src="/bot-logo.svg" alt="Bot Hoàn Tiền Mua Hàng" className="h-full w-full object-cover p-0.5" />
+      <img src="/logo.png" alt="Bot Hoàn Tiền Mua Hàng" className="h-full w-full object-cover p-0.5" />
     </span>
   );
 }
@@ -564,8 +800,8 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
   if (!body.length) return <SimpleBotCard content={title} />;
 
   return (
-    <div className="w-full min-w-0 rounded-2xl rounded-bl-md border border-black/5 bg-white px-4 py-3 text-brand-ink shadow-sm">
-      <h2 className="mb-2 break-words text-sm font-semibold leading-5 [overflow-wrap:anywhere]">{title.replace(/:$/, "")}</h2>
+    <div className="chat-text w-full min-w-0 overflow-hidden rounded-2xl rounded-bl-md border border-black/5 bg-white px-4 py-3 text-brand-ink shadow-sm">
+      <h2 className="mb-2 text-sm font-semibold leading-5">{title.replace(/:$/, "")}</h2>
       <div className="min-w-0 text-sm leading-relaxed">
         {isOrderTitle(title) ? (
           <OrderList lines={body} />
@@ -585,7 +821,7 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
 
 function SimpleBotCard({ content }: { content: string }) {
   return (
-    <div className="min-w-0 rounded-2xl rounded-bl-md border border-black/5 bg-white px-4 py-3 text-sm leading-relaxed text-neutral-700 shadow-sm">
+    <div className="chat-text min-w-0 overflow-hidden rounded-2xl rounded-bl-md border border-black/5 bg-white px-4 py-3 text-sm leading-relaxed text-neutral-700 shadow-sm">
       <HighlightedLine line={content} />
     </div>
   );
@@ -593,7 +829,7 @@ function SimpleBotCard({ content }: { content: string }) {
 
 function AuthChoiceCard({ onSend }: { onSend: (message: string) => void }) {
   return (
-    <div className="w-full overflow-hidden rounded-2xl rounded-bl-md border border-red-100 bg-white text-brand-ink shadow-sm">
+    <div className="chat-text w-full overflow-hidden rounded-2xl rounded-bl-md border border-red-100 bg-white text-brand-ink shadow-sm">
       <div className="flex items-center gap-2.5 border-b border-red-100 bg-gradient-to-r from-red-50 to-amber-50 px-3 py-3">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-brand-red text-white">
           <UserRound className="h-4 w-4" />
@@ -625,7 +861,7 @@ function AuthChoiceCard({ onSend }: { onSend: (message: string) => void }) {
 
 function LoginErrorCard({ data, onSend }: { data: LoginErrorData; onSend: (message: string) => void }) {
   return (
-    <div className="w-full overflow-hidden rounded-2xl rounded-bl-md border border-amber-200 bg-white text-brand-ink shadow-sm">
+    <div className="chat-text w-full overflow-hidden rounded-2xl rounded-bl-md border border-amber-200 bg-white text-brand-ink shadow-sm">
       <div className="flex items-center gap-2.5 border-b border-amber-100 bg-amber-50 px-3 py-2.5">
         <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-amber-100 text-amber-700">
           <AlertCircle className="h-4 w-4" />
@@ -670,11 +906,16 @@ function OrderList({ lines }: { lines: string[] }) {
         return (
           <div key={`${name}-${index}`} className="py-2 first:pt-0 last:pb-0">
             <div className="flex items-start gap-2">
-              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${status.dotClassName}`} />
+              <span className="mt-0.5 flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-50 px-1 text-[11px] font-semibold text-brand-red ring-1 ring-red-100">
+                {index + 1}
+              </span>
               <div className="min-w-0 flex-1">
                 <p className="line-clamp-2 break-words text-sm leading-5 text-brand-ink [overflow-wrap:anywhere]">{name}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-600">
-                  <span>{status.label}</span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className={`h-2 w-2 rounded-full ${status.dotClassName}`} />
+                    {status.label}
+                  </span>
                   {cashback ? <span className="min-w-0 break-words [overflow-wrap:anywhere]"><strong className="font-semibold text-brand-ink">Hoàn:</strong> <span className="font-semibold text-brand-red">{cashback.split(":").slice(1).join(":").trim()}</span></span> : null}
                 </div>
               </div>
@@ -810,7 +1051,7 @@ function BotCardLine({ line }: { line: string }) {
 
 function CashbackCard({ data }: { data: CashbackCardData }) {
   return (
-    <div className="w-full min-w-0 rounded-2xl rounded-bl-md border border-black/5 bg-white p-3 text-brand-ink shadow-sm">
+    <div className="chat-text w-full min-w-0 overflow-hidden rounded-2xl rounded-bl-md border border-black/5 bg-white p-3 text-brand-ink shadow-sm">
       <div className="flex items-start gap-2">
         <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
         <div className="min-w-0 flex-1">
