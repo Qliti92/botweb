@@ -6,6 +6,7 @@ import {
   Bell,
   BookOpen,
   CheckCircle2,
+  Clipboard,
   Clock3,
   CreditCard,
   ExternalLink,
@@ -288,9 +289,21 @@ export function ChatApp() {
     await sendMessage(input);
   }
 
+  async function pasteFromClipboard() {
+    try {
+      const text = await navigator.clipboard?.readText();
+      if (text) {
+        setInput((current) => `${current}${current && !current.endsWith(" ") ? " " : ""}${text}`.trimStart());
+        setError("");
+      }
+    } catch {
+      setError("Trình duyệt chưa cho phép dán tự động. Bạn có thể dán bằng Ctrl+V.");
+    }
+  }
+
   return (
     <main className="mx-auto flex h-dvh max-w-3xl flex-col bg-white shadow-soft md:my-6 md:h-[calc(100dvh-48px)] md:overflow-hidden md:rounded-lg">
-      <header className="flex items-center justify-between gap-3 border-b border-red-100 bg-brand-red px-4 py-3 text-white">
+      <header className="flex items-center justify-between gap-3 border-b border-red-950/10 bg-[#c5162b] px-4 py-3 text-white">
         <div className="flex min-w-0 items-center gap-3">
           <img src="/logo.png" alt="Hoàn Tiền Mua Hàng" className="h-10 w-10 shrink-0 rounded-xl bg-white p-1" />
           <div className="min-w-0">
@@ -413,10 +426,15 @@ export function ChatApp() {
             </div>
           </div>
         ) : null}
-        <button type="button" onClick={() => setShowCommands((value) => !value)} className="h-10 shrink-0 self-center rounded-md border border-brand-red bg-white px-2.5 text-xs font-semibold text-brand-red" title="Lệnh nhanh">
+        <button type="button" onClick={() => setShowCommands((value) => !value)} className="h-8 shrink-0 self-center rounded-md border border-sky-200 bg-sky-50 px-2 text-[11px] font-semibold text-sky-700 hover:bg-sky-100" title="Lệnh nhanh">
           Lệnh nhanh
         </button>
-        <input value={input} onChange={(event) => setInput(event.target.value)} disabled={sending} placeholder={session?.user ? "Dán link Shopee hoặc TikTok Shop..." : "Nhập 1 để đăng nhập, 2 để đăng ký..."} className="min-w-0 flex-1 rounded-md border border-red-100 px-4 text-base outline-none focus:border-brand-red disabled:bg-neutral-50" />
+        <div className="relative min-w-0 flex-1">
+          <input value={input} onChange={(event) => setInput(event.target.value)} disabled={sending} placeholder={session?.user ? "Dán link Shopee hoặc TikTok Shop..." : "Nhập 1 để đăng nhập, 2 để đăng ký..."} className="h-12 w-full min-w-0 rounded-md border border-red-100 px-4 pr-11 text-base outline-none focus:border-brand-red disabled:bg-neutral-50" />
+          <button type="button" onClick={pasteFromClipboard} disabled={sending} className="absolute right-1.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-sky-700 hover:bg-sky-50 disabled:opacity-50" title="Dán" aria-label="Dán">
+            <Clipboard className="h-4 w-4" />
+          </button>
+        </div>
         <button type="submit" disabled={sending || !input.trim()} className="grid h-12 w-12 place-items-center rounded-md bg-brand-red text-white disabled:opacity-50" title="Gửi">
           <Send className="h-5 w-5" />
         </button>
@@ -453,7 +471,7 @@ function SideMenu({
         onClick={(event) => event.stopPropagation()}
         aria-label="Menu"
       >
-        <div className="flex items-center justify-between border-b border-red-100 bg-brand-red px-4 py-4 text-white">
+        <div className="flex items-center justify-between border-b border-red-950/10 bg-[#c5162b] px-4 py-4 text-white">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="Hoàn Tiền Mua Hàng" className="h-9 w-9 rounded-lg bg-white p-1" />
             <h2 className="text-base font-semibold">Menu</h2>
@@ -496,7 +514,7 @@ function MessageBubble({ message, onSend }: { message: ChatMessage; onSend: (mes
         <LoginErrorCard data={loginError} onSend={onSend} />
       ) : (
         isUser ? (
-          <div className="max-w-[84%] whitespace-pre-line rounded-lg bg-brand-red px-4 py-3 text-sm leading-relaxed text-white">{message.content}</div>
+          <div className="max-w-[84%] whitespace-pre-line rounded-lg bg-sky-700 px-4 py-3 text-sm leading-relaxed text-white shadow-sm">{message.content}</div>
         ) : (
           <BotCard content={message.content} onSend={onSend} />
         )
@@ -518,8 +536,8 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
   const Icon = theme.icon;
 
   return (
-    <div className="w-full max-w-[92%] overflow-hidden rounded-lg border border-red-100 bg-white text-brand-ink shadow-sm sm:max-w-md">
-      <div className="flex items-center gap-2.5 border-b border-red-100 bg-red-50 px-3 py-2.5">
+    <div className="w-full max-w-[92%] overflow-hidden rounded-lg border border-neutral-200 bg-[#fafafa] text-brand-ink shadow-sm sm:max-w-md">
+      <div className="flex items-center gap-2.5 border-b border-neutral-200 bg-white px-3 py-2.5">
         <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-md ${theme.tone}`}>
           <Icon className="h-4 w-4" />
         </span>
@@ -546,7 +564,7 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
 
 function SimpleBotCard({ content }: { content: string }) {
   return (
-    <div className="max-w-[92%] rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm leading-relaxed text-neutral-700 shadow-sm sm:max-w-md">
+    <div className="max-w-[92%] rounded-lg border border-neutral-200 bg-[#f8fafc] px-3 py-2 text-sm leading-relaxed text-neutral-700 shadow-sm sm:max-w-md">
       <div className="flex items-center gap-2">
         <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-sky-50 text-sky-700">
           <MessageCircle className="h-3.5 w-3.5" />
@@ -559,7 +577,7 @@ function SimpleBotCard({ content }: { content: string }) {
 
 function AuthChoiceCard({ onSend }: { onSend: (message: string) => void }) {
   return (
-    <div className="w-full max-w-[92%] overflow-hidden rounded-lg border border-red-100 bg-white text-brand-ink shadow-sm sm:max-w-md">
+    <div className="w-full max-w-[92%] overflow-hidden rounded-lg border border-red-100 bg-[#fafafa] text-brand-ink shadow-sm sm:max-w-md">
       <div className="flex items-center gap-2.5 border-b border-red-100 bg-gradient-to-r from-red-50 to-amber-50 px-3 py-3">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-brand-red text-white">
           <UserRound className="h-4 w-4" />
@@ -797,7 +815,7 @@ function CashbackCard({ data }: { data: CashbackCardData }) {
         <dl className="grid gap-3 text-sm">
           <div>
             <dt className="text-xs font-semibold uppercase text-neutral-500">Tên sản phẩm</dt>
-            <dd className="mt-1 font-semibold">{data.productName || "Sản phẩm Shopee/TikTok Shop"}</dd>
+            <dd className="mt-1 text-neutral-800">{data.productName || "Sản phẩm Shopee/TikTok Shop"}</dd>
           </div>
           <div className="rounded-md bg-red-50 px-3 py-2">
             <dt className="text-xs font-semibold uppercase text-neutral-500">Hoa hồng dự kiến</dt>
@@ -808,7 +826,6 @@ function CashbackCard({ data }: { data: CashbackCardData }) {
           <ExternalLink className="h-4 w-4 shrink-0" />
           <span>Quay lại sàn Shopee, Tiktok để mua hàng</span>
         </a>
-        {data.transId ? <p className="mt-2 break-all text-xs text-neutral-500">Mã giao dịch: <span className="font-semibold text-brand-ink">{data.transId}</span></p> : null}
         <div className="mt-4 grid gap-2 rounded-md bg-neutral-50 p-3 text-xs leading-relaxed text-neutral-700">
           <p className="flex items-center gap-2 font-semibold text-brand-ink">
             <Info className="h-4 w-4 text-brand-red" />
