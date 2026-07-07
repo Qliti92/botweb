@@ -529,14 +529,14 @@ function MessageBubble({ message, onSend }: { message: ChatMessage; onSend: (mes
   return (
     <div className={`mb-3 flex items-end gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser ? <BotAvatar /> : null}
-      <div className={isUser ? "flex max-w-[78%] justify-end" : "min-w-0 max-w-[86%] sm:max-w-md"}>
+      <div className={isUser ? "flex max-w-[78%] min-w-0 justify-end" : "min-w-0 max-w-[calc(100%-44px)] sm:max-w-md"}>
         {cashback ? (
           <CashbackCard data={cashback} />
         ) : loginError ? (
           <LoginErrorCard data={loginError} onSend={onSend} />
         ) : (
           isUser ? (
-            <div className="whitespace-pre-line rounded-2xl rounded-br-md border border-sky-200 bg-sky-100 px-4 py-3 text-sm leading-relaxed text-brand-ink shadow-sm">{message.content}</div>
+            <div className="whitespace-pre-line break-words rounded-2xl rounded-br-md border border-sky-200 bg-sky-100 px-4 py-3 text-sm leading-relaxed text-brand-ink shadow-sm [overflow-wrap:anywhere]">{message.content}</div>
           ) : (
             <BotCard content={message.content} onSend={onSend} />
           )
@@ -564,9 +564,9 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
   if (!body.length) return <SimpleBotCard content={title} />;
 
   return (
-    <div className="w-full rounded-2xl rounded-bl-md border border-black/5 bg-white px-4 py-3 text-brand-ink shadow-sm">
-      <h2 className="mb-2 text-sm font-semibold leading-5">{title.replace(/:$/, "")}</h2>
-      <div className="text-sm leading-relaxed">
+    <div className="w-full min-w-0 rounded-2xl rounded-bl-md border border-black/5 bg-white px-4 py-3 text-brand-ink shadow-sm">
+      <h2 className="mb-2 break-words text-sm font-semibold leading-5 [overflow-wrap:anywhere]">{title.replace(/:$/, "")}</h2>
+      <div className="min-w-0 text-sm leading-relaxed">
         {isOrderTitle(title) ? (
           <OrderList lines={body} />
         ) : isSupportTitle(title) ? (
@@ -585,7 +585,7 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
 
 function SimpleBotCard({ content }: { content: string }) {
   return (
-    <div className="rounded-2xl rounded-bl-md border border-black/5 bg-white px-4 py-3 text-sm leading-relaxed text-neutral-700 shadow-sm">
+    <div className="min-w-0 rounded-2xl rounded-bl-md border border-black/5 bg-white px-4 py-3 text-sm leading-relaxed text-neutral-700 shadow-sm">
       <HighlightedLine line={content} />
     </div>
   );
@@ -672,10 +672,10 @@ function OrderList({ lines }: { lines: string[] }) {
             <div className="flex items-start gap-2">
               <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${status.dotClassName}`} />
               <div className="min-w-0 flex-1">
-                <p className="line-clamp-2 text-sm leading-5 text-brand-ink">{name}</p>
+                <p className="line-clamp-2 break-words text-sm leading-5 text-brand-ink [overflow-wrap:anywhere]">{name}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-600">
                   <span>{status.label}</span>
-                  {cashback ? <span><strong className="font-semibold text-brand-ink">Hoàn:</strong> <span className="font-semibold text-brand-red">{cashback.split(":").slice(1).join(":").trim()}</span></span> : null}
+                  {cashback ? <span className="min-w-0 break-words [overflow-wrap:anywhere]"><strong className="font-semibold text-brand-ink">Hoàn:</strong> <span className="font-semibold text-brand-red">{cashback.split(":").slice(1).join(":").trim()}</span></span> : null}
                 </div>
               </div>
             </div>
@@ -711,13 +711,13 @@ function SupportLinks({ lines }: { lines: string[] }) {
 
 function SupportAction({ href, icon: Icon, label, value }: { href: string; icon: typeof Headphones; label: string; value: string }) {
   return (
-    <a href={href} target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noreferrer" : undefined} className="flex items-center gap-2 rounded-md border border-red-100 px-3 py-2 hover:bg-red-50">
+    <a href={href} target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noreferrer" : undefined} className="flex min-w-0 items-center gap-2 rounded-md border border-red-100 px-3 py-2 hover:bg-red-50">
       <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-red-50 text-brand-red">
         <Icon className="h-3.5 w-3.5" />
       </span>
-      <span className="min-w-0">
+      <span className="min-w-0 flex-1">
         <span className="block text-xs font-semibold text-neutral-500">{label}</span>
-        <span className="block truncate text-sm font-semibold text-brand-ink">{value}</span>
+        <span className="block break-words text-sm font-semibold text-brand-ink [overflow-wrap:anywhere]">{value}</span>
       </span>
     </a>
   );
@@ -730,7 +730,7 @@ function HighlightedLine({ line }: { line: string }) {
   return (
     <p className="flex min-w-0 items-start gap-2 py-0.5 text-neutral-700">
       {tone ? <span className={`mt-2 h-2 w-2 shrink-0 rounded-full ${tone}`} /> : null}
-      <span className="min-w-0">
+      <span className="min-w-0 break-words [overflow-wrap:anywhere]">
         {parts ? (
           <>
             <strong className="font-semibold text-brand-ink">{parts.label}: </strong>
@@ -762,9 +762,9 @@ function BotCardLine({ line }: { line: string }) {
   const moneyMatch = line.match(/^(Số dư ví|Hoàn tiền|Số tiền|Hoa hồng|Tiền hoàn|Tiền hoàn dự kiến|Đơn đã duyệt|Người giới thiệu):\s*(.+)$/i);
   if (moneyMatch) {
     return (
-      <p className="flex min-w-0 items-baseline justify-between gap-3 py-0.5">
+      <p className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-0.5">
         <strong className="shrink-0 font-semibold text-brand-ink">{moneyMatch[1]}:</strong>
-        <span className="min-w-0 text-right font-semibold text-brand-red">{moneyMatch[2]}</span>
+        <span className="min-w-0 break-words text-right font-semibold text-brand-red [overflow-wrap:anywhere]">{moneyMatch[2]}</span>
       </p>
     );
   }
@@ -772,9 +772,9 @@ function BotCardLine({ line }: { line: string }) {
   const bankMatch = line.match(/^(Ngân hàng|Số tài khoản|Chủ tài khoản|Phương thức|Email|Họ tên):\s*(.+)$/i);
   if (bankMatch) {
     return (
-      <p className="flex min-w-0 items-baseline justify-between gap-3 py-0.5">
+      <p className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-0.5">
         <strong className="shrink-0 font-semibold text-brand-ink">{bankMatch[1]}:</strong>
-        <span className="min-w-0 truncate text-right text-neutral-700">{bankMatch[2]}</span>
+        <span className="min-w-0 break-words text-right text-neutral-700 [overflow-wrap:anywhere]">{bankMatch[2]}</span>
       </p>
     );
   }
@@ -783,16 +783,16 @@ function BotCardLine({ line }: { line: string }) {
     return (
       <a href={line.startsWith("http") ? line : undefined} target={line.startsWith("http") ? "_blank" : undefined} rel={line.startsWith("http") ? "noreferrer" : undefined} className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-brand-red ring-1 ring-red-100">
         <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-        <span className="truncate">{line.startsWith("http") ? "Mở liên kết" : line}</span>
+        <span className="min-w-0 truncate">{line.startsWith("http") ? "Mở liên kết" : line}</span>
       </a>
     );
   }
 
   if (/^[-•]|\d+\./.test(line)) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-start gap-2">
         <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-        <span>{line.replace(/^[-•]\s*/, "")}</span>
+        <span className="min-w-0 break-words [overflow-wrap:anywhere]">{line.replace(/^[-•]\s*/, "")}</span>
       </div>
     );
   }
@@ -800,7 +800,7 @@ function BotCardLine({ line }: { line: string }) {
   if (line.toLowerCase().includes("không chịu trách nhiệm")) {
     return (
       <div className="rounded-md bg-amber-50 px-2.5 py-1.5 text-amber-800">
-        <span>{line}</span>
+        <span className="break-words [overflow-wrap:anywhere]">{line}</span>
       </div>
     );
   }
@@ -810,23 +810,23 @@ function BotCardLine({ line }: { line: string }) {
 
 function CashbackCard({ data }: { data: CashbackCardData }) {
   return (
-    <div className="w-full rounded-2xl rounded-bl-md border border-black/5 bg-white p-3 text-brand-ink shadow-sm">
+    <div className="w-full min-w-0 rounded-2xl rounded-bl-md border border-black/5 bg-white p-3 text-brand-ink shadow-sm">
       <div className="flex items-start gap-2">
         <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold leading-5">Link hoàn tiền đã sẵn sàng</h2>
-          <p className="mt-1 line-clamp-2 text-sm leading-5 text-neutral-700">{data.productName || "Sản phẩm Shopee/TikTok Shop"}</p>
-          <p className="mt-2 text-sm">
+          <h2 className="break-words text-sm font-semibold leading-5 [overflow-wrap:anywhere]">Link hoàn tiền đã sẵn sàng</h2>
+          <p className="mt-1 line-clamp-3 break-words text-sm leading-5 text-neutral-700 [overflow-wrap:anywhere]">{data.productName || "Sản phẩm Shopee/TikTok Shop"}</p>
+          <p className="mt-2 break-words text-sm [overflow-wrap:anywhere]">
             <strong className="font-semibold text-brand-ink">Hoàn dự kiến: </strong>
             <span className="font-bold text-brand-red">{data.cashbackAmount || "Đang cập nhật"}</span>
           </p>
         </div>
       </div>
-      <a href={data.affiliateUrl} target="_blank" rel="noreferrer" className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-brand-red px-4 py-2 text-center text-sm font-semibold text-white">
+      <a href={data.affiliateUrl} target="_blank" rel="noreferrer" className="mt-3 flex min-h-11 w-full min-w-0 items-center justify-center gap-2 rounded-full bg-brand-red px-4 py-2 text-center text-sm font-semibold text-white">
           <ExternalLink className="h-4 w-4 shrink-0" />
-          <span>Mở link mua hàng</span>
+          <span className="min-w-0 truncate">Mở link mua hàng</span>
       </a>
-      <p className="mt-2 text-xs leading-5 text-neutral-500"><strong className="font-semibold text-neutral-700">Lưu ý:</strong> để giỏ hàng trống và bấm link 2 lần để bảo đảm chuyển đổi.</p>
+      <p className="mt-2 break-words text-xs leading-5 text-neutral-500 [overflow-wrap:anywhere]"><strong className="font-semibold text-neutral-700">Lưu ý:</strong> để giỏ hàng trống và bấm link 2 lần để bảo đảm chuyển đổi.</p>
     </div>
   );
 }
