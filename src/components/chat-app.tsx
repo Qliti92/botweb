@@ -89,6 +89,7 @@ function isOrderTitle(title: string) {
 
 export function ChatApp() {
   const [session, setSession] = useState<ChatSessionPayload | null>(null);
+  const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -113,7 +114,7 @@ export function ChatApp() {
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [session?.messages.length, sending]);
+  }, [session?.messages.length, optimisticMessages.length, sending]);
 
   useEffect(() => {
     if (session?.user) {
@@ -223,8 +224,17 @@ export function ChatApp() {
   }
 
   async function sendMessage(message: string) {
-    if (!message.trim() || !session) return;
+    const trimmed = message.trim();
+    if (!trimmed || !session || sending) return;
 
+    const optimisticMessage: ChatMessage = {
+      id: `optimistic-${Date.now()}`,
+      sender: "USER",
+      content: trimmed,
+      createdAt: new Date().toISOString()
+    };
+
+    setOptimisticMessages((items) => [...items, optimisticMessage]);
     setInput("");
     setSending(true);
     setError("");
@@ -235,14 +245,16 @@ export function ChatApp() {
       const response = await fetch("/api/chat/message", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sessionId: session.id, message })
+        body: JSON.stringify({ sessionId: session.id, message: trimmed })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       setSession(data);
+      setOptimisticMessages([]);
       window.localStorage.setItem("chat_session_id", data.id);
-      if (message.trim().toLowerCase() === "/thongbao") setShowNotificationBanner(false);
+      if (trimmed.toLowerCase() === "/thongbao") setShowNotificationBanner(false);
     } catch (err) {
+      setOptimisticMessages((items) => items.filter((item) => item.id !== optimisticMessage.id));
       setError(err instanceof Error ? err.message : "Không thể gửi tin nhắn.");
     } finally {
       setSending(false);
@@ -348,10 +360,13 @@ export function ChatApp() {
         {session?.messages.map((message) => (
           <MessageBubble key={message.id} message={message} />
         ))}
+        {optimisticMessages.map((message) => (
+          <MessageBubble key={message.id} message={message} />
+        ))}
 
         {sending ? (
           <div className="mb-3 flex justify-start">
-            <div className="rounded-lg border border-red-100 bg-white px-4 py-3 text-sm text-neutral-500">Bot đang trả lời...</div>
+            <div className="rounded-lg border border-red-100 bg-white px-4 py-3 text-sm text-neutral-500">Bot đang kiểm tra...</div>
           </div>
         ) : null}
         <div ref={scrollRef} />
@@ -379,7 +394,7 @@ export function ChatApp() {
         <button type="button" onClick={() => setShowCommands((value) => !value)} className="h-10 shrink-0 self-center rounded-md border border-brand-red bg-white px-2.5 text-xs font-semibold text-brand-red" title="Lệnh nhanh">
           Lệnh nhanh
         </button>
-        <input value={input} onChange={(event) => setInput(event.target.value)} placeholder={session?.user ? "Dán link Shopee hoặc TikTok Shop..." : "Nhập 1 để đăng nhập, 2 để đăng ký..."} className="min-w-0 flex-1 rounded-md border border-red-100 px-4 text-base outline-none focus:border-brand-red" />
+        <input value={input} onChange={(event) => setInput(event.target.value)} disabled={sending} placeholder={session?.user ? "Dán link Shopee hoặc TikTok Shop..." : "Nhập 1 để đăng nhập, 2 để đăng ký..."} className="min-w-0 flex-1 rounded-md border border-red-100 px-4 text-base outline-none focus:border-brand-red disabled:bg-neutral-50" />
         <button type="submit" disabled={sending || !input.trim()} className="grid h-12 w-12 place-items-center rounded-md bg-brand-red text-white disabled:opacity-50" title="Gửi">
           <Send className="h-5 w-5" />
         </button>
