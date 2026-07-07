@@ -8,13 +8,9 @@ import {
   CheckCircle2,
   Clipboard,
   Clock3,
-  CreditCard,
   ExternalLink,
   Headphones,
   History,
-  Info,
-  Landmark,
-  LinkIcon,
   ListChecks,
   LogOut,
   LogIn,
@@ -44,11 +40,12 @@ type LoginErrorData = {
 
 const quickCommands = [
   { label: "Hướng dẫn", command: "/huongdan", icon: BookOpen },
-  { label: "Tài khoản", command: "/taikhoan", icon: UserRound },
+  { label: "Số dư", command: "/taikhoan", icon: WalletCards },
   { label: "Đơn hàng", command: "/donhang", icon: PackageCheck },
-  { label: "Thông báo", command: "/thongbao", icon: Bell },
   { label: "Rút tiền", command: "/ruttien", icon: WalletCards },
-  { label: "Lịch sử rút", command: "/lichsurut", icon: WalletCards },
+  { label: "Lịch sử rút", command: "/lichsurut", icon: History },
+  { label: "Thông báo", command: "/thongbao", icon: Bell },
+  { label: "Hỗ trợ", command: "/hotro", icon: Headphones },
   { label: "Hủy thao tác", command: "/huy", icon: X },
   { label: "Xóa chat", command: "/xoachat", icon: Trash2 }
 ];
@@ -76,15 +73,38 @@ function parseLoginErrorCard(content: string) {
 function normalizeStatus(value: string) {
   const status = value.trim().toLowerCase();
   if (["approved", "success", "completed", "paid", "done", "đã duyệt", "thành công", "hoàn tất"].some((item) => status.includes(item))) {
-    return { label: "Đã duyệt", className: "bg-emerald-50 text-emerald-700 ring-emerald-200", icon: CheckCircle2 };
+    return { label: "Thành công", className: "bg-emerald-50 text-emerald-700 ring-emerald-200", dotClassName: "bg-emerald-500" };
   }
   if (["pending", "processing", "waiting", "chờ", "đang"].some((item) => status.includes(item))) {
-    return { label: "Đang xử lý", className: "bg-amber-50 text-amber-700 ring-amber-200", icon: Clock3 };
+    return { label: "Đang xét duyệt", className: "bg-amber-50 text-amber-700 ring-amber-200", dotClassName: "bg-amber-400" };
   }
   if (["rejected", "cancelled", "failed", "deny", "hủy", "từ chối", "thất bại"].some((item) => status.includes(item))) {
-    return { label: "Từ chối", className: "bg-red-50 text-red-700 ring-red-200", icon: AlertCircle };
+    return { label: "Từ chối", className: "bg-red-50 text-red-700 ring-red-200", dotClassName: "bg-red-500" };
   }
-  return { label: value.trim() || "Đang cập nhật", className: "bg-neutral-100 text-neutral-700 ring-neutral-200", icon: Info };
+  return { label: value.trim() || "Đang cập nhật", className: "bg-neutral-100 text-neutral-700 ring-neutral-200", dotClassName: "bg-neutral-400" };
+}
+
+function getLineStatusTone(line: string) {
+  const normalized = line.toLowerCase();
+  if (["thành công", "đã duyệt", "hoàn tất", "đã sẵn sàng", "success", "completed"].some((item) => normalized.includes(item))) {
+    return "bg-emerald-500";
+  }
+  if (["đang xét duyệt", "đang xử lý", "chờ", "pending", "processing", "waiting"].some((item) => normalized.includes(item))) {
+    return "bg-amber-400";
+  }
+  if (["từ chối", "thất bại", "không thành công", "hủy", "failed", "rejected"].some((item) => normalized.includes(item))) {
+    return "bg-red-500";
+  }
+  return null;
+}
+
+function splitLabelValue(line: string) {
+  const index = line.indexOf(":");
+  if (index < 1) return null;
+  return {
+    label: line.slice(0, index).trim(),
+    value: line.slice(index + 1).trim()
+  };
 }
 
 function getCardTheme(title: string) {
@@ -119,7 +139,6 @@ export function ChatApp() {
   const [error, setError] = useState("");
   const [history, setHistory] = useState<ChatHistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
-  const [showCommands, setShowCommands] = useState(false);
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotificationBanner, setShowNotificationBanner] = useState(false);
@@ -261,7 +280,6 @@ export function ChatApp() {
     setInput("");
     setSending(true);
     setError("");
-    setShowCommands(false);
     setShowSideMenu(false);
 
     try {
@@ -302,10 +320,10 @@ export function ChatApp() {
   }
 
   return (
-    <main className="mx-auto flex h-dvh max-w-3xl flex-col bg-white shadow-soft md:my-6 md:h-[calc(100dvh-48px)] md:overflow-hidden md:rounded-lg">
-      <header className="flex items-center justify-between gap-3 border-b border-red-950/10 bg-[#c5162b] px-4 py-3 text-white">
+    <main className="mx-auto flex h-dvh max-w-3xl flex-col bg-[#e9edf5] shadow-soft md:my-6 md:h-[calc(100dvh-48px)] md:overflow-hidden md:rounded-lg">
+      <header className="flex items-center justify-between gap-3 border-b border-red-950/10 bg-brand-red px-4 py-3 text-white">
         <div className="flex min-w-0 items-center gap-3">
-          <img src="/logo.png" alt="Hoàn Tiền Mua Hàng" className="h-10 w-10 shrink-0 rounded-xl bg-white p-1" />
+          <img src="/bot-logo.svg" alt="Hoàn Tiền Mua Hàng" className="h-10 w-10 shrink-0 rounded-full bg-white p-1" />
           <div className="min-w-0">
             <h1 className="truncate text-base font-semibold">Bot Hoàn tiền Shopee, Tiktok</h1>
             <p className="mt-0.5 truncate text-xs text-white/80">{status}</p>
@@ -345,7 +363,7 @@ export function ChatApp() {
         onLogout={logout}
       />
 
-      <section className="flex-1 overflow-y-auto bg-white px-3 py-4">
+      <section className="flex-1 overflow-y-auto bg-[#e9edf5] px-3 py-4">
         {session?.user ? (
           <div className="mb-3 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-xs text-brand-ink">
             <span className="font-semibold">Đang đăng nhập:</span> {accountLabel}
@@ -400,8 +418,9 @@ export function ChatApp() {
         ))}
 
         {sending ? (
-          <div className="mb-3 flex justify-start">
-            <div className="rounded-lg border border-red-100 bg-white px-4 py-3 text-sm text-neutral-500">Bot đang kiểm tra...</div>
+          <div className="mb-3 flex items-end gap-2">
+            <BotAvatar />
+            <div className="rounded-2xl rounded-bl-md border border-black/5 bg-white px-4 py-3 text-sm text-neutral-500 shadow-sm">Bot đang kiểm tra...</div>
           </div>
         ) : null}
         <div ref={scrollRef} />
@@ -409,35 +428,36 @@ export function ChatApp() {
 
       {error ? <div className="border-t border-red-100 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div> : null}
 
-      <form onSubmit={onSubmit} className="safe-bottom relative flex gap-2 border-t border-red-100 bg-white px-3 pt-3">
-        {showCommands ? (
-          <div className="fixed inset-0 z-30" onClick={() => setShowCommands(false)}>
-            <div className="absolute bottom-[76px] left-3 max-h-80 w-64 overflow-y-auto rounded-md border border-red-100 bg-white p-2 shadow-soft" onClick={(event) => event.stopPropagation()}>
-              {quickCommands.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button key={item.command} type="button" onClick={() => sendMessage(item.command)} className="flex h-10 w-full items-center gap-2 rounded-md px-2 text-left text-sm hover:bg-red-50">
-                    <Icon className="h-4 w-4 text-brand-red" />
-                    <span>{item.label}</span>
-                    <span className="ml-auto text-xs text-neutral-400">{item.command}</span>
-                  </button>
-                );
-              })}
-            </div>
+      <form onSubmit={onSubmit} className="safe-bottom border-t border-red-100 bg-white pt-2">
+        <div className="no-scrollbar flex gap-2 overflow-x-auto px-3 pb-2">
+          {quickCommands.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.command}
+                type="button"
+                onClick={() => sendMessage(item.command)}
+                disabled={sending || !session}
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-red-100 bg-white px-2.5 text-xs font-semibold text-brand-ink shadow-sm hover:bg-red-50 disabled:opacity-50"
+                title={item.label}
+              >
+                <Icon className="h-3.5 w-3.5 text-brand-red" />
+                <span className="whitespace-nowrap">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex gap-2 px-3">
+          <div className="relative min-w-0 flex-1">
+            <input value={input} onChange={(event) => setInput(event.target.value)} disabled={sending} placeholder={session?.user ? "Dán link Shopee hoặc TikTok Shop..." : "Nhập 1 để đăng nhập, 2 để đăng ký..."} className="h-12 w-full min-w-0 rounded-full border border-red-100 px-4 pr-11 text-base outline-none focus:border-brand-red disabled:bg-neutral-50" />
+            <button type="button" onClick={pasteFromClipboard} disabled={sending} className="absolute right-1.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-brand-red hover:bg-red-50 disabled:opacity-50" title="Dán" aria-label="Dán">
+              <Clipboard className="h-4 w-4" />
+            </button>
           </div>
-        ) : null}
-        <button type="button" onClick={() => setShowCommands((value) => !value)} className="h-8 shrink-0 self-center rounded-md border border-sky-200 bg-sky-50 px-2 text-[11px] font-semibold text-sky-700 hover:bg-sky-100" title="Lệnh nhanh">
-          Lệnh nhanh
-        </button>
-        <div className="relative min-w-0 flex-1">
-          <input value={input} onChange={(event) => setInput(event.target.value)} disabled={sending} placeholder={session?.user ? "Dán link Shopee hoặc TikTok Shop..." : "Nhập 1 để đăng nhập, 2 để đăng ký..."} className="h-12 w-full min-w-0 rounded-md border border-red-100 px-4 pr-11 text-base outline-none focus:border-brand-red disabled:bg-neutral-50" />
-          <button type="button" onClick={pasteFromClipboard} disabled={sending} className="absolute right-1.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-sky-700 hover:bg-sky-50 disabled:opacity-50" title="Dán" aria-label="Dán">
-            <Clipboard className="h-4 w-4" />
+          <button type="submit" disabled={sending || !input.trim()} className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-brand-red text-white disabled:opacity-50" title="Gửi">
+            <Send className="h-5 w-5" />
           </button>
         </div>
-        <button type="submit" disabled={sending || !input.trim()} className="grid h-12 w-12 place-items-center rounded-md bg-brand-red text-white disabled:opacity-50" title="Gửi">
-          <Send className="h-5 w-5" />
-        </button>
       </form>
     </main>
   );
@@ -471,9 +491,9 @@ function SideMenu({
         onClick={(event) => event.stopPropagation()}
         aria-label="Menu"
       >
-        <div className="flex items-center justify-between border-b border-red-950/10 bg-[#c5162b] px-4 py-4 text-white">
+        <div className="flex items-center justify-between border-b border-red-950/10 bg-brand-red px-4 py-4 text-white">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Hoàn Tiền Mua Hàng" className="h-9 w-9 rounded-lg bg-white p-1" />
+            <img src="/bot-logo.svg" alt="Hoàn Tiền Mua Hàng" className="h-9 w-9 rounded-full bg-white p-1" />
             <h2 className="text-base font-semibold">Menu</h2>
           </div>
           <button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-md bg-white/10" title="Đóng menu" aria-label="Đóng menu">
@@ -507,19 +527,30 @@ function MessageBubble({ message, onSend }: { message: ChatMessage; onSend: (mes
   const loginError = !isUser ? parseLoginErrorCard(message.content) : null;
 
   return (
-    <div className={`mb-3 flex ${isUser ? "justify-end" : "justify-start"}`}>
-      {cashback ? (
-        <CashbackCard data={cashback} />
-      ) : loginError ? (
-        <LoginErrorCard data={loginError} onSend={onSend} />
-      ) : (
-        isUser ? (
-          <div className="max-w-[84%] whitespace-pre-line rounded-lg bg-sky-700 px-4 py-3 text-sm leading-relaxed text-white shadow-sm">{message.content}</div>
+    <div className={`mb-3 flex items-end gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
+      {!isUser ? <BotAvatar /> : null}
+      <div className={isUser ? "flex max-w-[78%] justify-end" : "min-w-0 max-w-[86%] sm:max-w-md"}>
+        {cashback ? (
+          <CashbackCard data={cashback} />
+        ) : loginError ? (
+          <LoginErrorCard data={loginError} onSend={onSend} />
         ) : (
-          <BotCard content={message.content} onSend={onSend} />
-        )
-      )}
+          isUser ? (
+            <div className="whitespace-pre-line rounded-2xl rounded-br-md border border-sky-200 bg-sky-100 px-4 py-3 text-sm leading-relaxed text-brand-ink shadow-sm">{message.content}</div>
+          ) : (
+            <BotCard content={message.content} onSend={onSend} />
+          )
+        )}
+      </div>
     </div>
+  );
+}
+
+function BotAvatar() {
+  return (
+    <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-black/5">
+      <img src="/bot-logo.svg" alt="Bot Hoàn Tiền Mua Hàng" className="h-full w-full object-cover p-0.5" />
+    </span>
   );
 }
 
@@ -532,20 +563,10 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
 
   if (!body.length) return <SimpleBotCard content={title} />;
 
-  const theme = getCardTheme(title);
-  const Icon = theme.icon;
-
   return (
-    <div className="w-full max-w-[92%] overflow-hidden rounded-lg border border-neutral-200 bg-[#fafafa] text-brand-ink shadow-sm sm:max-w-md">
-      <div className="flex items-center gap-2.5 border-b border-neutral-200 bg-white px-3 py-2.5">
-        <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-md ${theme.tone}`}>
-          <Icon className="h-4 w-4" />
-        </span>
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold leading-5">{title.replace(/:$/, "")}</h2>
-        </div>
-      </div>
-      <div className="px-3 py-2.5 text-sm leading-relaxed">
+    <div className="w-full rounded-2xl rounded-bl-md border border-black/5 bg-white px-4 py-3 text-brand-ink shadow-sm">
+      <h2 className="mb-2 text-sm font-semibold leading-5">{title.replace(/:$/, "")}</h2>
+      <div className="text-sm leading-relaxed">
         {isOrderTitle(title) ? (
           <OrderList lines={body} />
         ) : isSupportTitle(title) ? (
@@ -564,20 +585,15 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
 
 function SimpleBotCard({ content }: { content: string }) {
   return (
-    <div className="max-w-[92%] rounded-lg border border-neutral-200 bg-[#f8fafc] px-3 py-2 text-sm leading-relaxed text-neutral-700 shadow-sm sm:max-w-md">
-      <div className="flex items-center gap-2">
-        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-sky-50 text-sky-700">
-          <MessageCircle className="h-3.5 w-3.5" />
-        </span>
-        <p>{content}</p>
-      </div>
+    <div className="rounded-2xl rounded-bl-md border border-black/5 bg-white px-4 py-3 text-sm leading-relaxed text-neutral-700 shadow-sm">
+      <HighlightedLine line={content} />
     </div>
   );
 }
 
 function AuthChoiceCard({ onSend }: { onSend: (message: string) => void }) {
   return (
-    <div className="w-full max-w-[92%] overflow-hidden rounded-lg border border-red-100 bg-[#fafafa] text-brand-ink shadow-sm sm:max-w-md">
+    <div className="w-full overflow-hidden rounded-2xl rounded-bl-md border border-red-100 bg-white text-brand-ink shadow-sm">
       <div className="flex items-center gap-2.5 border-b border-red-100 bg-gradient-to-r from-red-50 to-amber-50 px-3 py-3">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-brand-red text-white">
           <UserRound className="h-4 w-4" />
@@ -609,7 +625,7 @@ function AuthChoiceCard({ onSend }: { onSend: (message: string) => void }) {
 
 function LoginErrorCard({ data, onSend }: { data: LoginErrorData; onSend: (message: string) => void }) {
   return (
-    <div className="w-full max-w-[92%] overflow-hidden rounded-lg border border-amber-200 bg-white text-brand-ink shadow-sm sm:max-w-md">
+    <div className="w-full overflow-hidden rounded-2xl rounded-bl-md border border-amber-200 bg-white text-brand-ink shadow-sm">
       <div className="flex items-center gap-2.5 border-b border-amber-100 bg-amber-50 px-3 py-2.5">
         <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-amber-100 text-amber-700">
           <AlertCircle className="h-4 w-4" />
@@ -644,31 +660,24 @@ function OrderList({ lines }: { lines: string[] }) {
   });
 
   return (
-    <div className="grid gap-2">
+    <div className="divide-y divide-neutral-100">
       {groups.map((group, index) => {
         const name = group[0]?.replace(/^\d+\.\s*/, "") || `Đơn hàng ${index + 1}`;
         const cashback = group.find((line) => line.toLowerCase().startsWith("tiền hoàn dự kiến"));
         const statusLine = group.find((line) => line.toLowerCase().startsWith("trạng thái"));
         const status = normalizeStatus(statusLine?.split(":").slice(1).join(":") ?? "");
-        const StatusIcon = status.icon;
 
         return (
-          <div key={`${name}-${index}`} className="relative rounded-md border border-red-100 bg-white px-3 pb-2.5 pt-3.5">
-            <span className="absolute left-2.5 top-0 grid h-4 min-w-4 -translate-y-1/2 place-items-center rounded-full bg-neutral-100 px-1 text-[10px] font-semibold text-neutral-600 ring-1 ring-red-100">
-              {index + 1}
-            </span>
-            <p className="line-clamp-2 text-sm font-semibold leading-5">{name}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${status.className}`}>
-                <StatusIcon className="h-2.5 w-2.5" />
-                {status.label}
-              </span>
-              {cashback ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold ring-1 ring-red-100">
-                  <span className="text-neutral-500">Tiền hoàn dự kiến</span>
-                  <span className="text-brand-red">{cashback.split(":").slice(1).join(":").trim()}</span>
-                </span>
-              ) : null}
+          <div key={`${name}-${index}`} className="py-2 first:pt-0 last:pb-0">
+            <div className="flex items-start gap-2">
+              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${status.dotClassName}`} />
+              <div className="min-w-0 flex-1">
+                <p className="line-clamp-2 text-sm leading-5 text-brand-ink">{name}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-600">
+                  <span>{status.label}</span>
+                  {cashback ? <span><strong className="font-semibold text-brand-ink">Hoàn:</strong> <span className="font-semibold text-brand-red">{cashback.split(":").slice(1).join(":").trim()}</span></span> : null}
+                </div>
+              </div>
             </div>
           </div>
         );
@@ -714,15 +723,24 @@ function SupportAction({ href, icon: Icon, label, value }: { href: string; icon:
   );
 }
 
-function CopyAmountButton({ value }: { value: string }) {
-  async function copy() {
-    await navigator.clipboard?.writeText(value.replace(/[^\d]/g, ""));
-  }
+function HighlightedLine({ line }: { line: string }) {
+  const tone = getLineStatusTone(line);
+  const parts = splitLabelValue(line);
 
   return (
-    <button type="button" onClick={copy} className="ml-auto shrink-0 rounded-md border border-red-100 bg-white px-2 py-1 text-[10px] font-semibold text-brand-red hover:bg-red-50" title="Copy số tiền">
-      Copy
-    </button>
+    <p className="flex min-w-0 items-start gap-2 py-0.5 text-neutral-700">
+      {tone ? <span className={`mt-2 h-2 w-2 shrink-0 rounded-full ${tone}`} /> : null}
+      <span className="min-w-0">
+        {parts ? (
+          <>
+            <strong className="font-semibold text-brand-ink">{parts.label}: </strong>
+            <span>{parts.value}</span>
+          </>
+        ) : (
+          <span>{line}</span>
+        )}
+      </span>
+    </p>
   );
 }
 
@@ -730,12 +748,11 @@ function BotCardLine({ line }: { line: string }) {
   const statusMatch = line.match(/^(Trạng thái|Trạng thái đơn|Tình trạng):\s*(.+)$/i);
   if (statusMatch) {
     const status = normalizeStatus(statusMatch[2]);
-    const Icon = status.icon;
     return (
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-semibold">{statusMatch[1]}:</span>
         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ring-1 ${status.className}`}>
-          <Icon className="h-3.5 w-3.5" />
+          <span className={`h-2 w-2 rounded-full ${status.dotClassName}`} />
           {status.label}
         </span>
       </div>
@@ -744,38 +761,30 @@ function BotCardLine({ line }: { line: string }) {
 
   const moneyMatch = line.match(/^(Số dư ví|Hoàn tiền|Số tiền|Hoa hồng|Tiền hoàn|Tiền hoàn dự kiến|Đơn đã duyệt|Người giới thiệu):\s*(.+)$/i);
   if (moneyMatch) {
-    const value = moneyMatch[2];
     return (
-      <div className="flex items-center gap-2 rounded-md bg-red-50 px-2.5 py-1.5">
-        <CreditCard className="h-3.5 w-3.5 shrink-0 text-brand-red" />
-        <p className="min-w-0">
-          <span className="font-semibold">{moneyMatch[1]}: </span>
-          <span className="font-semibold text-brand-red">{value}</span>
-        </p>
-        <CopyAmountButton value={value} />
-      </div>
+      <p className="flex min-w-0 items-baseline justify-between gap-3 py-0.5">
+        <strong className="shrink-0 font-semibold text-brand-ink">{moneyMatch[1]}:</strong>
+        <span className="min-w-0 text-right font-semibold text-brand-red">{moneyMatch[2]}</span>
+      </p>
     );
   }
 
   const bankMatch = line.match(/^(Ngân hàng|Số tài khoản|Chủ tài khoản|Phương thức|Email|Họ tên):\s*(.+)$/i);
   if (bankMatch) {
     return (
-      <div className="flex items-center gap-2">
-        <Landmark className="h-3.5 w-3.5 shrink-0 text-brand-red" />
-        <p>
-          <span className="font-medium">{bankMatch[1]}: </span>
-          <span>{bankMatch[2]}</span>
-        </p>
-      </div>
+      <p className="flex min-w-0 items-baseline justify-between gap-3 py-0.5">
+        <strong className="shrink-0 font-semibold text-brand-ink">{bankMatch[1]}:</strong>
+        <span className="min-w-0 truncate text-right text-neutral-700">{bankMatch[2]}</span>
+      </p>
     );
   }
 
   if (/^https?:\/\//i.test(line) || line.includes("/ruttien")) {
     return (
-      <div className="flex items-center gap-2 rounded-md bg-neutral-50 px-2.5 py-1.5 font-mono text-xs text-neutral-700">
-        <LinkIcon className="h-3.5 w-3.5 shrink-0 text-brand-red" />
-        <span className="break-all">{line}</span>
-      </div>
+      <a href={line.startsWith("http") ? line : undefined} target={line.startsWith("http") ? "_blank" : undefined} rel={line.startsWith("http") ? "noreferrer" : undefined} className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-brand-red ring-1 ring-red-100">
+        <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">{line.startsWith("http") ? "Mở liên kết" : line}</span>
+      </a>
     );
   }
 
@@ -796,45 +805,28 @@ function BotCardLine({ line }: { line: string }) {
     );
   }
 
-  return <p className="py-0.5 text-neutral-700">{line}</p>;
+  return <HighlightedLine line={line} />;
 }
 
 function CashbackCard({ data }: { data: CashbackCardData }) {
   return (
-    <div className="w-full max-w-[92%] overflow-hidden rounded-lg border border-red-100 bg-white text-brand-ink shadow-sm sm:max-w-md">
-      <div className="flex items-start gap-3 border-b border-red-100 bg-red-50 px-4 py-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-brand-red text-white">
-          <CheckCircle2 className="h-5 w-5" />
-        </span>
-        <div>
-          <h2 className="text-sm font-semibold">Kiểm tra xong</h2>
-          <p className="mt-0.5 text-xs text-neutral-600">Link hoàn tiền đã sẵn sàng.</p>
-        </div>
-      </div>
-      <div className="p-4">
-        <dl className="grid gap-3 text-sm">
-          <div>
-            <dt className="text-xs font-semibold uppercase text-neutral-500">Tên sản phẩm</dt>
-            <dd className="mt-1 text-neutral-800">{data.productName || "Sản phẩm Shopee/TikTok Shop"}</dd>
-          </div>
-          <div className="rounded-md bg-red-50 px-3 py-2">
-            <dt className="text-xs font-semibold uppercase text-neutral-500">Hoa hồng dự kiến</dt>
-            <dd className="mt-1 text-lg font-bold text-brand-red">{data.cashbackAmount || "Đang cập nhật"}</dd>
-          </div>
-        </dl>
-        <a href={data.affiliateUrl} target="_blank" rel="noreferrer" className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-brand-red px-3 py-2 text-center text-sm font-semibold text-white">
-          <ExternalLink className="h-4 w-4 shrink-0" />
-          <span>Quay lại sàn Shopee, Tiktok để mua hàng</span>
-        </a>
-        <div className="mt-4 grid gap-2 rounded-md bg-neutral-50 p-3 text-xs leading-relaxed text-neutral-700">
-          <p className="flex items-center gap-2 font-semibold text-brand-ink">
-            <Info className="h-4 w-4 text-brand-red" />
-            Lưu ý
+    <div className="w-full rounded-2xl rounded-bl-md border border-black/5 bg-white p-3 text-brand-ink shadow-sm">
+      <div className="flex items-start gap-2">
+        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-semibold leading-5">Link hoàn tiền đã sẵn sàng</h2>
+          <p className="mt-1 line-clamp-2 text-sm leading-5 text-neutral-700">{data.productName || "Sản phẩm Shopee/TikTok Shop"}</p>
+          <p className="mt-2 text-sm">
+            <strong className="font-semibold text-brand-ink">Hoàn dự kiến: </strong>
+            <span className="font-bold text-brand-red">{data.cashbackAmount || "Đang cập nhật"}</span>
           </p>
-          <p>1. Để giỏ hàng trống khi mua hàng</p>
-          <p>2. Ấn 2 lần link để bảo đảm chuyển đổi</p>
         </div>
       </div>
+      <a href={data.affiliateUrl} target="_blank" rel="noreferrer" className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-brand-red px-4 py-2 text-center text-sm font-semibold text-white">
+          <ExternalLink className="h-4 w-4 shrink-0" />
+          <span>Mở link mua hàng</span>
+      </a>
+      <p className="mt-2 text-xs leading-5 text-neutral-500"><strong className="font-semibold text-neutral-700">Lưu ý:</strong> để giỏ hàng trống và bấm link 2 lần để bảo đảm chuyển đổi.</p>
     </div>
   );
 }

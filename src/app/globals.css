@@ -33,3 +33,12 @@ select {
 .safe-bottom {
   padding-bottom: max(12px, env(safe-area-inset-bottom));
 }
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
