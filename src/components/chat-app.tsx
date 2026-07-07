@@ -16,6 +16,7 @@ import {
   LinkIcon,
   ListChecks,
   LogOut,
+  LogIn,
   Menu,
   MessageCircle,
   PackageCheck,
@@ -85,6 +86,11 @@ function isSupportTitle(title: string) {
 
 function isOrderTitle(title: string) {
   return title.toLowerCase().includes("đơn hàng");
+}
+
+function isAuthStartMessage(content: string) {
+  const normalized = content.toLowerCase();
+  return normalized.includes("có tài khoản chọn 1") && normalized.includes("chưa có tài khoản chọn 2");
 }
 
 export function ChatApp() {
@@ -358,10 +364,10 @@ export function ChatApp() {
         {loading ? <div className="rounded-md border border-red-100 bg-white p-4 text-sm text-neutral-600">Đang mở phiên chat...</div> : null}
 
         {session?.messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <MessageBubble key={message.id} message={message} onSend={sendMessage} />
         ))}
         {optimisticMessages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <MessageBubble key={message.id} message={message} onSend={sendMessage} />
         ))}
 
         {sending ? (
@@ -461,7 +467,7 @@ function SideMenu({
   );
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({ message, onSend }: { message: ChatMessage; onSend: (message: string) => void }) {
   const isUser = message.sender === "USER";
   const cashback = !isUser ? parseCashbackCard(message.content) : null;
 
@@ -473,14 +479,16 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         isUser ? (
           <div className="max-w-[84%] whitespace-pre-line rounded-lg bg-brand-red px-4 py-3 text-sm leading-relaxed text-white">{message.content}</div>
         ) : (
-          <BotCard content={message.content} />
+          <BotCard content={message.content} onSend={onSend} />
         )
       )}
     </div>
   );
 }
 
-function BotCard({ content }: { content: string }) {
+function BotCard({ content, onSend }: { content: string; onSend: (message: string) => void }) {
+  if (isAuthStartMessage(content)) return <AuthChoiceCard onSend={onSend} />;
+
   const lines = content.split("\n").map((line) => line.trim()).filter(Boolean);
   const title = lines[0] ?? "Thông báo";
   const body = lines.slice(1);
@@ -512,6 +520,32 @@ function BotCard({ content }: { content: string }) {
           )}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function AuthChoiceCard({ onSend }: { onSend: (message: string) => void }) {
+  return (
+    <div className="w-full max-w-[92%] overflow-hidden rounded-lg border border-red-100 bg-white text-brand-ink shadow-sm sm:max-w-md">
+      <div className="flex items-center gap-2.5 border-b border-red-100 bg-red-50 px-3 py-3">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-brand-red text-white">
+          <UserRound className="h-4 w-4" />
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold">Chào mừng bạn</h2>
+          <p className="mt-0.5 text-xs text-neutral-600">Chọn thao tác để bắt đầu tạo link hoàn tiền.</p>
+        </div>
+      </div>
+      <div className="grid gap-2 p-3 sm:grid-cols-2">
+        <button type="button" onClick={() => onSend("1")} className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-brand-red px-3 text-sm font-semibold text-white">
+          <LogIn className="h-4 w-4" />
+          Đăng nhập
+        </button>
+        <button type="button" onClick={() => onSend("2")} className="flex min-h-11 items-center justify-center gap-2 rounded-md border border-brand-red bg-white px-3 text-sm font-semibold text-brand-red">
+          <UserRound className="h-4 w-4" />
+          Đăng ký
+        </button>
+      </div>
     </div>
   );
 }
