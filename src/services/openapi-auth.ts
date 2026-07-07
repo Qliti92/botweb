@@ -108,3 +108,8 @@ export async function completeOpenApi2fa(challengeToken: string, code: string, m
     })
   );
 }
+
+export async function forgotPasswordWithOpenApi(email: string) {
+  const data = await postAuth("/forgot-password", { email });
+  return String(data.message ?? "Đã gửi email đặt lại mật khẩu nếu tài khoản tồn tại.");
+}

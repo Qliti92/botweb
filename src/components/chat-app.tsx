@@ -36,6 +36,11 @@ type CashbackCardData = {
   transId?: string;
 };
 
+type LoginErrorData = {
+  title?: string;
+  message?: string;
+};
+
 const quickCommands = [
   { label: "Hướng dẫn", command: "/huongdan", icon: BookOpen },
   { label: "Tài khoản", command: "/taikhoan", icon: UserRound },
@@ -43,6 +48,7 @@ const quickCommands = [
   { label: "Thông báo", command: "/thongbao", icon: Bell },
   { label: "Rút tiền", command: "/ruttien", icon: WalletCards },
   { label: "Lịch sử rút", command: "/lichsurut", icon: WalletCards },
+  { label: "Hủy thao tác", command: "/huy", icon: X },
   { label: "Xóa chat", command: "/xoachat", icon: Trash2 }
 ];
 
@@ -51,6 +57,16 @@ function parseCashbackCard(content: string) {
 
   try {
     return JSON.parse(content.slice("CASHBACK_RESULT:".length)) as CashbackCardData;
+  } catch {
+    return null;
+  }
+}
+
+function parseLoginErrorCard(content: string) {
+  if (!content.startsWith("LOGIN_ERROR:")) return null;
+
+  try {
+    return JSON.parse(content.slice("LOGIN_ERROR:".length)) as LoginErrorData;
   } catch {
     return null;
   }
@@ -470,11 +486,14 @@ function SideMenu({
 function MessageBubble({ message, onSend }: { message: ChatMessage; onSend: (message: string) => void }) {
   const isUser = message.sender === "USER";
   const cashback = !isUser ? parseCashbackCard(message.content) : null;
+  const loginError = !isUser ? parseLoginErrorCard(message.content) : null;
 
   return (
     <div className={`mb-3 flex ${isUser ? "justify-end" : "justify-start"}`}>
       {cashback ? (
         <CashbackCard data={cashback} />
+      ) : loginError ? (
+        <LoginErrorCard data={loginError} onSend={onSend} />
       ) : (
         isUser ? (
           <div className="max-w-[84%] whitespace-pre-line rounded-lg bg-brand-red px-4 py-3 text-sm leading-relaxed text-white">{message.content}</div>
@@ -492,6 +511,9 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
   const lines = content.split("\n").map((line) => line.trim()).filter(Boolean);
   const title = lines[0] ?? "Thông báo";
   const body = lines.slice(1);
+
+  if (!body.length) return <SimpleBotCard content={title} />;
+
   const theme = getCardTheme(title);
   const Icon = theme.icon;
 
@@ -505,21 +527,32 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
           <h2 className="text-sm font-semibold leading-5">{title.replace(/:$/, "")}</h2>
         </div>
       </div>
-      {body.length ? (
-        <div className="px-3 py-2.5 text-sm leading-relaxed">
-          {isOrderTitle(title) ? (
-            <OrderList lines={body} />
-          ) : isSupportTitle(title) ? (
-            <SupportLinks lines={body} />
-          ) : (
-            <div className="grid gap-1.5">
-              {body.map((line, index) => (
-                <BotCardLine key={`${line}-${index}`} line={line} />
-              ))}
-            </div>
+      <div className="px-3 py-2.5 text-sm leading-relaxed">
+        {isOrderTitle(title) ? (
+          <OrderList lines={body} />
+        ) : isSupportTitle(title) ? (
+          <SupportLinks lines={body} />
+        ) : (
+          <div className="grid gap-1.5">
+            {body.map((line, index) => (
+              <BotCardLine key={`${line}-${index}`} line={line} />
+            ))}
+          </div>
           )}
-        </div>
-      ) : null}
+      </div>
+    </div>
+  );
+}
+
+function SimpleBotCard({ content }: { content: string }) {
+  return (
+    <div className="max-w-[92%] rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm leading-relaxed text-neutral-700 shadow-sm sm:max-w-md">
+      <div className="flex items-center gap-2">
+        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-sky-50 text-sky-700">
+          <MessageCircle className="h-3.5 w-3.5" />
+        </span>
+        <p>{content}</p>
+      </div>
     </div>
   );
 }
@@ -527,7 +560,7 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
 function AuthChoiceCard({ onSend }: { onSend: (message: string) => void }) {
   return (
     <div className="w-full max-w-[92%] overflow-hidden rounded-lg border border-red-100 bg-white text-brand-ink shadow-sm sm:max-w-md">
-      <div className="flex items-center gap-2.5 border-b border-red-100 bg-red-50 px-3 py-3">
+      <div className="flex items-center gap-2.5 border-b border-red-100 bg-gradient-to-r from-red-50 to-amber-50 px-3 py-3">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-brand-red text-white">
           <UserRound className="h-4 w-4" />
         </span>
@@ -536,15 +569,50 @@ function AuthChoiceCard({ onSend }: { onSend: (message: string) => void }) {
           <p className="mt-0.5 text-xs text-neutral-600">Chọn thao tác để bắt đầu tạo link hoàn tiền.</p>
         </div>
       </div>
-      <div className="grid gap-2 p-3 sm:grid-cols-2">
-        <button type="button" onClick={() => onSend("1")} className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-brand-red px-3 text-sm font-semibold text-white">
-          <LogIn className="h-4 w-4" />
-          Đăng nhập
-        </button>
-        <button type="button" onClick={() => onSend("2")} className="flex min-h-11 items-center justify-center gap-2 rounded-md border border-brand-red bg-white px-3 text-sm font-semibold text-brand-red">
-          <UserRound className="h-4 w-4" />
-          Đăng ký
-        </button>
+      <div className="grid gap-3 p-3">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <button type="button" onClick={() => onSend("1")} className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-brand-red px-3 text-sm font-semibold text-white">
+            <LogIn className="h-4 w-4" />
+            Đăng nhập
+          </button>
+          <button type="button" onClick={() => onSend("2")} className="flex min-h-11 items-center justify-center gap-2 rounded-md border border-brand-red bg-white px-3 text-sm font-semibold text-brand-red">
+            <UserRound className="h-4 w-4" />
+            Đăng ký
+          </button>
+        </div>
+        <div className="flex items-start gap-2 rounded-md bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-800 ring-1 ring-sky-100">
+          <ListChecks className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>Chọn Lệnh nhanh để thực hiện các thao tác nhanh như xem đơn hàng, số dư hoặc rút tiền.</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LoginErrorCard({ data, onSend }: { data: LoginErrorData; onSend: (message: string) => void }) {
+  return (
+    <div className="w-full max-w-[92%] overflow-hidden rounded-lg border border-amber-200 bg-white text-brand-ink shadow-sm sm:max-w-md">
+      <div className="flex items-center gap-2.5 border-b border-amber-100 bg-amber-50 px-3 py-2.5">
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-amber-100 text-amber-700">
+          <AlertCircle className="h-4 w-4" />
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold">{data.title || "Đăng nhập chưa thành công"}</h2>
+          <p className="mt-0.5 text-xs text-neutral-600">Bạn có thể thử lại từ đầu hoặc đặt lại mật khẩu.</p>
+        </div>
+      </div>
+      <div className="grid gap-3 p-3">
+        <p className="text-sm leading-relaxed text-neutral-700">{data.message || "Email hoặc mật khẩu chưa đúng."}</p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => onSend("/nhaplai")} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-brand-red px-3 text-xs font-semibold text-white">
+            <LogIn className="h-3.5 w-3.5" />
+            Nhập lại email
+          </button>
+          <button type="button" onClick={() => onSend("/quenmatkhau")} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-amber-200 bg-white px-3 text-xs font-semibold text-amber-700 hover:bg-amber-50">
+            <AlertCircle className="h-3.5 w-3.5" />
+            Quên mật khẩu
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -677,7 +745,7 @@ function BotCardLine({ line }: { line: string }) {
       <div className="flex items-center gap-2">
         <Landmark className="h-3.5 w-3.5 shrink-0 text-brand-red" />
         <p>
-          <span className="font-semibold">{bankMatch[1]}: </span>
+          <span className="font-medium">{bankMatch[1]}: </span>
           <span>{bankMatch[2]}</span>
         </p>
       </div>
@@ -705,16 +773,12 @@ function BotCardLine({ line }: { line: string }) {
   if (line.toLowerCase().includes("không chịu trách nhiệm")) {
     return (
       <div className="rounded-md bg-amber-50 px-2.5 py-1.5 text-amber-800">
-        <span className="font-semibold">{line}</span>
+        <span>{line}</span>
       </div>
     );
   }
 
-  return (
-    <p className="py-0.5">
-      <span className={line.endsWith(":") ? "font-semibold" : ""}>{line}</span>
-    </p>
-  );
+  return <p className="py-0.5 text-neutral-700">{line}</p>;
 }
 
 function CashbackCard({ data }: { data: CashbackCardData }) {

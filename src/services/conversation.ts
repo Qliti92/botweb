@@ -3,7 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import { emailSchema, passwordSchema, phoneSchema, urlSchema } from "@/lib/validators";
 import { createCashbackLink, type CashbackLinkResult } from "@/services/cashback-link";
-import { completeOpenApi2fa, loginWithOpenApi, registerWithOpenApi, type AuthResult, type AuthSuccess } from "@/services/openapi-auth";
+import {
+  completeOpenApi2fa,
+  forgotPasswordWithOpenApi,
+  loginWithOpenApi,
+  registerWithOpenApi,
+  type AuthResult,
+  type AuthSuccess
+} from "@/services/openapi-auth";
 import {
   changePassword,
   createWithdrawal,
@@ -51,6 +58,7 @@ type SessionState = {
 
 const startMessage = "Nếu bạn có tài khoản chọn 1\nChưa có tài khoản chọn 2";
 const readyMessage = "Bạn đã đăng nhập thành công. Hãy dán link sản phẩm Shopee hoặc TikTok Shop để tạo link hoàn tiền.";
+const loginErrorPrefix = "LOGIN_ERROR:";
 
 const guideMessage = [
   "Hướng dẫn sử dụng:",
@@ -118,6 +126,18 @@ function isGuideCommand(value: string) {
 
 function isSupportCommand(value: string) {
   return ["/hotro", "/ho-tro", "/support", "hỗ trợ", "ho tro"].includes(normalize(value));
+}
+
+function isRetryLoginCommand(value: string) {
+  return ["/nhaplai", "/nhap-lai", "nhập lại", "nhap lai", "nhập lại email", "nhap lai email"].includes(normalize(value));
+}
+
+function isForgotPasswordCommand(value: string) {
+  return ["/quenmatkhau", "/quen-mat-khau", "quên mật khẩu", "quen mat khau", "forgot password"].includes(normalize(value));
+}
+
+function isCancelCommand(value: string) {
+  return ["/huy", "/cancel", "hủy", "huy", "thoát", "thoat", "quay lại", "quay lai"].includes(normalize(value));
 }
 
 function isMemberCommand(value: string) {
@@ -263,6 +283,19 @@ export async function handleUserMessage(sessionId: string, content: string) {
   if (!state.account && isMemberCommand(text)) {
     await saveBot(sessionId, `Bạn cần đăng nhập để dùng lệnh này.\n${startMessage}`);
     return getSessionPayload(sessionId);
+  }
+
+  if (!state.account && (isRetryLoginCommand(text) || isForgotPasswordCommand(text))) {
+    return handleLoginRecoveryAction(sessionId, text, state);
+  }
+
+  if (!state.account && isAuthFlowStep(state.step) && isCancelCommand(text)) {
+    return cancelAuthFlow(sessionId, state);
+  }
+
+  if (!state.account && isAuthFlowStep(state.step) && state.step !== "auth_choice") {
+    if (isLoginChoice(text)) return switchToLogin(sessionId, state);
+    if (isRegisterChoice(text)) return switchToRegister(sessionId, state);
   }
 
   if (state.account && isMemberCommand(text)) {
@@ -561,21 +594,87 @@ async function handleRegisterEmail(sessionId: string, text: string, state: Sessi
 
 async function handleAuthChoice(sessionId: string, text: string, state: SessionState) {
   if (isLoginChoice(text)) {
-    state.step = "login_email";
-    await updateSession(sessionId, state);
-    await saveBot(sessionId, "Vui lòng nhập email đăng nhập.");
-    return getSessionPayload(sessionId);
+    return switchToLogin(sessionId, state);
   }
 
   if (isRegisterChoice(text)) {
-    state.register = {};
-    state.step = "register_email";
-    await updateSession(sessionId, state);
-    await saveBot(sessionId, "Vui lòng nhập email đăng ký.");
-    return getSessionPayload(sessionId);
+    return switchToRegister(sessionId, state);
   }
 
   await saveBot(sessionId, startMessage);
+  return getSessionPayload(sessionId);
+}
+
+function isAuthFlowStep(step?: string) {
+  return [
+    "awaiting_email",
+    "auth_choice",
+    "login_email",
+    "login_password",
+    "register_email",
+    "register_name",
+    "register_phone",
+    "register_password",
+    "register_password_confirmation",
+    "two_factor"
+  ].includes(step ?? "");
+}
+
+async function switchToLogin(sessionId: string, state: SessionState) {
+  state.step = "login_email";
+  state.email = undefined;
+  state.register = undefined;
+  state.twoFactor = undefined;
+  await updateSession(sessionId, state);
+  await saveBot(sessionId, "Đã chuyển sang đăng nhập. Vui lòng nhập email đăng nhập.");
+  return getSessionPayload(sessionId);
+}
+
+async function switchToRegister(sessionId: string, state: SessionState) {
+  state.step = "register_email";
+  state.email = undefined;
+  state.register = {};
+  state.twoFactor = undefined;
+  await updateSession(sessionId, state);
+  await saveBot(sessionId, "Đã chuyển sang đăng ký. Vui lòng nhập email đăng ký.");
+  return getSessionPayload(sessionId);
+}
+
+async function cancelAuthFlow(sessionId: string, state: SessionState) {
+  state.step = "auth_choice";
+  state.email = undefined;
+  state.register = undefined;
+  state.twoFactor = undefined;
+  await updateSession(sessionId, state);
+  await saveBot(sessionId, `Đã hủy thao tác hiện tại.\n${startMessage}`);
+  return getSessionPayload(sessionId);
+}
+
+async function handleLoginRecoveryAction(sessionId: string, text: string, state: SessionState) {
+  if (isRetryLoginCommand(text)) {
+    state.step = "login_email";
+    state.email = undefined;
+    await updateSession(sessionId, state);
+    await saveBot(sessionId, "Mình sẽ cho bạn nhập lại từ đầu. Vui lòng nhập email đăng nhập.");
+    return getSessionPayload(sessionId);
+  }
+
+  if (!state.email) {
+    state.step = "login_email";
+    await updateSession(sessionId, state);
+    await saveBot(sessionId, "Vui lòng nhập email đăng nhập trước, sau đó mình sẽ hỗ trợ đặt lại mật khẩu.");
+    return getSessionPayload(sessionId);
+  }
+
+  try {
+    const message = await forgotPasswordWithOpenApi(state.email);
+    state.step = "login_email";
+    await updateSession(sessionId, state);
+    await saveBot(sessionId, `${message}\nSau khi đặt lại mật khẩu, bạn có thể nhập lại email để đăng nhập.`);
+  } catch (error) {
+    await saveBot(sessionId, error instanceof Error ? error.message : "Chưa thể gửi email đặt lại mật khẩu, vui lòng thử lại.");
+  }
+
   return getSessionPayload(sessionId);
 }
 
@@ -590,10 +689,17 @@ async function handleLoginPassword(sessionId: string, text: string, state: Sessi
   try {
     await applyAuthResult(sessionId, state, await loginWithOpenApi(state.email, text));
   } catch (error) {
-    await saveBot(sessionId, error instanceof Error ? error.message : "Không thể đăng nhập, vui lòng thử lại.");
+    await saveBot(sessionId, formatLoginError(error instanceof Error ? error.message : "Không thể đăng nhập, vui lòng thử lại."));
   }
 
   return getSessionPayload(sessionId);
+}
+
+function formatLoginError(message: string) {
+  return `${loginErrorPrefix}${JSON.stringify({
+    title: "Đăng nhập chưa thành công",
+    message: message || "Email hoặc mật khẩu chưa đúng. Bạn có thể nhập lại từ đầu hoặc dùng quên mật khẩu."
+  })}`;
 }
 
 async function handleRegisterPhone(sessionId: string, text: string, state: SessionState) {
