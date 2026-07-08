@@ -50,3 +50,12 @@ export type FlowDto = {
   apiId?: string | null;
   isActive: boolean;
 };
+
+export type AppNoticeDto = {
+  id: string;
+  title: string;
+  message: string;
+  displaySeconds: number;
+  isActive: boolean;
+  updatedAt?: string;
+};

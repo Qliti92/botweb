@@ -1,8 +1,8 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Bot, History, LogOut, Plus, Save, Server, Trash2 } from "lucide-react";
-import type { ApiConfigDto, FlowDto } from "@/types/app";
+import { Bell, Bot, History, LogOut, Plus, Save, Server, Trash2 } from "lucide-react";
+import type { ApiConfigDto, AppNoticeDto, FlowDto } from "@/types/app";
 
 type ChatDto = {
   id: string;
@@ -34,10 +34,18 @@ const blankApi: Omit<ApiConfigDto, "id"> = {
   isActive: true
 };
 
+const blankNotice: Omit<AppNoticeDto, "id"> = {
+  title: "",
+  message: "",
+  displaySeconds: 10,
+  isActive: true
+};
+
 export function AdminDashboard() {
-  const [tab, setTab] = useState<"flows" | "apis" | "chats">("flows");
+  const [tab, setTab] = useState<"flows" | "apis" | "notices" | "chats">("flows");
   const [flows, setFlows] = useState<FlowDto[]>([]);
   const [apis, setApis] = useState<ApiConfigDto[]>([]);
+  const [notices, setNotices] = useState<AppNoticeDto[]>([]);
   const [chats, setChats] = useState<ChatDto[]>([]);
   const [notice, setNotice] = useState("");
 
@@ -47,19 +55,25 @@ export function AdminDashboard() {
 
   async function apiFetch(url: string, init?: RequestInit) {
     const response = await fetch(url, init);
-    const data = await response.json();
+    const data = await readJson(response);
+    if (response.status === 401) {
+      window.location.href = "/admin/login";
+      throw new Error(data.error ?? "Vui long dang nhap admin.");
+    }
     if (!response.ok) throw new Error(data.error ?? "Yêu cầu thất bại.");
     return data;
   }
 
   async function loadAll() {
-    const [flowsData, apisData, chatsData] = await Promise.all([
+    const [flowsData, apisData, noticesData, chatsData] = await Promise.all([
       apiFetch("/api/admin/flows"),
       apiFetch("/api/admin/apis"),
+      apiFetch("/api/admin/notices"),
       apiFetch("/api/admin/chats")
     ]);
     setFlows(flowsData.flows);
     setApis(apisData.apis);
+    setNotices(noticesData.notices);
     setChats(chatsData.sessions);
   }
 
@@ -73,6 +87,7 @@ export function AdminDashboard() {
       [
         { id: "flows", label: "Kịch bản", icon: Bot },
         { id: "apis", label: "API", icon: Server },
+        { id: "notices", label: "Thông báo", icon: Bell },
         { id: "chats", label: "Lịch sử", icon: History }
       ] as const,
     []
@@ -90,7 +105,7 @@ export function AdminDashboard() {
             <LogOut className="h-5 w-5" />
           </button>
         </div>
-        <nav className="mx-auto grid max-w-6xl grid-cols-3 gap-1 px-2 pb-2">
+        <nav className="mx-auto grid max-w-6xl grid-cols-4 gap-1 px-2 pb-2">
           {tabs.map((item) => {
             const Icon = item.icon;
             return (
@@ -107,6 +122,7 @@ export function AdminDashboard() {
         {notice ? <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{notice}</p> : null}
         {tab === "flows" ? <FlowsPanel flows={flows} apis={apis} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "apis" ? <ApisPanel apis={apis} reload={loadAll} setNotice={setNotice} /> : null}
+        {tab === "notices" ? <NoticesPanel notices={notices} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "chats" ? <ChatsPanel chats={chats} reload={loadAll} setNotice={setNotice} /> : null}
       </section>
     </main>
@@ -269,6 +285,88 @@ function ApiForm({ editing, setEditing, submit }: { editing: Partial<ApiConfigDt
   );
 }
 
+function NoticesPanel({ notices, reload, setNotice }: { notices: AppNoticeDto[]; reload: () => Promise<void>; setNotice: (value: string) => void }) {
+  const [editing, setEditing] = useState<(Partial<AppNoticeDto> & { id?: string }) | null>(null);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!editing) return;
+    try {
+      const method = editing.id ? "PUT" : "POST";
+      const url = editing.id ? `/api/admin/notices/${editing.id}` : "/api/admin/notices";
+      await fetchJson(url, { method, body: JSON.stringify(editing) });
+      setEditing(null);
+      await reload();
+      setNotice("Đã lưu thông báo.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Không thể lưu thông báo.");
+    }
+  }
+
+  async function remove(id: string) {
+    try {
+      await fetchJson(`/api/admin/notices/${id}`, { method: "DELETE" });
+      await reload();
+      setNotice("Đã xóa thông báo.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Không thể xóa thông báo.");
+    }
+  }
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+      <div className="grid gap-3">
+        <button onClick={() => setEditing(blankNotice)} className="flex h-11 w-fit items-center gap-2 rounded-md bg-brand-red px-4 font-semibold text-white"><Plus className="h-4 w-4" /> Thêm thông báo</button>
+        {notices.map((item) => (
+          <article key={item.id} className="rounded-lg border border-brand-line p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="font-semibold">{item.title}</h2>
+                <p className="text-xs text-neutral-500">{item.displaySeconds}s · {item.isActive ? "Bật" : "Tắt"}</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setEditing(item)} className="h-9 rounded-md border border-brand-line px-3 text-sm">Sửa</button>
+                <button onClick={() => remove(item.id)} className="grid h-9 w-9 place-items-center rounded-md border border-brand-line text-red-600" title="Xóa">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <p className="mt-3 whitespace-pre-line text-sm text-neutral-700">{item.message}</p>
+          </article>
+        ))}
+        {!notices.length ? <p className="rounded-lg border border-dashed border-brand-line p-4 text-sm text-neutral-500">Chưa có thông báo nào.</p> : null}
+      </div>
+      {editing ? <NoticeForm editing={editing} setEditing={setEditing} submit={submit} /> : null}
+    </div>
+  );
+}
+
+function NoticeForm({ editing, setEditing, submit }: { editing: Partial<AppNoticeDto>; setEditing: (value: Partial<AppNoticeDto> | null) => void; submit: (event: FormEvent) => void }) {
+  return (
+    <form onSubmit={submit} className="rounded-lg border border-brand-line p-4">
+      <h2 className="mb-3 font-semibold">Thông báo app</h2>
+      <TextInput label="Tiêu đề" value={editing.title ?? ""} onChange={(v) => setEditing({ ...editing, title: v })} />
+      <TextArea label="Nội dung" value={editing.message ?? ""} onChange={(v) => setEditing({ ...editing, message: v })} />
+      <label className="mb-3 block text-sm">
+        <span className="mb-1 block font-medium">Số giây hiển thị</span>
+        <input
+          type="number"
+          min={1}
+          max={3600}
+          value={editing.displaySeconds ?? 10}
+          onChange={(event) => setEditing({ ...editing, displaySeconds: Number(event.target.value) })}
+          className="h-10 w-full rounded-md border border-brand-line px-3 outline-none focus:border-brand-red"
+        />
+      </label>
+      <Toggle checked={Boolean(editing.isActive)} label="Bật thông báo" onChange={(value) => setEditing({ ...editing, isActive: value })} />
+      <div className="mt-4 flex gap-2">
+        <button className="flex h-10 items-center gap-2 rounded-md bg-brand-red px-4 font-semibold text-white"><Save className="h-4 w-4" /> Lưu</button>
+        <button type="button" onClick={() => setEditing(null)} className="h-10 rounded-md border border-brand-line px-4">Hủy</button>
+      </div>
+    </form>
+  );
+}
+
 function ChatsPanel({ chats, reload, setNotice }: { chats: ChatDto[]; reload: () => Promise<void>; setNotice: (value: string) => void }) {
   async function remove(id: string) {
     try {
@@ -347,7 +445,21 @@ async function fetchJson(url: string, init?: RequestInit) {
     ...init,
     headers: { "content-type": "application/json", ...(init?.headers ?? {}) }
   });
-  const data = await response.json();
+  const data = await readJson(response);
+  if (response.status === 401) {
+    window.location.href = "/admin/login";
+    throw new Error(data.error ?? "Vui long dang nhap admin.");
+  }
   if (!response.ok) throw new Error(data.error ?? "Yêu cầu thất bại.");
   return data;
+}
+
+async function readJson(response: Response) {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { error: text };
+  }
 }

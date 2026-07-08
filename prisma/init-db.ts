@@ -95,6 +95,18 @@ async function main() {
       updated_at DATETIME NOT NULL
     )
   `);
+
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS app_notices (
+      id TEXT PRIMARY KEY NOT NULL,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      display_seconds INTEGER NOT NULL DEFAULT 10,
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL
+    )
+  `);
 }
 
 main()

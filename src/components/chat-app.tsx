@@ -24,7 +24,7 @@ import {
   WalletCards,
   X
 } from "lucide-react";
-import type { ChatHistoryItem, ChatMessage, ChatSessionPayload } from "@/types/app";
+import type { AppNoticeDto, ChatHistoryItem, ChatMessage, ChatSessionPayload } from "@/types/app";
 
 type CashbackCardData = {
   productName?: string;
@@ -154,10 +154,13 @@ export function ChatApp() {
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotificationBanner, setShowNotificationBanner] = useState(false);
+  const [appNotice, setAppNotice] = useState<AppNoticeDto | null>(null);
+  const [appNoticeSecondsLeft, setAppNoticeSecondsLeft] = useState(0);
   const previousUnreadRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    loadAppNotice();
     const existing = window.localStorage.getItem("chat_session_id");
     if (existing) {
       restoreSession(existing);
@@ -165,6 +168,16 @@ export function ChatApp() {
     }
     setLoading(false);
   }, []);
+
+  useEffect(() => {
+    if (!appNotice || appNoticeSecondsLeft <= 0) return;
+
+    const timer = window.setInterval(() => {
+      setAppNoticeSecondsLeft((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [appNotice, appNoticeSecondsLeft]);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -244,6 +257,24 @@ export function ChatApp() {
     }
   }
 
+  async function loadAppNotice() {
+    try {
+      const response = await fetch("/api/chat/app-notice");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      if (!data.notice) {
+        setAppNotice(null);
+        setAppNoticeSecondsLeft(0);
+        return;
+      }
+      setAppNotice(data.notice);
+      setAppNoticeSecondsLeft(Number(data.notice.displaySeconds ?? 10));
+    } catch {
+      setAppNotice(null);
+      setAppNoticeSecondsLeft(0);
+    }
+  }
+
   async function pollNotifications(sessionId: string) {
     try {
       const response = await fetch(`/api/chat/notifications?sessionId=${encodeURIComponent(sessionId)}`);
@@ -285,13 +316,14 @@ export function ChatApp() {
     setLoading(true);
     setError("");
     setAuthMessage("");
+    const normalizedEmail = authEmail.trim().toLowerCase();
 
     try {
       const body =
         authMode === "register"
           ? {
               mode: "register",
-              email: authEmail,
+              email: normalizedEmail,
               password: authPassword,
               passwordConfirmation: authPasswordConfirmation,
               name: authName,
@@ -299,10 +331,10 @@ export function ChatApp() {
               referralCode: authReferralCode
             }
           : authMode === "forgot"
-            ? { mode: "forgot", email: authEmail }
+            ? { mode: "forgot", email: normalizedEmail }
             : authMode === "2fa"
               ? { mode: "2fa", sessionId: pendingTwoFactorSessionId, code: twoFactorCode }
-              : { mode: "login", email: authEmail, password: authPassword };
+              : { mode: "login", email: normalizedEmail, password: authPassword };
 
       const response = await fetch("/api/chat/auth", {
         method: "POST",
@@ -419,6 +451,8 @@ export function ChatApp() {
         onReferralCodeChange={setAuthReferralCode}
         onTwoFactorCodeChange={setTwoFactorCode}
         onSubmit={submitAuth}
+        appNotice={appNotice}
+        appNoticeSecondsLeft={appNoticeSecondsLeft}
       />
     );
   }
@@ -455,6 +489,8 @@ export function ChatApp() {
           </button>
         </div>
       </header>
+
+      <AppNoticeBanner notice={appNotice} secondsLeft={appNoticeSecondsLeft} />
 
       <SideMenu
         open={showSideMenu}
@@ -567,6 +603,27 @@ export function ChatApp() {
   );
 }
 
+function AppNoticeBanner({ notice, secondsLeft }: { notice: AppNoticeDto | null; secondsLeft: number }) {
+  if (!notice || secondsLeft <= 0) return null;
+
+  return (
+    <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-brand-ink">
+      <div className="mx-auto flex max-w-3xl items-start gap-3">
+        <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-md bg-white text-amber-700 ring-1 ring-amber-200">
+          <Bell className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="break-words text-sm font-semibold [overflow-wrap:anywhere]">{notice.title}</h2>
+            <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-amber-700 ring-1 ring-amber-200">{secondsLeft}s</span>
+          </div>
+          <p className="mt-1 whitespace-pre-line break-words text-sm leading-relaxed text-neutral-700 [overflow-wrap:anywhere]">{notice.message}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AuthScreen({
   mode,
   loading,
@@ -587,7 +644,9 @@ function AuthScreen({
   onPhoneChange,
   onReferralCodeChange,
   onTwoFactorCodeChange,
-  onSubmit
+  onSubmit,
+  appNotice,
+  appNoticeSecondsLeft
 }: {
   mode: AuthMode;
   loading: boolean;
@@ -609,25 +668,30 @@ function AuthScreen({
   onReferralCodeChange: (value: string) => void;
   onTwoFactorCodeChange: (value: string) => void;
   onSubmit: (event: FormEvent) => void;
+  appNotice: AppNoticeDto | null;
+  appNoticeSecondsLeft: number;
 }) {
   const isRegister = mode === "register";
   const isForgot = mode === "forgot";
   const isTwoFactor = mode === "2fa";
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-[#e9edf5] px-4 py-8">
-      <section className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-soft">
-        <div className="mb-5 flex flex-col items-center text-center">
+    <main className="flex min-h-dvh flex-col bg-[#e9edf5]">
+      <AppNoticeBanner notice={appNotice} secondsLeft={appNoticeSecondsLeft} />
+      <section className="mx-auto flex w-full flex-1 items-center justify-center px-4 py-6">
+        <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-soft ring-1 ring-black/5">
+        <div className="mb-4 flex flex-col items-center text-center">
           <img src="/logo.png" alt="Hoàn Tiền Mua Hàng" className="h-20 w-20 rounded-full bg-white object-cover ring-1 ring-red-100" />
-          <h1 className="mt-3 text-lg font-bold text-brand-ink">Hoàn Tiền Mua Hàng</h1>
-          <p className="mt-1 text-sm text-neutral-500">Đăng nhập để vào chat tạo link hoàn tiền.</p>
+          <h1 className="mt-3 text-xl font-bold text-brand-ink">Hoàn Tiền Mua Hàng</h1>
+          <p className="mt-1 text-sm leading-5 text-neutral-500">Sử dụng tài khoản hệ thống hoantienmuahang.vn</p>
         </div>
 
-        <form onSubmit={onSubmit} className="grid gap-3">
+        <form onSubmit={onSubmit} className="grid gap-2.5">
           {!isTwoFactor ? (
             <label className="grid gap-1 text-sm font-semibold text-brand-ink">
               Email
-              <input value={email} onChange={(event) => onEmailChange(event.target.value)} type="email" autoComplete="email" required className="h-11 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+              <input value={email} onChange={(event) => onEmailChange(event.target.value.toLowerCase())} type="email" autoComplete="email" required className="h-10 rounded-lg border border-red-100 px-3 text-sm font-normal lowercase outline-none focus:border-brand-red" />
             </label>
           ) : null}
 
@@ -635,15 +699,11 @@ function AuthScreen({
             <>
               <label className="grid gap-1 text-sm font-semibold text-brand-ink">
                 Họ tên
-                <input value={name} onChange={(event) => onNameChange(event.target.value)} autoComplete="name" className="h-11 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+                <input value={name} onChange={(event) => onNameChange(event.target.value)} autoComplete="name" className="h-10 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
               </label>
               <label className="grid gap-1 text-sm font-semibold text-brand-ink">
                 Số điện thoại
-                <input value={phone} onChange={(event) => onPhoneChange(event.target.value)} autoComplete="tel" className="h-11 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
-              </label>
-              <label className="grid gap-1 text-sm font-semibold text-brand-ink">
-                Mã giới thiệu
-                <input value={referralCode} onChange={(event) => onReferralCodeChange(event.target.value)} autoComplete="off" className="h-11 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+                <input value={phone} onChange={(event) => onPhoneChange(event.target.value)} autoComplete="tel" className="h-10 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
               </label>
             </>
           ) : null}
@@ -651,41 +711,72 @@ function AuthScreen({
           {!isForgot && !isTwoFactor ? (
             <label className="grid gap-1 text-sm font-semibold text-brand-ink">
               Mật khẩu
-              <input value={password} onChange={(event) => onPasswordChange(event.target.value)} type="password" autoComplete={isRegister ? "new-password" : "current-password"} required className="h-11 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+              <input value={password} onChange={(event) => onPasswordChange(event.target.value)} type="password" autoComplete={isRegister ? "new-password" : "current-password"} required className="h-10 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
             </label>
           ) : null}
 
           {isRegister ? (
-            <label className="grid gap-1 text-sm font-semibold text-brand-ink">
-              Nhập lại mật khẩu
-              <input value={passwordConfirmation} onChange={(event) => onPasswordConfirmationChange(event.target.value)} type="password" autoComplete="new-password" required className="h-11 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
-            </label>
+            <>
+              <label className="grid gap-1 text-sm font-semibold text-brand-ink">
+                Nhập lại mật khẩu
+                <input value={passwordConfirmation} onChange={(event) => onPasswordConfirmationChange(event.target.value)} type="password" autoComplete="new-password" required className="h-10 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+              </label>
+              <label className="grid gap-1 text-sm font-semibold text-brand-ink">
+                Mã giới thiệu
+                <input value={referralCode} onChange={(event) => onReferralCodeChange(event.target.value)} autoComplete="off" className="h-10 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+                <span className="text-xs font-normal text-neutral-500">Để trống nếu không có mã giới thiệu.</span>
+              </label>
+              <label className="flex items-start gap-2 rounded-lg bg-neutral-50 px-3 py-2 text-xs leading-5 text-neutral-700 ring-1 ring-neutral-100">
+                <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} required className="mt-1 h-4 w-4 shrink-0 accent-brand-red" />
+                <span>
+                  Tôi đồng ý với điều khoản và chính sách của{" "}
+                  <a href="https://hoantienmuahang.vn" target="_blank" rel="noreferrer" className="font-semibold text-brand-red">
+                    hoantienmuahang.vn
+                  </a>
+                </span>
+              </label>
+            </>
           ) : null}
 
           {isTwoFactor ? (
             <label className="grid gap-1 text-sm font-semibold text-brand-ink">
               Mã xác thực
-              <input value={twoFactorCode} onChange={(event) => onTwoFactorCodeChange(event.target.value)} inputMode="numeric" required className="h-11 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+              <input value={twoFactorCode} onChange={(event) => onTwoFactorCodeChange(event.target.value)} inputMode="numeric" required className="h-10 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
             </label>
           ) : null}
 
           {error ? <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
           {message ? <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</div> : null}
 
-          <button type="submit" disabled={loading} className="mt-1 flex h-11 items-center justify-center gap-2 rounded-full bg-brand-red px-4 text-sm font-semibold text-white disabled:opacity-60">
+          <button type="submit" disabled={loading || (isRegister && !acceptedTerms)} className="mt-1 flex h-11 items-center justify-center gap-2 rounded-full bg-brand-red px-4 text-sm font-semibold text-white disabled:opacity-60">
             <LogIn className="h-4 w-4" />
             {isForgot ? "Gửi hướng dẫn" : isRegister ? "Đăng ký" : isTwoFactor ? "Xác thực" : "Đăng nhập"}
           </button>
         </form>
 
         {!isTwoFactor ? (
-          <div className="mt-4 flex items-center justify-between gap-3 text-sm">
-            <button type="button" onClick={() => onModeChange("forgot")} className="font-semibold text-neutral-500 hover:text-brand-red">
-              Quên mật khẩu
-            </button>
-            <button type="button" onClick={() => onModeChange(isRegister ? "login" : "register")} className="font-semibold text-brand-red">
-              {isRegister ? "Đăng nhập" : "Đăng ký"}
-            </button>
+          <div className="mt-4 grid gap-2 text-center">
+            {!isRegister && !isForgot ? (
+              <p className="text-sm text-neutral-600">
+                Bạn chưa có tài khoản?{" "}
+                <button type="button" onClick={() => onModeChange("register")} className="font-semibold text-brand-red">
+                  Đăng ký ngay
+                </button>
+              </p>
+            ) : null}
+            {isRegister ? (
+              <p className="text-sm text-neutral-600">
+                Đã có tài khoản?{" "}
+                <button type="button" onClick={() => onModeChange("login")} className="font-semibold text-brand-red">
+                  Đăng nhập
+                </button>
+              </p>
+            ) : null}
+            {!isRegister ? (
+              <button type="button" onClick={() => onModeChange("forgot")} className="text-xs font-medium text-neutral-500 hover:text-brand-red">
+                Quên mật khẩu
+              </button>
+            ) : null}
           </div>
         ) : null}
 
@@ -694,6 +785,7 @@ function AuthScreen({
             Quay lại đăng nhập
           </button>
         ) : null}
+        </div>
       </section>
     </main>
   );

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const phoneSchema = z.string().trim().regex(/^\+?[0-9]{9,15}$/, "Số điện thoại không hợp lệ.");
-export const emailSchema = z.string().trim().email("Email không hợp lệ.");
+export const emailSchema = z.string().trim().toLowerCase().email("Email không hợp lệ.");
 export const passwordSchema = z.string().min(8, "Mật khẩu cần ít nhất 8 ký tự.");
 export const urlSchema = z.string().trim().url("Link không hợp lệ.");
 
@@ -35,5 +35,12 @@ export const apiConfigSchema = z.object({
   headers: z.string().trim().default("{}"),
   bodySample: z.string().trim().default("{}"),
   description: z.string().trim().optional().nullable(),
+  isActive: z.boolean().default(true)
+});
+
+export const appNoticeSchema = z.object({
+  title: z.string().trim().min(1, "Vui long nhap tieu de thong bao.").max(120),
+  message: z.string().trim().min(1, "Vui long nhap noi dung thong bao.").max(1000),
+  displaySeconds: z.coerce.number().int().min(1).max(3600).default(10),
   isActive: z.boolean().default(true)
 });

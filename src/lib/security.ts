@@ -17,9 +17,17 @@ export function assertSameOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
   if (!origin) return;
 
-  const expected = new URL(request.url).origin;
-  if (origin !== expected) {
-    throw new Response("Invalid request origin", { status: 403 });
+  const expected = new URL(request.url);
+  const actual = new URL(origin);
+  const localHosts = new Set(["localhost", "127.0.0.1", "::1"]);
+  const isLocalAlias =
+    process.env.NODE_ENV !== "production" &&
+    localHosts.has(expected.hostname) &&
+    localHosts.has(actual.hostname) &&
+    expected.port === actual.port;
+
+  if (actual.origin !== expected.origin && !isLocalAlias) {
+    throw new Error("Nguon yeu cau khong hop le. Vui long mo admin cung dia chi voi server.");
   }
 }
 

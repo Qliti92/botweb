@@ -103,6 +103,18 @@ model ShortLink {
   @@map("short_links")
 }
 
+model AppNotice {
+  id              String   @id @default(cuid())
+  title           String
+  message         String
+  displaySeconds  Int      @default(10) @map("display_seconds")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("app_notices")
+}
+
 enum Sender {
   USER
   BOT

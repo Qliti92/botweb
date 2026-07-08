@@ -6,12 +6,12 @@ import { rateLimit } from "@/lib/rate-limit";
 const authSchema = z.discriminatedUnion("mode", [
   z.object({
     mode: z.literal("login"),
-    email: z.string().trim().email(),
+    email: z.string().trim().toLowerCase().email(),
     password: z.string().min(1)
   }),
   z.object({
     mode: z.literal("register"),
-    email: z.string().trim().email(),
+    email: z.string().trim().toLowerCase().email(),
     password: z.string().min(8),
     passwordConfirmation: z.string().min(8),
     name: z.string().trim().optional(),
@@ -20,7 +20,7 @@ const authSchema = z.discriminatedUnion("mode", [
   }),
   z.object({
     mode: z.literal("forgot"),
-    email: z.string().trim().email()
+    email: z.string().trim().toLowerCase().email()
   }),
   z.object({
     mode: z.literal("2fa"),
