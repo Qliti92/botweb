@@ -101,3 +101,43 @@ export function markNotificationRead(token: string, tokenType: string | undefine
 export function markAllNotificationsRead(token: string, tokenType?: string) {
   return requestJson("POST", "/notifications/read-all", { token, tokenType });
 }
+
+export function getTasks(token: string, tokenType?: string) {
+  return requestJson("GET", "/tasks", { token, tokenType });
+}
+
+export function syncTask(token: string, tokenType: string | undefined, id: string) {
+  return requestJson("GET", `/tasks/${encodeURIComponent(id)}/sync`, { token, tokenType });
+}
+
+export function claimTask(token: string, tokenType: string | undefined, id: string) {
+  return requestJson("POST", `/tasks/${encodeURIComponent(id)}/claim`, { token, tokenType });
+}
+
+export function getReferrals(token: string, tokenType?: string) {
+  return requestJson("GET", "/referrals", { token, tokenType });
+}
+
+export function getBalanceLogs(token: string, tokenType?: string, page = 1) {
+  return requestJson("GET", "/balance-logs", { token, tokenType, query: { page, per_page: 10 } });
+}
+
+export function getActivityLogs(token: string, tokenType?: string, page = 1) {
+  return requestJson("GET", "/logs", { token, tokenType, query: { page, per_page: 10 } });
+}
+
+export function getSecurityStatus(token: string, tokenType?: string) {
+  return requestJson("GET", "/security", { token, tokenType });
+}
+
+export function getSessions(token: string, tokenType?: string) {
+  return requestJson("GET", "/sessions", { token, tokenType });
+}
+
+export function revokeSession(token: string, tokenType: string | undefined, id: string) {
+  return requestJson("POST", `/sessions/${encodeURIComponent(id)}/revoke`, { token, tokenType });
+}
+
+export function revokeOtherSessions(token: string, tokenType?: string) {
+  return requestJson("POST", "/sessions/revoke-others", { token, tokenType });
+}

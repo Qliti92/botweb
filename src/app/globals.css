@@ -6,6 +6,7 @@
   --brand-red: #e11d2e;
   --brand-black: #111111;
   --brand-white: #ffffff;
+  --font-sans: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 }
 
 * {
@@ -21,6 +22,12 @@ body {
   margin: 0;
   color: var(--brand-black);
   background: #f4f4f5;
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  font-feature-settings: "kern" 1, "liga" 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button,

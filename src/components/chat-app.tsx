@@ -25,6 +25,7 @@ import {
   X
 } from "lucide-react";
 import type { AppNoticeDto, ChatHistoryItem, ChatMessage, ChatSessionPayload } from "@/types/app";
+import { LandingPage } from "@/components/landing-page";
 
 type CashbackCardData = {
   productName?: string;
@@ -47,6 +48,12 @@ const quickCommands = [
   { label: "Rút tiền", command: "/ruttien", icon: WalletCards },
   { label: "Lịch sử rút", command: "/lichsurut", icon: History },
   { label: "Thông báo", command: "/thongbao", icon: Bell },
+  { label: "Nhiệm vụ", command: "/nhiemvu", icon: ListChecks },
+  { label: "Giới thiệu", command: "/gioithieu", icon: UserRound },
+  { label: "Biến động ví", command: "/biendongsodu", icon: WalletCards },
+  { label: "Nhật ký", command: "/nhatky", icon: Clock3 },
+  { label: "Bảo mật", command: "/baomat", icon: ShieldCheck },
+  { label: "Phiên đăng nhập", command: "/phien", icon: History },
   { label: "Hỗ trợ", command: "/hotro", icon: Headphones },
   { label: "Hủy thao tác", command: "/huy", icon: X },
   { label: "Xóa chat", command: "/xoachat", icon: Trash2 }
@@ -147,6 +154,7 @@ export function ChatApp() {
   const [twoFactorCode, setTwoFactorCode] = useState("");
   const [pendingTwoFactorSessionId, setPendingTwoFactorSessionId] = useState("");
   const [authMessage, setAuthMessage] = useState("");
+  const [showAuth, setShowAuth] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [history, setHistory] = useState<ChatHistoryItem[]>([]);
@@ -161,6 +169,13 @@ export function ChatApp() {
 
   useEffect(() => {
     loadAppNotice();
+    const params = new URLSearchParams(window.location.search);
+    const referralCode = params.get("ref") ?? params.get("referral_code");
+    if (referralCode) {
+      setAuthReferralCode(referralCode);
+      setAuthMode("register");
+      setShowAuth(true);
+    }
     const existing = window.localStorage.getItem("chat_session_id");
     if (existing) {
       restoreSession(existing);
@@ -425,6 +440,21 @@ export function ChatApp() {
   }
 
   if (!session?.user) {
+    if (!showAuth) {
+      return (
+        <LandingPage
+          onLogin={() => {
+            setAuthMode("login");
+            setShowAuth(true);
+          }}
+          onRegister={() => {
+            setAuthMode("register");
+            setShowAuth(true);
+          }}
+        />
+      );
+    }
+
     return (
       <AuthScreen
         mode={authMode}
@@ -453,6 +483,11 @@ export function ChatApp() {
         onSubmit={submitAuth}
         appNotice={appNotice}
         appNoticeSecondsLeft={appNoticeSecondsLeft}
+        onBack={() => {
+          setShowAuth(false);
+          setError("");
+          setAuthMessage("");
+        }}
       />
     );
   }
@@ -647,6 +682,7 @@ function AuthScreen({
   onSubmit,
   appNotice,
   appNoticeSecondsLeft
+  ,onBack
 }: {
   mode: AuthMode;
   loading: boolean;
@@ -670,6 +706,7 @@ function AuthScreen({
   onSubmit: (event: FormEvent) => void;
   appNotice: AppNoticeDto | null;
   appNoticeSecondsLeft: number;
+  onBack: () => void;
 }) {
   const isRegister = mode === "register";
   const isForgot = mode === "forgot";
@@ -679,6 +716,9 @@ function AuthScreen({
   return (
     <main className="flex min-h-dvh flex-col bg-[#e9edf5]">
       <AppNoticeBanner notice={appNotice} secondsLeft={appNoticeSecondsLeft} />
+      <button type="button" onClick={onBack} className="fixed left-4 top-4 z-20 rounded-full border border-red-100 bg-white/90 px-4 py-2 text-sm font-semibold text-brand-red shadow-sm backdrop-blur">
+        ← Trang chủ
+      </button>
       <section className="mx-auto flex w-full flex-1 items-center justify-center px-4 py-6">
         <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-soft ring-1 ring-black/5">
         <div className="mb-4 flex flex-col items-center text-center">

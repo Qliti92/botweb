@@ -15,13 +15,23 @@ import {
   changePassword,
   createWithdrawal,
   deleteAccount,
+  claimTask,
   getAccount,
+  getActivityLogs,
+  getBalanceLogs,
   getNotifications,
   getOrders,
+  getReferrals,
+  getSecurityStatus,
+  getSessions,
+  getTasks,
   getUnreadNotificationCount,
   getWithdrawals,
   markAllNotificationsRead,
+  revokeOtherSessions,
+  revokeSession,
   sendWithdrawalOtp,
+  syncTask,
   updateProfile
 } from "@/services/openapi-member";
 
@@ -80,6 +90,14 @@ const guideMessage = [
   "/capnhat Họ tên|Số điện thoại - cập nhật hồ sơ",
   "/doimatkhau mật_khẩu_cũ|mật_khẩu_mới|nhập_lại_mật_khẩu_mới - đổi mật khẩu",
   "/xoataikhoan - tự xóa tài khoản nếu hệ thống cho phép",
+  "/nhiemvu - xem nhiệm vụ và tiến độ nhận thưởng",
+  "/nhiemvu sync ID hoặc /nhiemvu claim ID - đồng bộ/nhận thưởng",
+  "/gioithieu - xem link, F1/F2 và hoa hồng giới thiệu",
+  "/biendongsodu - xem lịch sử cộng/trừ ví",
+  "/nhatky - xem nhật ký hoạt động tài khoản",
+  "/baomat - xem trạng thái 2FA và OTP email",
+  "/phien - xem các thiết bị đang đăng nhập",
+  "/phien revoke ID hoặc /phien revoke-others - thu hồi phiên đăng nhập",
   "/xoachat - xóa nội dung chat hiện tại"
 ].join("\n");
 
@@ -152,7 +170,13 @@ function isMemberCommand(value: string) {
     "/ruttien",
     "/capnhat",
     "/doimatkhau",
-    "/xoataikhoan"
+    "/xoataikhoan",
+    "/nhiemvu",
+    "/gioithieu",
+    "/biendongsodu",
+    "/nhatky",
+    "/baomat",
+    "/phien"
   ].includes(command);
 }
 
@@ -485,6 +509,54 @@ async function handleMemberCommand(sessionId: string, text: string, state: Sessi
     if (command === "/xoataikhoan") {
       await deleteAccount(account.token, account.tokenType);
       await saveBot(sessionId, "Đã gửi yêu cầu xóa tài khoản.");
+      return;
+    }
+
+    if (command === "/nhiemvu") {
+      const [, action, id] = text.trim().split(/\s+/);
+      if (action === "sync" && id) {
+        await saveBot(sessionId, formatGenericSuccess(await syncTask(account.token, account.tokenType, id), "Đã đồng bộ tiến độ nhiệm vụ."));
+        return;
+      }
+      if (action === "claim" && id) {
+        await saveBot(sessionId, formatGenericSuccess(await claimTask(account.token, account.tokenType, id), "Đã nhận thưởng nhiệm vụ."));
+        return;
+      }
+      await saveBot(sessionId, formatTasks(await getTasks(account.token, account.tokenType)));
+      return;
+    }
+
+    if (command === "/gioithieu") {
+      await saveBot(sessionId, formatReferrals(await getReferrals(account.token, account.tokenType)));
+      return;
+    }
+
+    if (command === "/biendongsodu") {
+      await saveBot(sessionId, formatBalanceLogs(await getBalanceLogs(account.token, account.tokenType)));
+      return;
+    }
+
+    if (command === "/nhatky") {
+      await saveBot(sessionId, formatActivityLogs(await getActivityLogs(account.token, account.tokenType)));
+      return;
+    }
+
+    if (command === "/baomat") {
+      await saveBot(sessionId, formatSecurity(await getSecurityStatus(account.token, account.tokenType)));
+      return;
+    }
+
+    if (command === "/phien") {
+      const [, action, id] = text.trim().split(/\s+/);
+      if (action === "revoke" && id) {
+        await saveBot(sessionId, formatGenericSuccess(await revokeSession(account.token, account.tokenType, id), "Đã thu hồi phiên đăng nhập."));
+        return;
+      }
+      if (action === "revoke-others") {
+        await saveBot(sessionId, formatGenericSuccess(await revokeOtherSessions(account.token, account.tokenType), "Đã đăng xuất các thiết bị khác."));
+        return;
+      }
+      await saveBot(sessionId, formatSessions(await getSessions(account.token, account.tokenType)));
       return;
     }
   } catch (error) {
@@ -995,6 +1067,60 @@ function formatWithdrawals(data: Record<string, unknown>) {
 
 function formatGenericSuccess(data: Record<string, unknown>, fallback: string) {
   return String(data.message ?? data.status_message ?? fallback);
+}
+
+function formatTasks(data: Record<string, unknown>) {
+  const items = listFromData(data);
+  if (!items.length) return "Hiện chưa có nhiệm vụ đang hoạt động.";
+  return [
+    "Nhiệm vụ nhận thưởng:",
+    ...items.map((item, index) => `${index + 1}. ${item.title ?? item.name ?? "Nhiệm vụ"}\nID: ${item.id ?? "-"}\nTiến độ: ${item.progress ?? 0}/${item.target_count ?? item.target ?? "-"} (${item.percent ?? 0}%)\nThưởng: ${formatMoney(item.reward_amount ?? item.reward)} VND\nTrạng thái: ${formatStatus(item.status)}`),
+    "Dùng /nhiemvu sync ID để đồng bộ hoặc /nhiemvu claim ID để nhận thưởng."
+  ].join("\n\n");
+}
+
+function formatReferrals(data: Record<string, unknown>) {
+  const stats = record(data.stats);
+  return [
+    "Chương trình giới thiệu F1/F2:",
+    `Mã giới thiệu: ${data.referral_code ?? "-"}`,
+    `Link giới thiệu: ${data.referral_link ?? "-"}`,
+    `Thành viên F1: ${stats.f1_count ?? 0}`,
+    `Thành viên F2: ${stats.f2_count ?? 0}`,
+    `Tổng hoa hồng: ${formatMoney(stats.total_commission)} VND`,
+    "Chính sách hiện tại: F1 20%, F2 10% trên mức hoa hồng đủ điều kiện."
+  ].join("\n");
+}
+
+function formatBalanceLogs(data: Record<string, unknown>) {
+  const items = listFromData(data);
+  if (!items.length) return "Chưa có biến động số dư.";
+  return ["Biến động số dư:", ...items.map((item, index) => `${index + 1}. ${item.description ?? item.content ?? item.type ?? "Giao dịch"}\nSố tiền: ${item.is_credit === false ? "-" : "+"}${formatMoney(item.amount_change ?? item.amount)} VND\nSố dư sau giao dịch: ${formatMoney(item.amount_after)} VND`)].join("\n\n");
+}
+
+function formatActivityLogs(data: Record<string, unknown>) {
+  const items = listFromData(data);
+  if (!items.length) return "Chưa có nhật ký hoạt động.";
+  return ["Nhật ký hoạt động:", ...items.map((item, index) => `${index + 1}. ${item.activity ?? item.description ?? "Hoạt động tài khoản"}\nThời gian: ${item.created_at ?? item.createdAt ?? "-"}\nIP: ${item.ip_address ?? "-"}`)].join("\n\n");
+}
+
+function formatSecurity(data: Record<string, unknown>) {
+  return [
+    "Trạng thái bảo mật:",
+    `Google Authenticator (2FA): ${data.two_factor_enabled ?? data.google2fa_enabled ?? data.two_fa_enabled ? "Đang bật" : "Đang tắt"}`,
+    `OTP qua email: ${data.email_otp_enabled ? "Đang bật" : "Đang tắt"}`,
+    "Bạn có thể quản lý chi tiết trong trang tài khoản tại hoantienmuahang.vn."
+  ].join("\n");
+}
+
+function formatSessions(data: Record<string, unknown>) {
+  const items = listFromData(data);
+  if (!items.length) return "Không tìm thấy phiên đăng nhập nào.";
+  return [
+    "Các phiên đăng nhập:",
+    ...items.map((item, index) => `${index + 1}. ${item.device_name ?? "Thiết bị"}${item.is_current ? " (hiện tại)" : ""}\nID: ${item.id ?? "-"}\nIP gần nhất: ${item.last_ip ?? "-"}\nHoạt động: ${item.last_used_at ?? item.created_at ?? "-"}`),
+    "Dùng /phien revoke ID để thu hồi một phiên khác hoặc /phien revoke-others để đăng xuất tất cả thiết bị khác."
+  ].join("\n\n");
 }
 
 function parseOrderQuery(text: string) {
