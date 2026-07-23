@@ -310,22 +310,22 @@ export function ChatApp() {
 
     async function syncRegisteredDevice() {
       try {
-        const push = await import("@/lib/firebase-messaging");
-        if (!push.isFirebaseMessagingConfigured() || !("Notification" in window)) {
+        const push = await import("@/lib/web-push-client");
+        if (!push.isWebPushSupported()) {
           setPushState("unsupported");
           return;
         }
 
-        const storedToken = push.getStoredPushToken();
-        if (storedToken) {
-          await registerPushToken(storedToken);
+        const subscription = await push.getCurrentPushSubscription();
+        if (subscription) {
+          await registerPushSubscription(subscription);
           setPushState("enabled");
           return;
         }
 
         if (Notification.permission === "granted") {
-          const token = await push.registerForPushNotifications();
-          await registerPushToken(token);
+          const nextSubscription = await push.registerForPushNotifications();
+          await registerPushSubscription(nextSubscription);
           setPushState("enabled");
         }
       } catch {
@@ -438,13 +438,13 @@ export function ChatApp() {
     setError("");
     try {
       try {
-        const push = await import("@/lib/firebase-messaging");
-        const token = push.getStoredPushToken();
-        if (token) {
-          await fetch("/api/chat/devices", {
-            method: "POST",
+        const push = await import("@/lib/web-push-client");
+        const subscription = await push.getCurrentPushSubscription();
+        if (subscription) {
+          await fetch("/api/push/subscriptions", {
+            method: "DELETE",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ action: "unregister", sessionId: session.id, token })
+            body: JSON.stringify({ sessionId: session.id, endpoint: subscription.endpoint })
           });
           await push.unregisterFromPushNotifications();
         }
@@ -468,22 +468,14 @@ export function ChatApp() {
     }
   }
 
-  function devicePlatform(): "web" {
-    // FCM Web tokens remain web-push tokens even when the PWA runs on iPhone or Android.
-    return "web";
-  }
-
-  async function registerPushToken(token: string) {
+  async function registerPushSubscription(subscription: PushSubscription) {
     if (!session) throw new Error("Chưa có phiên đăng nhập.");
-    const response = await fetch("/api/chat/devices", {
+    const response = await fetch("/api/push/subscriptions", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        action: "register",
         sessionId: session.id,
-        token,
-        platform: devicePlatform(),
-        deviceName: `${navigator.platform || "Web"} · ${navigator.userAgent.slice(0, 60)}`
+        subscription: subscription.toJSON()
       })
     });
     const data = await response.json();
@@ -494,9 +486,9 @@ export function ChatApp() {
     setPushState("enabling");
     setPushMessage("");
     try {
-      const push = await import("@/lib/firebase-messaging");
-      const token = await push.registerForPushNotifications();
-      await registerPushToken(token);
+      const push = await import("@/lib/web-push-client");
+      const subscription = await push.registerForPushNotifications();
+      await registerPushSubscription(subscription);
       setPushState("enabled");
       setPushMessage("Thiết bị này đã bật thông báo đẩy.");
     } catch (err) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AlertCircle, Bell, BookOpen, Bot, History, Image as ImageIcon, LogOut, Plus, Save, Search, Server, Settings, Trash2 } from "lucide-react";
+import { AlertCircle, Bell, BookOpen, Bot, Clock3, History, Image as ImageIcon, LoaderCircle, LogOut, Plus, Save, Search, Send, Server, Settings, Trash2 } from "lucide-react";
 import type { ApiConfigDto, AppNoticeDto, FlowDto, KnowledgeEntryDto, UnrecognizedMessageDto } from "@/types/app";
 
 type ChatDto = {
@@ -14,6 +14,7 @@ type ChatDto = {
 type DashboardMetrics = { activeSessions: number; messages24h: number; openTickets: number; urgentTickets: number; unresolved: number; failedJobs: number; apiFailures: number };
 type TicketDto = { id: string; orderId?: string | null; category: string; subject: string; description: string; status: string; priority: string; assignedTo?: string | null; updatedAt: string; messages: { id: string; sender: string; content: string }[] };
 type IntentDto = { id: string; name: string; description?: string | null; examples: string; keywords: string; commandTemplate: string; requiresAuth: boolean; requiresConfirm: boolean; isActive: boolean };
+type PushCampaignDto = { id: string; title: string; message: string; actionUrl?: string | null; recurrence: string; scheduledAt: string; nextRunAt?: string | null; lastSentAt?: string | null; status: string; sentCount: number; failedCount: number };
 type SiteSettingsDto = {
   siteName: string; logoUrl: string; avatarUrl: string; seoTitle: string; seoDescription: string; seoKeywords: string;
   canonicalUrl: string; ogTitle: string; ogDescription: string; ogImageUrl: string; twitterTitle: string;
@@ -73,7 +74,7 @@ const blankIntent: Omit<IntentDto, "id"> = {
 };
 
 export function AdminDashboard() {
-  const [tab, setTab] = useState<"overview" | "tickets" | "intents" | "flows" | "apis" | "knowledge" | "unrecognized" | "notices" | "chats" | "settings">("overview");
+  const [tab, setTab] = useState<"overview" | "tickets" | "intents" | "flows" | "apis" | "knowledge" | "unrecognized" | "notices" | "push" | "chats" | "settings">("overview");
   const [flows, setFlows] = useState<FlowDto[]>([]);
   const [apis, setApis] = useState<ApiConfigDto[]>([]);
   const [notices, setNotices] = useState<AppNoticeDto[]>([]);
@@ -84,6 +85,8 @@ export function AdminDashboard() {
   const [intents, setIntents] = useState<IntentDto[]>([]);
   const [chats, setChats] = useState<ChatDto[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettingsDto | null>(null);
+  const [pushCampaigns, setPushCampaigns] = useState<PushCampaignDto[]>([]);
+  const [pushSubscriptionCount, setPushSubscriptionCount] = useState(0);
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
@@ -102,7 +105,7 @@ export function AdminDashboard() {
   }
 
   async function loadAll() {
-    const [dashboardData, ticketsData, intentsData, flowsData, apisData, knowledgeData, unrecognizedData, noticesData, chatsData, settingsData] = await Promise.all([
+    const [dashboardData, ticketsData, intentsData, flowsData, apisData, knowledgeData, unrecognizedData, noticesData, pushData, chatsData, settingsData] = await Promise.all([
       apiFetch("/api/admin/dashboard"),
       apiFetch("/api/admin/tickets"),
       apiFetch("/api/admin/intents"),
@@ -111,6 +114,7 @@ export function AdminDashboard() {
       apiFetch("/api/admin/knowledge"),
       apiFetch("/api/admin/unrecognized"),
       apiFetch("/api/admin/notices"),
+      apiFetch("/api/admin/push-campaigns"),
       apiFetch("/api/admin/chats"),
       apiFetch("/api/admin/site-settings")
     ]);
@@ -122,6 +126,8 @@ export function AdminDashboard() {
     setKnowledge(knowledgeData.entries);
     setUnrecognized(unrecognizedData.messages);
     setNotices(noticesData.notices);
+    setPushCampaigns(pushData.campaigns);
+    setPushSubscriptionCount(pushData.subscriptionCount);
     setChats(chatsData.sessions);
     setSiteSettings(settingsData.settings);
   }
@@ -142,6 +148,7 @@ export function AdminDashboard() {
         { id: "knowledge", label: "Kiến thức", icon: BookOpen },
         { id: "unrecognized", label: "Chưa hiểu", icon: AlertCircle },
         { id: "notices", label: "Thông báo", icon: Bell },
+        { id: "push", label: "Push theo lịch", icon: Clock3 },
         { id: "chats", label: "Lịch sử", icon: History }
         ,{ id: "settings", label: "Thương hiệu & SEO", icon: Settings }
       ] as const,
@@ -183,10 +190,120 @@ export function AdminDashboard() {
         {tab === "knowledge" ? <KnowledgePanel entries={knowledge} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "unrecognized" ? <UnrecognizedPanel messages={unrecognized} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "notices" ? <NoticesPanel notices={notices} reload={loadAll} setNotice={setNotice} /> : null}
+        {tab === "push" ? <PushCampaignsPanel campaigns={pushCampaigns} subscriptionCount={pushSubscriptionCount} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "chats" ? <ChatsPanel chats={chats} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "settings" && siteSettings ? <SiteSettingsPanel settings={siteSettings} setSettings={setSiteSettings} setNotice={setNotice} /> : null}
       </section>
     </main>
+  );
+}
+
+function PushCampaignsPanel({
+  campaigns,
+  subscriptionCount,
+  reload,
+  setNotice
+}: {
+  campaigns: PushCampaignDto[];
+  subscriptionCount: number;
+  reload: () => Promise<void>;
+  setNotice: (value: string) => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
+  const [actionUrl, setActionUrl] = useState("https://tranquan.vn/");
+  const [scheduledAt, setScheduledAt] = useState(() => {
+    const next = new Date(Date.now() + 10 * 60 * 1000);
+    next.setSeconds(0, 0);
+    return new Date(next.getTime() - next.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  });
+  const [recurrence, setRecurrence] = useState<"ONCE" | "DAILY">("ONCE");
+  const [saving, setSaving] = useState(false);
+  const [workingId, setWorkingId] = useState("");
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setNotice("");
+    try {
+      await fetchJson("/api/admin/push-campaigns", {
+        method: "POST",
+        body: JSON.stringify({ title, message, actionUrl, recurrence, scheduledAt: new Date(scheduledAt).toISOString() })
+      });
+      setTitle("");
+      setMessage("");
+      setNotice("Đã tạo lịch gửi thông báo.");
+      await reload();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Không thể tạo lịch gửi.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function act(id: string, action: "send-now" | "cancel") {
+    setWorkingId(id);
+    setNotice("");
+    try {
+      const data = await fetchJson("/api/admin/push-campaigns", { method: "PATCH", body: JSON.stringify({ id, action }) });
+      setNotice(action === "send-now" ? `Đã gửi: ${data.result?.sent ?? 0} thành công, ${data.result?.failed ?? 0} thất bại.` : "Đã hủy lịch gửi.");
+      await reload();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Không thể xử lý thông báo.");
+    } finally {
+      setWorkingId("");
+    }
+  }
+
+  return (
+    <div className="grid gap-5">
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+        <p className="text-sm text-emerald-800">Thiết bị đang nhận Web Push</p>
+        <strong className="mt-1 block text-3xl text-emerald-700">{subscriptionCount}</strong>
+      </div>
+
+      <form onSubmit={submit} className="grid gap-3 rounded-xl border border-brand-line bg-white p-4 shadow-sm">
+        <div>
+          <h2 className="font-semibold">Tạo lịch nhắc mọi người</h2>
+          <p className="text-xs text-neutral-500">Giờ được nhập theo múi giờ trên thiết bị quản trị.</p>
+        </div>
+        <input value={title} onChange={(event) => setTitle(event.target.value)} required maxLength={120} placeholder="Tiêu đề thông báo" className="h-11 rounded-lg border border-brand-line px-3 text-sm outline-none focus:border-brand-red" />
+        <textarea value={message} onChange={(event) => setMessage(event.target.value)} required maxLength={1000} rows={3} placeholder="Nội dung nhắc..." className="rounded-lg border border-brand-line px-3 py-2 text-sm outline-none focus:border-brand-red" />
+        <input value={actionUrl} onChange={(event) => setActionUrl(event.target.value)} type="url" placeholder="Link mở khi bấm thông báo" className="h-11 rounded-lg border border-brand-line px-3 text-sm outline-none focus:border-brand-red" />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1 text-sm font-medium">Ngày giờ gửi<input value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} type="datetime-local" required className="h-11 rounded-lg border border-brand-line px-3 font-normal" /></label>
+          <label className="grid gap-1 text-sm font-medium">Lặp lại<select value={recurrence} onChange={(event) => setRecurrence(event.target.value as "ONCE" | "DAILY")} className="h-11 rounded-lg border border-brand-line px-3 font-normal"><option value="ONCE">Chỉ gửi một lần</option><option value="DAILY">Lặp hằng ngày</option></select></label>
+        </div>
+        <button disabled={saving} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand-red px-5 font-semibold text-white disabled:opacity-60">
+          {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Clock3 className="h-4 w-4" />}
+          {saving ? "Đang lưu..." : "Đặt lịch gửi"}
+        </button>
+      </form>
+
+      <div className="grid gap-3">
+        {campaigns.map((campaign) => (
+          <article key={campaign.id} className="rounded-xl border border-brand-line bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="font-semibold">{campaign.title}</h3>
+                <p className="mt-1 whitespace-pre-line text-sm text-neutral-600">{campaign.message}</p>
+                <p className="mt-2 text-xs text-neutral-500">
+                  {campaign.recurrence === "DAILY" ? "Hằng ngày" : "Một lần"} · Lần tới: {campaign.nextRunAt ? new Date(campaign.nextRunAt).toLocaleString("vi-VN") : "—"} · {campaign.status}
+                </p>
+                <p className="mt-1 text-xs text-neutral-500">Đã gửi {campaign.sentCount} · Lỗi {campaign.failedCount}</p>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => act(campaign.id, "send-now")} disabled={workingId === campaign.id} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 text-xs font-semibold text-white disabled:opacity-50">
+                  {workingId === campaign.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Gửi ngay
+                </button>
+                {campaign.status === "ACTIVE" ? <button type="button" onClick={() => act(campaign.id, "cancel")} disabled={workingId === campaign.id} className="rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-700 disabled:opacity-50">Hủy</button> : null}
+              </div>
+            </div>
+          </article>
+        ))}
+        {!campaigns.length ? <p className="rounded-xl border border-dashed p-4 text-sm text-neutral-500">Chưa có lịch thông báo nào.</p> : null}
+      </div>
+    </div>
   );
 }
 

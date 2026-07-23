@@ -249,6 +249,39 @@ model SiteSetting {
   @@map("site_settings")
 }
 
+model WebPushSubscription {
+  id         String   @id @default(cuid())
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  accountKey String?  @map("account_key")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([accountKey, updatedAt])
+  @@map("web_push_subscriptions")
+}
+
+model PushCampaign {
+  id          String   @id @default(cuid())
+  title       String
+  message     String
+  actionUrl   String?  @map("action_url")
+  recurrence  String   @default("ONCE")
+  scheduledAt DateTime @map("scheduled_at")
+  nextRunAt   DateTime? @map("next_run_at")
+  lastSentAt  DateTime? @map("last_sent_at")
+  status      String   @default("ACTIVE")
+  sentCount   Int      @default(0) @map("sent_count")
+  failedCount Int      @default(0) @map("failed_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([status, nextRunAt])
+  @@map("push_campaigns")
+}
+
 enum Sender {
   USER
   BOT

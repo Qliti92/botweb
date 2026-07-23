@@ -197,6 +197,24 @@ async function main() {
   `);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS proactive_notifications_account_key_delivered_at_deliver_at_idx ON proactive_notifications(account_key, delivered_at, deliver_at)`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS proactive_notifications_session_id_delivered_at_deliver_at_idx ON proactive_notifications(session_id, delivered_at, deliver_at)`);
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS web_push_subscriptions (
+      id TEXT PRIMARY KEY NOT NULL, endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL,
+      account_key TEXT, user_agent TEXT, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL
+    )
+  `);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS web_push_subscriptions_account_key_updated_at_idx ON web_push_subscriptions(account_key, updated_at)`);
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS push_campaigns (
+      id TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, message TEXT NOT NULL, action_url TEXT,
+      recurrence TEXT NOT NULL DEFAULT 'ONCE', scheduled_at DATETIME NOT NULL, next_run_at DATETIME,
+      last_sent_at DATETIME, status TEXT NOT NULL DEFAULT 'ACTIVE', sent_count INTEGER NOT NULL DEFAULT 0,
+      failed_count INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL
+    )
+  `);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS push_campaigns_status_next_run_at_idx ON push_campaigns(status, next_run_at)`);
 
   if ((await prisma.knowledgeEntry.count()) === 0) {
     await prisma.knowledgeEntry.createMany({
