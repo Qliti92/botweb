@@ -80,22 +80,21 @@ const readyMessage = "Đăng nhập thành công rồi ạ 🎉\n\nBạn gửi R
 const loginErrorPrefix = "LOGIN_ERROR:";
 
 const guideMessage = [
-  "Dùng Ry rất đơn giản:",
-  "1. Sao chép link sản phẩm Shopee hoặc TikTok Shop.",
-  "2. Quay lại đây, Ry sẽ phát hiện link và gợi ý dùng ngay.",
-  "3. Ry tạo link hoàn tiền, bạn bấm Mua ngay rồi đặt hàng như bình thường.",
-  "4. Theo dõi đơn, tiền hoàn và số dư ngay trong cuộc trò chuyện.",
+  "Ry có thể giúp gì cho bạn?",
+  "STEP:1|Gửi link sản phẩm|Sao chép link Shopee hoặc TikTok Shop rồi quay lại đây. Ry sẽ nhận ra link và gợi ý dùng ngay.",
+  "STEP:2|Tạo link hoàn tiền|Ry kiểm tra sản phẩm và tạo link mua hàng có hoàn tiền cho bạn.",
+  "STEP:3|Mua hàng như bình thường|Bấm Mua ngay, đặt hàng trên Shopee hoặc TikTok Shop và không thay đổi sang link khác.",
+  "STEP:4|Theo dõi trong chat|Hỏi Ry để xem đơn hàng, tiền hoàn, số dư ví hoặc yêu cầu hỗ trợ.",
   "",
-  "Ry là trợ lý chat thông minh nên bạn không cần nhớ câu lệnh. Cứ hỏi tự nhiên như:",
-  "• “Ví của tôi còn bao nhiêu?”",
-  "• “Xem các đơn Shopee đang chờ”",
-  "• “Rút 100.000 đồng”",
-  "• “Thiết bị nào đang đăng nhập tài khoản?”",
-  "• “Tôi chưa thấy đơn hoàn tiền”",
+  "Bạn không cần nhớ câu lệnh. Hãy chọn một câu bên dưới hoặc nhắn Ry như đang nói chuyện:",
+  "SUGGEST:Ví của tôi còn bao nhiêu?|/taikhoan",
+  "SUGGEST:Xem các đơn đang chờ|xem các đơn đang chờ",
+  "SUGGEST:Tôi muốn rút tiền|__withdraw__",
+  "SUGGEST:Kiểm tra thiết bị đăng nhập|/phien",
+  "SUGGEST:Tôi chưa thấy đơn hoàn tiền|__ticket__",
+  "SUGGEST:Xem biến động ví|/biendongsodu",
   "",
-  "Mẹo để đơn dễ được ghi nhận: mở link Ry tạo trước khi đặt hàng và hạn chế thêm sản phẩm từ link khác vào cùng đơn.",
-  "",
-  "Bạn cũng có thể mở menu để xem nhanh Ví, Biến động ví, Bảo mật, Phiên đăng nhập và cài đặt thông báo."
+  "TIP:Để đơn dễ được ghi nhận, hãy mở link Ry tạo trước khi đặt hàng và hạn chế thêm sản phẩm từ link khác vào cùng đơn."
 ].join("\n");
 
 const supportMessage = [
@@ -1361,7 +1360,7 @@ function formatBalanceLogs(data: Record<string, unknown>) {
 function formatActivityLogs(data: Record<string, unknown>) {
   const items = listFromData(data);
   if (!items.length) return "Ry chưa thấy hoạt động nào gần đây trên tài khoản.";
-  return ["Nhật ký hoạt động:", ...items.map((item, index) => `${index + 1}. ${item.activity ?? item.description ?? "Hoạt động tài khoản"}\nThời gian: ${item.created_at ?? item.createdAt ?? "-"}\nIP: ${item.ip_address ?? "-"}`)].join("\n\n");
+  return ["Nhật ký hoạt động:", ...items.map((item, index) => `${index + 1}. ${item.activity ?? item.description ?? "Hoạt động tài khoản"}\nThời gian: ${item.created_at ?? item.createdAt ?? "-"}\nIP: ${item.ip_address ?? "-"}\nThiết bị: ${item.device_name ?? item.user_agent ?? "Không xác định"}`)].join("\n\n");
 }
 
 function formatSecurity(data: Record<string, unknown>) {

@@ -195,7 +195,11 @@ function isSessionsTitle(title: string) {
 
 function isSmartGuideTitle(title: string) {
   const normalized = title.toLowerCase();
-  return normalized.includes("dùng ry rất đơn giản") || normalized.includes("ry hướng dẫn");
+  return normalized.includes("dùng ry rất đơn giản") || normalized.includes("ry hướng dẫn") || normalized.includes("ry có thể giúp gì");
+}
+
+function isActivityTitle(title: string) {
+  return title.toLowerCase().includes("nhật ký hoạt động");
 }
 
 function isAuthStartMessage(content: string) {
@@ -1618,6 +1622,8 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
           <SecuritySummary lines={body} onSend={onSend} />
         ) : isSessionsTitle(title) ? (
           <SessionSummary lines={body} onSend={onSend} />
+        ) : isActivityTitle(title) ? (
+          <ActivityTimeline lines={body} />
         ) : isSmartGuideTitle(title) ? (
           <SmartGuide lines={body} onSend={onSend} />
         ) : isWithdrawalHistoryTitle(title) ? (
@@ -1688,10 +1694,69 @@ function SessionSummary({ lines, onSend }: { lines: string[]; onSend: (message: 
   })}<button type="button" onClick={() => onSend("/phien revoke-others")} className="min-h-12 rounded-xl bg-brand-red px-3 text-sm font-semibold text-white">Đăng xuất tất cả thiết bị khác</button></div>;
 }
 
+function ActivityTimeline({ lines }: { lines: string[] }) {
+  const groups: string[][] = [];
+  lines.forEach((line) => {
+    if (/^\d+\./.test(line) || !groups.length) groups.push([line]);
+    else groups[groups.length - 1].push(line);
+  });
+  const field = (group: string[], label: string) => group.find((line) => line.toLowerCase().startsWith(`${label}:`))?.split(":").slice(1).join(":").trim() || "-";
+  return (
+    <div className="relative grid gap-0">
+      {groups.map((group, index) => {
+        const activity = group[0]?.replace(/^\d+\.\s*/, "") || "Hoạt động tài khoản";
+        const device = field(group, "thiết bị");
+        return (
+          <article key={`${activity}-${index}`} className="relative flex gap-3 pb-4 last:pb-0">
+            {index < groups.length - 1 ? <span className="absolute bottom-0 left-[19px] top-10 w-px bg-slate-200" /> : null}
+            <span className="z-10 grid h-10 w-10 shrink-0 place-items-center rounded-full border-4 border-white bg-slate-100 text-brand-red shadow-sm"><Clock3 className="h-4 w-4" /></span>
+            <div className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+              <h3 className="text-sm font-semibold leading-5 text-brand-ink">{activity}</h3>
+              <p className="mt-1.5 flex items-center gap-1.5 text-xs text-neutral-500"><Clock3 className="h-3.5 w-3.5 shrink-0" />{field(group, "thời gian")}</p>
+              <p className="mt-1 text-xs text-neutral-500">IP: <span className="font-medium text-brand-ink">{field(group, "ip")}</span></p>
+              <p className="mt-1 line-clamp-2 break-all text-xs leading-5 text-neutral-500">Thiết bị: <span className="text-brand-ink">{device}</span></p>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
 function SmartGuide({ lines, onSend }: { lines: string[]; onSend: (message: string) => void }) {
-  return <div className="grid gap-3"><div className="rounded-2xl bg-gradient-to-br from-red-50 to-amber-50 p-4"><p className="text-sm leading-6 text-brand-ink">{lines.filter((line) => !line.startsWith("•")).join("\n")}</p></div><div className="grid grid-cols-2 gap-2">{[
-    ["Xem ví", "/taikhoan"], ["Xem đơn hàng", "/donhang"], ["Rút tiền", "__withdraw__"], ["Cần hỗ trợ", "/hotro"]
-  ].map(([label, command]) => <button key={label} type="button" onClick={() => onSend(command)} className="min-h-12 rounded-xl border border-slate-200 bg-white px-2 text-sm font-semibold text-brand-ink">{label}</button>)}</div><p className="text-center text-xs text-neutral-500">Bạn chỉ cần nhắn điều mình muốn, Ry sẽ tự hiểu.</p></div>;
+  const steps = lines.filter((line) => line.startsWith("STEP:")).map((line) => {
+    const [number, title, description] = line.slice(5).split("|");
+    return { number, title, description };
+  });
+  const suggestions = lines.filter((line) => line.startsWith("SUGGEST:")).map((line) => {
+    const [label, command] = line.slice(8).split("|");
+    return { label, command };
+  });
+  const tip = lines.find((line) => line.startsWith("TIP:"))?.slice(4);
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-2.5">
+        {steps.map((step) => (
+          <div key={step.number} className="flex gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-red text-sm font-bold text-white">{step.number}</span>
+            <div><h3 className="text-sm font-bold text-brand-ink">{step.title}</h3><p className="mt-1 text-[13px] leading-5 text-neutral-600">{step.description}</p></div>
+          </div>
+        ))}
+      </div>
+      <div>
+        <h3 className="mb-2 text-sm font-bold text-brand-ink">Thử hỏi Ry</h3>
+        <div className="flex flex-wrap gap-2">
+          {suggestions.map((suggestion) => (
+            <button key={suggestion.label} type="button" onClick={() => onSend(suggestion.command)} className="min-h-11 rounded-full border border-red-100 bg-red-50 px-3 text-left text-[13px] font-semibold text-brand-red">
+              {suggestion.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {tip ? <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[13px] leading-5 text-amber-900"><strong>Mẹo ghi nhận đơn:</strong> {tip}</div> : null}
+      <p className="text-center text-xs leading-5 text-neutral-500">Không cần nhớ lệnh — cứ nhắn điều bạn muốn, Ry sẽ tự hiểu.</p>
+    </div>
+  );
 }
 
 function ReferralSummary({ lines }: { lines: string[] }) {
