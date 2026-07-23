@@ -468,9 +468,8 @@ export function ChatApp() {
     }
   }
 
-  function devicePlatform(): "android" | "ios" | "web" {
-    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) return "ios";
-    if (/Android/.test(navigator.userAgent)) return "android";
+  function devicePlatform(): "web" {
+    // FCM Web tokens remain web-push tokens even when the PWA runs on iPhone or Android.
     return "web";
   }
 
