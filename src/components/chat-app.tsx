@@ -13,6 +13,7 @@ import {
   Headphones,
   History,
   ListChecks,
+  LoaderCircle,
   LogOut,
   LogIn,
   Menu,
@@ -92,6 +93,11 @@ function detectLinkPlatform(value: string) {
   if (/(tiktok\.com|vt\.tiktok\.com|tiktokshop)/.test(normalized)) return "TikTok Shop";
   if (/(shopee\.vn|shp\.ee|shopee)/.test(normalized)) return "Shopee";
   return null;
+}
+
+function extractShoppingLink(value: string) {
+  const links = value.match(/https?:\/\/[^\s<>"']+/gi) ?? [];
+  return links.find((link) => detectLinkPlatform(link))?.replace(/[),.;!?]+$/, "") ?? null;
 }
 
 function normalizeStatus(value: string) {
@@ -184,6 +190,7 @@ export function ChatApp() {
   const [session, setSession] = useState<ChatSessionPayload | null>(null);
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
+  const [clipboardSuggestion, setClipboardSuggestion] = useState<{ link: string; platform: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [authEmail, setAuthEmail] = useState("");
@@ -213,6 +220,7 @@ export function ChatApp() {
   const [publicPage, setPublicPage] = useState<PublicPage | null>(null);
   const [publicPageLoading, setPublicPageLoading] = useState(false);
   const previousUnreadRef = useRef(0);
+  const dismissedClipboardRef = useRef("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -245,6 +253,36 @@ export function ChatApp() {
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [session?.messages.length, optimisticMessages.length, sending]);
+
+  useEffect(() => {
+    if (!session?.user || !navigator.clipboard?.readText) return;
+
+    async function detectClipboardLink() {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const clipboardText = await navigator.clipboard.readText();
+        const link = extractShoppingLink(clipboardText);
+        const platform = link ? detectLinkPlatform(link) : null;
+        if (link && platform && link !== dismissedClipboardRef.current && link !== input.trim()) {
+          setClipboardSuggestion({ link, platform });
+        }
+      } catch {
+        // Clipboard access varies by mobile browser. The manual paste button remains available.
+      }
+    }
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void detectClipboardLink();
+    };
+    const timer = window.setTimeout(() => void detectClipboardLink(), 350);
+    window.addEventListener("focus", detectClipboardLink);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("focus", detectClipboardLink);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [session?.user, input]);
 
   useEffect(() => {
     if (session?.user) {
@@ -691,7 +729,12 @@ export function ChatApp() {
           </div>
         ) : null}
 
-        {loading ? <div className="rounded-md border border-red-100 bg-white p-4 text-sm text-neutral-600">Đang mở phiên chat...</div> : null}
+        {loading ? (
+          <div className="flex items-center gap-2 rounded-md border border-red-100 bg-white p-4 text-sm text-neutral-600">
+            <LoaderCircle className="h-5 w-5 animate-spin text-brand-red" />
+            Đang mở phiên chat...
+          </div>
+        ) : null}
 
         {session?.messages.map((message) => (
           <MessageBubble key={message.id} message={message} onSend={sendMessage} />
@@ -703,7 +746,10 @@ export function ChatApp() {
         {sending ? (
           <div className="mb-3 flex items-end gap-2">
             <BotAvatar />
-            <div className="rounded-2xl rounded-bl-md border border-black/5 bg-white px-4 py-3 text-sm text-neutral-500 shadow-sm">Ry đang kiểm tra, bạn chờ một chút nhé...</div>
+            <div className="flex items-center gap-2 rounded-2xl rounded-bl-md border border-black/5 bg-white px-4 py-3 text-sm text-neutral-500 shadow-sm">
+              <LoaderCircle className="h-4 w-4 animate-spin text-brand-red" />
+              Ry đang kiểm tra, bạn chờ một chút nhé...
+            </div>
           </div>
         ) : null}
         <div ref={scrollRef} />
@@ -712,10 +758,46 @@ export function ChatApp() {
       {error ? <div className="border-t border-red-100 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div> : null}
       {showTicket ? <TicketForm initialCategory={ticketInitialCategory} onClose={() => setShowTicket(false)} onCreated={(id) => { setShowTicket(false); setError(`Ry đã tạo yêu cầu hỗ trợ #${id.slice(-8)}. Bạn sẽ nhận thông báo khi có phản hồi.`); }} /> : null}
       {showWithdrawal ? <WithdrawalForm initialAmount={withdrawalInitialAmount} onClose={() => setShowWithdrawal(false)} onSuccess={() => { setShowWithdrawal(false); setError("Ry đã gửi yêu cầu rút tiền thành công."); }} /> : null}
-      {publicPageLoading ? <div className="absolute inset-0 z-50 grid place-items-center bg-black/30"><div className="rounded-xl bg-white px-4 py-3 text-xs font-medium text-brand-ink shadow-xl">Đang tải nội dung...</div></div> : null}
+      {publicPageLoading ? <div className="absolute inset-0 z-50 grid place-items-center bg-black/30"><div className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-xs font-medium text-brand-ink shadow-xl"><LoaderCircle className="h-5 w-5 animate-spin text-brand-red" />Đang tải nội dung...</div></div> : null}
       {publicPage ? <PublicPageModal page={publicPage} onClose={() => setPublicPage(null)} /> : null}
 
       <form onSubmit={onSubmit} className="safe-bottom border-t border-red-100 bg-white pt-2">
+        {clipboardSuggestion ? (
+          <div className="mx-3 mb-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 shadow-sm">
+            <div className="flex items-start gap-2">
+              <Clipboard className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-emerald-800">Phát hiện link {clipboardSuggestion.platform}</p>
+                <p className="mt-0.5 truncate text-xs text-emerald-700/80">{clipboardSuggestion.link}</p>
+              </div>
+            </div>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const link = clipboardSuggestion.link;
+                  dismissedClipboardRef.current = link;
+                  setClipboardSuggestion(null);
+                  void sendMessage(link);
+                }}
+                disabled={sending}
+                className="flex-1 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+              >
+                Dùng ngay
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  dismissedClipboardRef.current = clipboardSuggestion.link;
+                  setClipboardSuggestion(null);
+                }}
+                className="rounded-lg border border-emerald-300 bg-white px-4 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        ) : null}
         {detectedLinkPlatform ? (
           <p className="mx-3 mb-1 rounded-md bg-emerald-50 px-2 py-1 text-[11px] text-emerald-700">
             Ry đã nhận ra link {detectedLinkPlatform}. Bấm gửi để tạo link hoàn tiền.
@@ -747,7 +829,7 @@ export function ChatApp() {
             </button>
           </div>
           <button type="submit" disabled={sending || !input.trim()} className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-brand-red text-white disabled:opacity-50" title="Gửi">
-            <Send className="h-5 w-5" />
+            {sending ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           </button>
         </div>
       </form>
@@ -818,7 +900,10 @@ function WithdrawalForm({ initialAmount, onClose, onSuccess }: { initialAmount: 
         </div>
         <label className="mt-2 flex items-start gap-2 rounded-md bg-amber-50 p-2 text-xs"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-0.5 h-3.5 w-3.5 accent-brand-red" /><span>Tôi đã kiểm tra số tiền và tài khoản nhận.</span></label>
         {formError ? <p className="mt-2 text-xs text-red-600">{formError}</p> : null}
-        <button disabled={submitting} className="mt-3 h-10 w-full rounded-md bg-brand-red text-sm font-semibold text-white disabled:opacity-50">{submitting ? "Đang gửi..." : "Gửi yêu cầu rút tiền"}</button>
+        <button disabled={submitting} className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-brand-red text-sm font-semibold text-white disabled:opacity-50">
+          {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+          {submitting ? "Đang gửi..." : "Gửi yêu cầu rút tiền"}
+        </button>
       </form>
     </div>
   );
@@ -864,7 +949,10 @@ function TicketForm({ initialCategory, onClose, onCreated }: { initialCategory: 
         <label className="mt-3 block text-sm"><span className="mb-1 block font-medium">Tiêu đề</span><input required minLength={5} value={subject} onChange={(event) => setSubject(event.target.value)} className="h-11 w-full rounded-md border px-3" /></label>
         <label className="mt-3 block text-sm"><span className="mb-1 block font-medium">Mô tả chi tiết</span><textarea required minLength={10} value={description} onChange={(event) => setDescription(event.target.value)} className="min-h-28 w-full rounded-md border p-3" /></label>
         {formError ? <p className="mt-2 text-sm text-red-600">{formError}</p> : null}
-        <button disabled={submitting} className="mt-4 h-11 w-full rounded-md bg-brand-red font-semibold text-white disabled:opacity-50">{submitting ? "Đang gửi..." : "Gửi yêu cầu"}</button>
+        <button disabled={submitting} className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-brand-red font-semibold text-white disabled:opacity-50">
+          {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+          {submitting ? "Đang gửi..." : "Gửi yêu cầu"}
+        </button>
       </form>
     </div>
   );
@@ -1030,8 +1118,22 @@ function AuthScreen({
           {message ? <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</div> : null}
 
           <button type="submit" disabled={loading || (isRegister && !acceptedTerms)} className="mt-1 flex h-11 items-center justify-center gap-2 rounded-full bg-brand-red px-4 text-sm font-semibold text-white disabled:opacity-60">
-            <LogIn className="h-4 w-4" />
-            {isForgot ? "Gửi hướng dẫn" : isRegister ? "Đăng ký" : isTwoFactor ? "Xác thực" : "Đăng nhập"}
+            {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
+            {loading
+              ? isForgot
+                ? "Đang gửi hướng dẫn..."
+                : isRegister
+                  ? "Đang đăng ký..."
+                  : isTwoFactor
+                    ? "Đang xác thực..."
+                    : "Đang đăng nhập..."
+              : isForgot
+                ? "Gửi hướng dẫn"
+                : isRegister
+                  ? "Đăng ký"
+                  : isTwoFactor
+                    ? "Xác thực"
+                    : "Đăng nhập"}
           </button>
         </form>
 

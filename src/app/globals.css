@@ -113,7 +113,7 @@ select {
 
 /* Chat controls stay compact on desktop, but never at the expense of legibility. */
 .chat-compact button {
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   border-radius: 0.5rem;
   font-size: 0.8125rem;
   line-height: 1.25rem;
@@ -127,7 +127,7 @@ select {
 .chat-compact button[aria-label],
 .chat-compact button[title="Gửi"],
 .chat-compact button[title="Dán"] {
-  width: 2.5rem;
+  width: 2.75rem;
   padding-left: 0;
   padding-right: 0;
 }
@@ -174,7 +174,7 @@ select {
 
   button,
   [role="button"] {
-    min-height: 44px;
+    min-height: 48px;
   }
 
   input,
@@ -186,7 +186,7 @@ select {
   }
 
   .chat-compact button {
-    min-height: 44px;
+    min-height: 48px;
     max-height: none;
     font-size: 0.875rem;
     line-height: 1.25rem;
@@ -200,6 +200,6 @@ select {
   .chat-compact button[aria-label],
   .chat-compact button[title="Gửi"],
   .chat-compact button[title="Dán"] {
-    width: 44px;
+    width: 48px;
   }
 }

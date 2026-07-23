@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { LockKeyhole } from "lucide-react";
+import { LoaderCircle, LockKeyhole } from "lucide-react";
 
 export function AdminLoginForm() {
   const [email, setEmail] = useState("admin");
@@ -54,7 +54,8 @@ export function AdminLoginForm() {
 
       {error ? <p className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
 
-      <button disabled={loading} className="h-11 w-full rounded-md bg-brand-red font-semibold text-white disabled:opacity-60">
+      <button disabled={loading} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-brand-red font-semibold text-white disabled:opacity-60">
+        {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
         {loading ? "Đang đăng nhập..." : "Đăng nhập"}
       </button>
     </form>
