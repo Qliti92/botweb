@@ -25,6 +25,8 @@ body {
   color: var(--brand-black);
   background: #fafaf8;
   font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
   font-synthesis: none;
   font-feature-settings: "kern" 1, "liga" 1;
   text-rendering: optimizeLegibility;
@@ -109,23 +111,23 @@ select {
   --tw-ring-color: #e4dac5;
 }
 
-/* Compact controls keep long chat flows visually calm while preserving tap targets. */
+/* Chat controls stay compact on desktop, but never at the expense of legibility. */
 .chat-compact button {
-  max-height: 2.25rem;
+  min-height: 2.5rem;
   border-radius: 0.5rem;
-  font-size: 0.75rem;
-  line-height: 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
 }
 
 .chat-compact button svg {
-  width: 0.875rem;
-  height: 0.875rem;
+  width: 1rem;
+  height: 1rem;
 }
 
 .chat-compact button[aria-label],
 .chat-compact button[title="Gửi"],
 .chat-compact button[title="Dán"] {
-  width: 2.25rem;
+  width: 2.5rem;
   padding-left: 0;
   padding-right: 0;
 }
@@ -136,8 +138,68 @@ select {
 }
 
 @media (max-width: 640px) {
+  /*
+   * Comfortable mobile scale: 16–17px copy, 14px supporting text
+   * and at least 44px for touch targets.
+   */
+  html {
+    font-size: 17px;
+  }
+
+  body {
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  .text-xs {
+    font-size: 0.875rem !important;
+    line-height: 1.35rem !important;
+  }
+
+  .text-sm {
+    font-size: 1rem !important;
+    line-height: 1.5rem !important;
+  }
+
+  [class~="text-[9px]"],
+  [class~="text-[10px]"] {
+    font-size: 0.75rem !important;
+    line-height: 1.1rem !important;
+  }
+
+  [class~="text-[11px]"] {
+    font-size: 0.8125rem !important;
+    line-height: 1.2rem !important;
+  }
+
+  button,
+  [role="button"] {
+    min-height: 44px;
+  }
+
+  input,
+  textarea,
+  select {
+    min-height: 46px;
+    font-size: 16px !important;
+    line-height: 1.4;
+  }
+
   .chat-compact button {
-    max-height: 2.125rem;
-    font-size: 0.71875rem;
+    min-height: 44px;
+    max-height: none;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  .chat-compact button svg {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+
+  .chat-compact button[aria-label],
+  .chat-compact button[title="Gửi"],
+  .chat-compact button[title="Dán"] {
+    width: 44px;
   }
 }
