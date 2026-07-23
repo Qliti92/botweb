@@ -215,10 +215,11 @@ async function main() {
     `ALTER TABLE web_push_subscriptions ADD COLUMN quiet_end TEXT NOT NULL DEFAULT '08:00'`,
     `ALTER TABLE web_push_subscriptions ADD COLUMN timezone TEXT NOT NULL DEFAULT 'Asia/Ho_Chi_Minh'`,
     `ALTER TABLE web_push_subscriptions ADD COLUMN categories TEXT NOT NULL DEFAULT '["REMINDER","ORDER","CASHBACK","SUPPORT"]'`,
-    `ALTER TABLE web_push_subscriptions ADD COLUMN last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`
+    `ALTER TABLE web_push_subscriptions ADD COLUMN last_seen_at DATETIME`
   ]) {
     try { await prisma.$executeRawUnsafe(statement); } catch {}
   }
+  await prisma.$executeRawUnsafe(`UPDATE web_push_subscriptions SET last_seen_at = COALESCE(last_seen_at, updated_at, created_at, CURRENT_TIMESTAMP)`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS web_push_subscriptions_account_key_updated_at_idx ON web_push_subscriptions(account_key, updated_at)`);
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS push_campaigns (
