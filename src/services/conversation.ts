@@ -139,6 +139,14 @@ function accountWithToken(account: NonNullable<SessionState["account"]>) {
   return { ...account, token: decryptSecret(account.token) };
 }
 
+export async function getOpenApiAccountForSession(sessionId: string) {
+  const session = await prisma.chatSession.findUnique({ where: { id: sessionId } });
+  if (!session) throw new Error("Không tìm thấy phiên chat.");
+  const account = readState(session.state).account;
+  if (!account) throw new Error("Bạn cần đăng nhập để quản lý thiết bị.");
+  return accountWithToken(account);
+}
+
 function isLoginChoice(value: string) {
   return ["1", "login", "dang nhap", "đăng nhập", "signin", "sign in"].includes(normalize(value));
 }

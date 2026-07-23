@@ -160,3 +160,19 @@ export function revokeSession(token: string, tokenType: string | undefined, id: 
 export function revokeOtherSessions(token: string, tokenType?: string) {
   return requestJson("POST", "/sessions/revoke-others", { token, tokenType });
 }
+
+export function getDevices(token: string, tokenType?: string) {
+  return requestJson("GET", "/devices", { token, tokenType });
+}
+
+export function registerDevice(
+  token: string,
+  tokenType: string | undefined,
+  body: { token: string; platform: "web" | "android" | "ios"; device_name: string }
+) {
+  return requestJson("POST", "/devices/register", { token, tokenType, body });
+}
+
+export function unregisterDevice(token: string, tokenType: string | undefined, deviceToken: string) {
+  return requestJson("POST", "/devices/unregister", { token, tokenType, body: { token: deviceToken } });
+}

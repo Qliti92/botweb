@@ -204,6 +204,8 @@ export function ChatApp() {
   const [authMessage, setAuthMessage] = useState("");
   const [showAuth, setShowAuth] = useState(false);
   const [sending, setSending] = useState(false);
+  const [pushState, setPushState] = useState<"idle" | "enabling" | "enabled" | "unsupported" | "error">("idle");
+  const [pushMessage, setPushMessage] = useState("");
   const [error, setError] = useState("");
   const [history, setHistory] = useState<ChatHistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -297,6 +299,41 @@ export function ChatApp() {
     setUnreadCount(0);
     setShowNotificationBanner(false);
     previousUnreadRef.current = 0;
+  }, [session?.id, session?.user]);
+
+  useEffect(() => {
+    if (!session?.user) {
+      setPushState("idle");
+      setPushMessage("");
+      return;
+    }
+
+    async function syncRegisteredDevice() {
+      try {
+        const push = await import("@/lib/firebase-messaging");
+        if (!push.isFirebaseMessagingConfigured() || !("Notification" in window)) {
+          setPushState("unsupported");
+          return;
+        }
+
+        const storedToken = push.getStoredPushToken();
+        if (storedToken) {
+          await registerPushToken(storedToken);
+          setPushState("enabled");
+          return;
+        }
+
+        if (Notification.permission === "granted") {
+          const token = await push.registerForPushNotifications();
+          await registerPushToken(token);
+          setPushState("enabled");
+        }
+      } catch {
+        setPushState("error");
+      }
+    }
+
+    void syncRegisteredDevice();
   }, [session?.id, session?.user]);
 
   const accountLabel = useMemo(() => {
@@ -400,6 +437,20 @@ export function ChatApp() {
     setLoading(true);
     setError("");
     try {
+      try {
+        const push = await import("@/lib/firebase-messaging");
+        const token = push.getStoredPushToken();
+        if (token) {
+          await fetch("/api/chat/devices", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ action: "unregister", sessionId: session.id, token })
+          });
+          await push.unregisterFromPushNotifications();
+        }
+      } catch {
+        // Device cleanup is best-effort and must not prevent account logout.
+      }
       await fetch("/api/chat/logout", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -414,6 +465,44 @@ export function ChatApp() {
       setError(err instanceof Error ? err.message : "Ry chưa đăng xuất được. Bạn thử lại nhé.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function devicePlatform(): "android" | "ios" | "web" {
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) return "ios";
+    if (/Android/.test(navigator.userAgent)) return "android";
+    return "web";
+  }
+
+  async function registerPushToken(token: string) {
+    if (!session) throw new Error("Chưa có phiên đăng nhập.");
+    const response = await fetch("/api/chat/devices", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        action: "register",
+        sessionId: session.id,
+        token,
+        platform: devicePlatform(),
+        deviceName: `${navigator.platform || "Web"} · ${navigator.userAgent.slice(0, 60)}`
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? "Không thể đăng ký thiết bị.");
+  }
+
+  async function enablePushNotifications() {
+    setPushState("enabling");
+    setPushMessage("");
+    try {
+      const push = await import("@/lib/firebase-messaging");
+      const token = await push.registerForPushNotifications();
+      await registerPushToken(token);
+      setPushState("enabled");
+      setPushMessage("Thiết bị này đã bật thông báo đẩy.");
+    } catch (err) {
+      setPushState("error");
+      setPushMessage(err instanceof Error ? err.message : "Không thể bật thông báo.");
     }
   }
 
@@ -688,6 +777,37 @@ export function ChatApp() {
         {session?.user ? (
           <div className="mb-3 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-xs text-brand-ink">
             <span className="font-semibold">Đang đăng nhập:</span> {accountLabel}
+          </div>
+        ) : null}
+
+        {session?.user && pushState !== "unsupported" && pushState !== "enabled" ? (
+          <div className="mb-3 rounded-xl border border-emerald-200 bg-white p-3 shadow-sm">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-50 text-emerald-700">
+                <Bell className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-brand-ink">Nhận thông báo trên thiết bị</p>
+                <p className="mt-0.5 text-xs text-neutral-500">Nhận cập nhật đơn hàng, tiền hoàn và phản hồi hỗ trợ kể cả khi đã đóng web.</p>
+                {pushMessage ? <p className="mt-1 text-xs text-red-600">{pushMessage}</p> : null}
+                <button
+                  type="button"
+                  onClick={enablePushNotifications}
+                  disabled={pushState === "enabling"}
+                  className="mt-2 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {pushState === "enabling" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+                  {pushState === "enabling" ? "Đang bật..." : "Bật thông báo"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {session?.user && pushState === "enabled" && pushMessage ? (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            {pushMessage}
           </div>
         ) : null}
 
