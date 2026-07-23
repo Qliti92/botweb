@@ -181,6 +181,23 @@ function isReferralTitle(title: string) {
   return normalized.includes("chương trình giới thiệu") || normalized.includes("giới thiệu cho bạn bè");
 }
 
+function isBalanceActivityTitle(title: string) {
+  return title.toLowerCase().includes("biến động số dư");
+}
+
+function isSecurityTitle(title: string) {
+  return title.toLowerCase().includes("trạng thái bảo mật");
+}
+
+function isSessionsTitle(title: string) {
+  return title.toLowerCase().includes("các phiên đăng nhập");
+}
+
+function isSmartGuideTitle(title: string) {
+  const normalized = title.toLowerCase();
+  return normalized.includes("dùng ry rất đơn giản") || normalized.includes("ry hướng dẫn");
+}
+
 function isAuthStartMessage(content: string) {
   const normalized = content.toLowerCase();
   return normalized.includes("có tài khoản chọn 1") && normalized.includes("chưa có tài khoản chọn 2");
@@ -789,20 +806,20 @@ export function ChatApp() {
   }
 
   return (
-    <main className="chat-compact mx-auto flex h-dvh max-w-3xl flex-col bg-[#e9edf5] shadow-soft md:my-6 md:h-[calc(100dvh-48px)] md:overflow-hidden md:rounded-lg">
-      <header className="flex items-center justify-between gap-3 border-b border-red-950/10 bg-brand-red px-4 py-3 text-white">
+    <main className="chat-compact relative mx-auto flex h-dvh max-w-3xl flex-col overflow-hidden bg-[#eef2f7] shadow-soft md:my-6 md:h-[calc(100dvh-48px)] md:rounded-2xl">
+      <header className="safe-top flex min-h-[68px] items-center justify-between gap-3 border-b border-red-950/10 bg-brand-red px-3.5 py-2.5 text-white">
         <div className="flex min-w-0 items-center gap-3">
-          <img src="/api/site-assets/logo" alt="Hoàn Tiền Mua Hàng" className="h-10 w-10 shrink-0 rounded-full bg-white p-1 object-cover" />
+          <img src="/api/site-assets/logo" alt="Hoàn Tiền Mua Hàng" className="h-11 w-11 shrink-0 rounded-full bg-white p-1 object-cover" />
           <div className="min-w-0">
-            <h1 className="truncate text-base font-semibold">Em Ry · Trợ lý hoàn tiền</h1>
-            <p className="mt-0.5 truncate text-xs text-white/80">{status}</p>
+            <h1 className="truncate text-[17px] font-semibold">Em Ry · Trợ lý hoàn tiền</h1>
+            <p className="mt-0.5 truncate text-[13px] text-white/85">{status}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {session?.user ? <ShieldCheck className="h-5 w-5 text-white" /> : null}
           {session?.user ? (
             <button
-              className="relative grid h-9 w-9 place-items-center rounded-md border border-white/30 bg-white/10"
+              className="relative grid h-11 w-11 place-items-center rounded-xl border border-white/30 bg-white/10"
               onClick={() => setShowHistory((value) => !value)}
               title="Lịch sử chat"
             >
@@ -812,7 +829,7 @@ export function ChatApp() {
           ) : null}
           <button
             onClick={() => setShowSideMenu(true)}
-            className="grid h-9 w-9 place-items-center rounded-md bg-white text-brand-red"
+            className="grid h-11 w-11 place-items-center rounded-xl bg-white text-brand-red shadow-sm"
             title="Menu"
             aria-label="Mở menu"
           >
@@ -836,65 +853,35 @@ export function ChatApp() {
           void sendMessage(command);
         }}
         onPage={(slug) => void openPublicPage(slug)}
+        pushEnabled={pushState === "enabled"}
+        onPushSettings={() => {
+          setShowSideMenu(false);
+          setShowPushSettings(true);
+        }}
         onLogout={logout}
       />
 
-      <section className="flex-1 overflow-y-auto bg-[#e9edf5] px-3 py-4">
+      {showPushSettings ? (
+        <DeviceNotificationModal
+          state={pushState}
+          message={pushMessage}
+          quietStart={pushQuietStart}
+          quietEnd={pushQuietEnd}
+          categories={pushCategories}
+          onQuietStart={setPushQuietStart}
+          onQuietEnd={setPushQuietEnd}
+          onCategories={setPushCategories}
+          onEnable={enablePushNotifications}
+          onSave={savePushPreferences}
+          onDisable={disablePushNotifications}
+          onClose={() => setShowPushSettings(false)}
+        />
+      ) : null}
+
+      <section className="flex-1 overflow-y-auto bg-[#eef2f7] px-2.5 py-3 sm:px-4">
         {session?.user ? (
           <div className="mb-3 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-xs text-brand-ink">
             <span className="font-semibold">Đang đăng nhập:</span> {accountLabel}
-          </div>
-        ) : null}
-
-        {session?.user && pushState !== "unsupported" && pushState !== "enabled" ? (
-          <div className="mb-3 rounded-xl border border-emerald-200 bg-white p-3 shadow-sm">
-            <div className="flex items-start gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-50 text-emerald-700">
-                <Bell className="h-5 w-5" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-brand-ink">Nhận thông báo trên thiết bị</p>
-                <p className="mt-0.5 text-xs text-neutral-500">Nhận cập nhật đơn hàng, tiền hoàn và phản hồi hỗ trợ kể cả khi đã đóng web.</p>
-                {pushMessage ? <p className="mt-1 text-xs text-red-600">{pushMessage}</p> : null}
-                <button
-                  type="button"
-                  onClick={enablePushNotifications}
-                  disabled={pushState === "enabling"}
-                  className="mt-2 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-60"
-                >
-                  {pushState === "enabling" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
-                  {pushState === "enabling" ? "Đang bật..." : "Bật thông báo"}
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {session?.user && pushState === "enabled" ? (
-          <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 shrink-0" />
-              <span className="flex-1">{pushMessage || "Thiết bị này đã bật thông báo đẩy."}</span>
-              <button type="button" onClick={() => setShowPushSettings((value) => !value)} className="rounded-lg border border-emerald-300 bg-white px-3 font-semibold text-emerald-800">Cài đặt</button>
-            </div>
-            {showPushSettings ? (
-              <div className="mt-3 grid gap-3 border-t border-emerald-200 pt-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="grid gap-1 font-medium">Yên lặng từ<input type="time" value={pushQuietStart} onChange={(event) => setPushQuietStart(event.target.value)} className="rounded-lg border border-emerald-200 bg-white px-2" /></label>
-                  <label className="grid gap-1 font-medium">Đến<input type="time" value={pushQuietEnd} onChange={(event) => setPushQuietEnd(event.target.value)} className="rounded-lg border border-emerald-200 bg-white px-2" /></label>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {[["REMINDER", "Nhắc mua hàng"], ["ORDER", "Đơn hàng"], ["CASHBACK", "Tiền hoàn"], ["SUPPORT", "Hỗ trợ"]].map(([value, label]) => (
-                    <label key={value} className="flex items-center gap-2 rounded-lg bg-white px-2 py-1.5">
-                      <input type="checkbox" checked={pushCategories.includes(value)} onChange={(event) => setPushCategories((items) => event.target.checked ? [...items, value] : items.filter((item) => item !== value))} className="h-4 w-4 accent-emerald-700" />
-                      {label}
-                    </label>
-                  ))}
-                </div>
-                <button type="button" onClick={savePushPreferences} disabled={!pushCategories.length} className="rounded-lg bg-emerald-700 px-4 font-semibold text-white disabled:opacity-50">Lưu cài đặt</button>
-                <button type="button" onClick={disablePushNotifications} className="rounded-lg border border-red-200 bg-white px-4 font-semibold text-red-700">Tắt trên thiết bị này</button>
-              </div>
-            ) : null}
           </div>
         ) : null}
 
@@ -968,7 +955,7 @@ export function ChatApp() {
       {publicPageLoading ? <div className="absolute inset-0 z-50 grid place-items-center bg-black/30"><div className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-xs font-medium text-brand-ink shadow-xl"><LoaderCircle className="h-5 w-5 animate-spin text-brand-red" />Đang tải nội dung...</div></div> : null}
       {publicPage ? <PublicPageModal page={publicPage} onClose={() => setPublicPage(null)} /> : null}
 
-      <form onSubmit={onSubmit} className="safe-bottom border-t border-red-100 bg-white pt-2">
+      <form onSubmit={onSubmit} className="safe-bottom border-t border-black/5 bg-white pt-2 shadow-[0_-8px_24px_rgba(30,41,59,0.06)]">
         {clipboardSuggestion ? (
           <div className="mx-3 mb-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 shadow-sm">
             <div className="flex items-start gap-2">
@@ -1028,14 +1015,27 @@ export function ChatApp() {
             );
           })}
         </div>
-        <div className="flex gap-2 px-3">
+        <div className="flex items-end gap-2 px-3">
           <div className="relative min-w-0 flex-1">
-            <input value={input} onChange={(event) => setInput(event.target.value)} disabled={sending} placeholder={session?.user ? "Hỏi Ry hoặc gửi link sản phẩm..." : "Nhắn cho Ry điều bạn cần..."} className="h-12 w-full min-w-0 rounded-full border border-red-100 px-4 pr-11 text-base outline-none focus:border-brand-red disabled:bg-neutral-50" />
+            <textarea
+              rows={1}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                }
+              }}
+              disabled={sending}
+              placeholder={session?.user ? "Hỏi Ry hoặc gửi link sản phẩm..." : "Nhắn cho Ry điều bạn cần..."}
+              className="max-h-28 min-h-14 w-full min-w-0 resize-none rounded-2xl border border-slate-200 px-4 py-3 pr-12 text-base leading-6 outline-none focus:border-brand-red focus:ring-2 focus:ring-red-100 disabled:bg-neutral-50"
+            />
             <button type="button" onClick={pasteFromClipboard} disabled={sending} className="absolute right-1.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-brand-red hover:bg-red-50 disabled:opacity-50" title="Dán" aria-label="Dán">
               <Clipboard className="h-4 w-4" />
             </button>
           </div>
-          <button type="submit" disabled={sending || !input.trim()} className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-brand-red text-white disabled:opacity-50" title="Gửi">
+          <button type="submit" disabled={sending || !input.trim()} className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-brand-red text-white shadow-sm disabled:opacity-50" title="Gửi">
             {sending ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           </button>
         </div>
@@ -1381,12 +1381,68 @@ function AuthScreen({
   );
 }
 
+function DeviceNotificationModal({
+  state, message, quietStart, quietEnd, categories, onQuietStart, onQuietEnd, onCategories, onEnable, onSave, onDisable, onClose
+}: {
+  state: "idle" | "enabling" | "enabled" | "unsupported" | "error";
+  message: string;
+  quietStart: string;
+  quietEnd: string;
+  categories: string[];
+  onQuietStart: (value: string) => void;
+  onQuietEnd: (value: string) => void;
+  onCategories: (value: string[]) => void;
+  onEnable: () => void;
+  onSave: () => void;
+  onDisable: () => void;
+  onClose: () => void;
+}) {
+  const enabled = state === "enabled";
+  return (
+    <div className="absolute inset-0 z-[60] flex items-end bg-black/40 sm:items-center sm:justify-center sm:p-4" onClick={onClose}>
+      <section className="safe-bottom w-full rounded-t-3xl bg-white p-5 shadow-xl sm:max-w-md sm:rounded-3xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-50 text-emerald-700"><Bell className="h-6 w-6" /></span>
+            <div><h2 className="text-lg font-bold text-brand-ink">Thông báo thiết bị</h2><p className="text-sm text-neutral-500">{enabled ? "Thiết bị này đang nhận thông báo." : "Nhận nhắc mua hàng và cập nhật đơn."}</p></div>
+          </div>
+          <button type="button" onClick={onClose} className="grid h-11 w-11 place-items-center rounded-xl bg-neutral-100"><X className="h-5 w-5" /></button>
+        </div>
+        {message ? <p className={`mt-3 rounded-xl px-3 py-2 text-sm ${enabled ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>{message}</p> : null}
+        {state === "unsupported" ? <p className="mt-4 text-sm text-red-700">Trình duyệt này chưa hỗ trợ thông báo đẩy. Trên iPhone, hãy cài trang vào Màn hình chính rồi mở từ biểu tượng ứng dụng.</p> : !enabled ? (
+          <button type="button" onClick={onEnable} disabled={state === "enabling"} className="mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-4 text-base font-bold text-white disabled:opacity-60">
+            {state === "enabling" ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Bell className="h-5 w-5" />}{state === "enabling" ? "Đang bật..." : "Bật thông báo"}
+          </button>
+        ) : (
+          <div className="mt-5 grid gap-4">
+            <div className="grid grid-cols-2 gap-3">
+              <label className="grid gap-1 text-sm font-semibold">Yên lặng từ<input type="time" value={quietStart} onChange={(event) => onQuietStart(event.target.value)} className="min-h-12 rounded-xl border border-slate-200 px-3 text-base" /></label>
+              <label className="grid gap-1 text-sm font-semibold">Đến<input type="time" value={quietEnd} onChange={(event) => onQuietEnd(event.target.value)} className="min-h-12 rounded-xl border border-slate-200 px-3 text-base" /></label>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {[["REMINDER", "Nhắc mua hàng"], ["ORDER", "Đơn hàng"], ["CASHBACK", "Tiền hoàn"], ["SUPPORT", "Hỗ trợ"]].map(([value, label]) => (
+                <label key={value} className="flex min-h-12 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-medium">
+                  <input type="checkbox" checked={categories.includes(value)} onChange={(event) => onCategories(event.target.checked ? [...categories, value] : categories.filter((item) => item !== value))} className="h-5 w-5 accent-emerald-700" />{label}
+                </label>
+              ))}
+            </div>
+            <button type="button" onClick={onSave} disabled={!categories.length} className="min-h-14 rounded-2xl bg-emerald-700 px-4 text-base font-bold text-white disabled:opacity-50">Lưu cài đặt</button>
+            <button type="button" onClick={onDisable} className="min-h-12 rounded-xl border border-red-200 text-sm font-semibold text-red-700">Tắt trên thiết bị này</button>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function SideMenu({
   open,
   onClose,
   onChat,
   onCommand,
   onPage,
+  pushEnabled,
+  onPushSettings,
   onLogout
 }: {
   open: boolean;
@@ -1394,6 +1450,8 @@ function SideMenu({
   onChat: () => void;
   onCommand: (command: string) => void;
   onPage: (slug: string) => void;
+  pushEnabled: boolean;
+  onPushSettings: () => void;
   onLogout: () => void;
 }) {
   const [pages, setPages] = useState<PublicPageItem[]>([]);
@@ -1409,12 +1467,15 @@ function SideMenu({
 
   const items = [
     { label: "Chat", icon: MessageCircle, action: onChat },
-    { label: "Số dư", icon: WalletCards, action: () => onCommand("/taikhoan") },
+    { label: "Ví của tôi", icon: WalletCards, action: () => onCommand("/taikhoan") },
+    { label: "Biến động ví", icon: Clock3, action: () => onCommand("/biendongsodu") },
     { label: "Đơn hàng", icon: PackageCheck, action: () => onCommand("/donhang") },
     { label: "Rút tiền", icon: HandCoins, action: () => onCommand("__withdraw__") },
     { label: "Lịch sử rút", icon: History, action: () => onCommand("/lichsurut") },
     { label: "Nhiệm vụ", icon: ListChecks, action: () => onCommand("/nhiemvu") },
     { label: "Thông báo", icon: Bell, action: () => onCommand("/thongbao") },
+    { label: "Bảo mật", icon: ShieldCheck, action: () => onCommand("/baomat") },
+    { label: "Phiên đăng nhập", icon: History, action: () => onCommand("/phien") },
     { label: "Giới thiệu", icon: UserRound, action: () => onCommand("/gioithieu") },
     { label: "Tra soát đơn", icon: Headphones, action: () => onCommand("__ticket__") },
     { label: "Hỗ trợ", icon: Headphones, action: () => onCommand("/hotro") },
@@ -1425,7 +1486,7 @@ function SideMenu({
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onClose}>
       <aside
-        className="flex h-full w-72 max-w-[calc(100vw-32px)] flex-col bg-white shadow-soft"
+        className="flex h-full w-[88vw] max-w-sm flex-col bg-[#f7f8fa] shadow-soft"
         onClick={(event) => event.stopPropagation()}
         aria-label="Menu"
       >
@@ -1439,6 +1500,18 @@ function SideMenu({
           </button>
         </div>
         <nav className="grid flex-1 auto-rows-min grid-cols-2 gap-2 overflow-y-auto p-3">
+          <button
+            type="button"
+            onClick={onPushSettings}
+            className="col-span-2 flex min-h-16 w-full items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 text-left"
+          >
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-700 text-white"><Bell className="h-5 w-5" /></span>
+            <span className="min-w-0 flex-1">
+              <strong className="block text-sm text-brand-ink">Thông báo thiết bị</strong>
+              <span className="block text-xs text-neutral-500">{pushEnabled ? "Đang bật · Chạm để cài đặt" : "Chưa bật · Chạm để thiết lập"}</span>
+            </span>
+            <span className={`h-2.5 w-2.5 rounded-full ${pushEnabled ? "bg-emerald-500" : "bg-neutral-300"}`} />
+          </button>
           {items.map((item) => {
             const Icon = item.icon;
             return (
@@ -1446,7 +1519,7 @@ function SideMenu({
                 key={item.label}
                 type="button"
                 onClick={item.action}
-                className="flex min-h-12 w-full items-center gap-2 rounded-lg border border-brand-line bg-white px-2.5 text-left text-xs font-medium text-brand-ink hover:bg-[#f1f7f4]"
+                className="flex min-h-14 w-full items-center gap-2.5 rounded-xl border border-brand-line bg-white px-3 text-left text-[13px] font-semibold text-brand-ink shadow-sm hover:bg-[#f1f7f4]"
               >
                 <Icon className="h-4 w-4 shrink-0 text-brand-red" />
                 <span>{item.label}</span>
@@ -1480,14 +1553,14 @@ function MessageBubble({ message, onSend }: { message: ChatMessage; onSend: (mes
   return (
     <div className={`mb-3 flex items-end gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser ? <BotAvatar /> : null}
-      <div className={isUser ? "flex min-w-0 max-w-[78%] justify-end overflow-hidden" : "min-w-0 w-[calc(100%-44px)] max-w-[calc(100%-44px)] overflow-hidden sm:w-full sm:max-w-md"}>
+      <div className={isUser ? "flex min-w-0 max-w-[86%] justify-end overflow-hidden" : "min-w-0 w-[calc(100%-44px)] max-w-[calc(100%-44px)] overflow-hidden sm:w-full sm:max-w-lg"}>
         {cashback ? (
           <CashbackCard data={cashback} />
         ) : loginError ? (
           <LoginErrorCard data={loginError} onSend={onSend} />
         ) : (
           isUser ? (
-            <div className="chat-text whitespace-pre-line rounded-2xl rounded-br-md border border-sky-200 bg-sky-100 px-4 py-3 text-sm leading-relaxed text-brand-ink shadow-sm">{message.content}</div>
+            <div className="chat-text whitespace-pre-line rounded-2xl rounded-br-md border border-sky-200 bg-sky-100 px-4 py-3 text-[15px] leading-6 text-brand-ink shadow-sm">{message.content}</div>
           ) : (
             <BotCard content={message.content} onSend={onSend} />
           )
@@ -1539,6 +1612,14 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
       <div className="min-w-0 text-sm leading-relaxed">
         {isAccountTitle(title) ? (
           <AccountSummary lines={body} />
+        ) : isBalanceActivityTitle(title) ? (
+          <BalanceActivity lines={body} />
+        ) : isSecurityTitle(title) ? (
+          <SecuritySummary lines={body} onSend={onSend} />
+        ) : isSessionsTitle(title) ? (
+          <SessionSummary lines={body} onSend={onSend} />
+        ) : isSmartGuideTitle(title) ? (
+          <SmartGuide lines={body} onSend={onSend} />
         ) : isWithdrawalHistoryTitle(title) ? (
           <WithdrawalHistory lines={body} onSend={onSend} />
         ) : isTaskTitle(title) ? (
@@ -1561,6 +1642,56 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
       </div>
     </div>
   );
+}
+
+function BalanceActivity({ lines }: { lines: string[] }) {
+  const groups: string[][] = [];
+  lines.forEach((line) => {
+    if (/^\d+\./.test(line) || !groups.length) groups.push([line]);
+    else groups[groups.length - 1].push(line);
+  });
+  return <div className="grid gap-2.5">{groups.map((group, index) => {
+    const title = group[0]?.replace(/^\d+\.\s*/, "") || "Giao dịch";
+    const amount = group.find((line) => line.toLowerCase().startsWith("số tiền:"))?.split(":").slice(1).join(":").trim() || "-";
+    const balance = group.find((line) => line.toLowerCase().startsWith("số dư sau giao dịch:"))?.split(":").slice(1).join(":").trim() || "-";
+    const credit = amount.trim().startsWith("+");
+    return <article key={`${title}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="flex items-start gap-3"><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${credit ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><WalletCards className="h-5 w-5" /></span>
+        <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold leading-5">{title}</h3><div className="mt-1.5 flex flex-wrap items-center justify-between gap-2"><strong className={`text-base ${credit ? "text-emerald-700" : "text-red-700"}`}>{amount}</strong><span className="text-xs text-neutral-500">Còn {balance}</span></div></div>
+      </div>
+    </article>;
+  })}</div>;
+}
+
+function SecuritySummary({ lines, onSend }: { lines: string[]; onSend: (message: string) => void }) {
+  const entries = lines.filter((line) => line.includes(":"));
+  return <div className="grid gap-3">
+    {entries.map((line) => {
+      const [label, ...rest] = line.split(":"); const status = rest.join(":").trim(); const active = status.toLowerCase().includes("đang bật");
+      return <div key={line} className="flex min-h-14 items-center gap-3 rounded-xl border border-slate-200 px-3"><span className={`grid h-9 w-9 place-items-center rounded-xl ${active ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}><ShieldCheck className="h-5 w-5" /></span><span className="min-w-0 flex-1"><strong className="block text-sm">{label}</strong><span className="text-xs text-neutral-500">{status}</span></span><span className={`h-2.5 w-2.5 rounded-full ${active ? "bg-emerald-500" : "bg-amber-400"}`} /></div>;
+    })}
+    <p className="rounded-xl bg-slate-50 p-3 text-xs leading-5 text-neutral-600">Để thay đổi 2FA hoặc OTP email, hãy mở phần bảo mật trên tài khoản Hoàn Tiền Mua Hàng.</p>
+    <button type="button" onClick={() => onSend("/phien")} className="min-h-12 rounded-xl border border-brand-red bg-red-50 text-sm font-semibold text-brand-red">Kiểm tra phiên đăng nhập</button>
+  </div>;
+}
+
+function SessionSummary({ lines, onSend }: { lines: string[]; onSend: (message: string) => void }) {
+  const groups: string[][] = [];
+  lines.filter((line) => !line.startsWith("Bạn có thể")).forEach((line) => {
+    if (/^\d+\./.test(line) || !groups.length) groups.push([line]); else groups[groups.length - 1].push(line);
+  });
+  return <div className="grid gap-2.5">{groups.map((group, index) => {
+    const device = group[0]?.replace(/^\d+\.\s*/, "") || "Thiết bị";
+    const id = group.find((line) => line.startsWith("ID:"))?.slice(3).trim() || "";
+    const current = device.includes("(hiện tại)");
+    return <article key={`${id}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"><div className="flex items-start gap-3"><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${current ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}><ShieldCheck className="h-5 w-5" /></span><div className="min-w-0 flex-1"><h3 className="text-sm font-semibold">{device}</h3>{group.slice(2).map((line) => <p key={line} className="mt-1 text-xs text-neutral-500">{line}</p>)}</div></div>{!current && id && id !== "-" ? <button type="button" onClick={() => onSend(`/phien revoke ${id}`)} className="mt-3 min-h-11 w-full rounded-xl border border-red-200 bg-red-50 text-sm font-semibold text-red-700">Đăng xuất thiết bị này</button> : null}</article>;
+  })}<button type="button" onClick={() => onSend("/phien revoke-others")} className="min-h-12 rounded-xl bg-brand-red px-3 text-sm font-semibold text-white">Đăng xuất tất cả thiết bị khác</button></div>;
+}
+
+function SmartGuide({ lines, onSend }: { lines: string[]; onSend: (message: string) => void }) {
+  return <div className="grid gap-3"><div className="rounded-2xl bg-gradient-to-br from-red-50 to-amber-50 p-4"><p className="text-sm leading-6 text-brand-ink">{lines.filter((line) => !line.startsWith("•")).join("\n")}</p></div><div className="grid grid-cols-2 gap-2">{[
+    ["Xem ví", "/taikhoan"], ["Xem đơn hàng", "/donhang"], ["Rút tiền", "__withdraw__"], ["Cần hỗ trợ", "/hotro"]
+  ].map(([label, command]) => <button key={label} type="button" onClick={() => onSend(command)} className="min-h-12 rounded-xl border border-slate-200 bg-white px-2 text-sm font-semibold text-brand-ink">{label}</button>)}</div><p className="text-center text-xs text-neutral-500">Bạn chỉ cần nhắn điều mình muốn, Ry sẽ tự hiểu.</p></div>;
 }
 
 function ReferralSummary({ lines }: { lines: string[] }) {

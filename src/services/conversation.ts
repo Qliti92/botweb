@@ -80,36 +80,22 @@ const readyMessage = "Đăng nhập thành công rồi ạ 🎉\n\nBạn gửi R
 const loginErrorPrefix = "LOGIN_ERROR:";
 
 const guideMessage = [
-  "Ry hướng dẫn bạn nhé:",
-  "1. Đăng nhập hoặc tạo tài khoản.",
-  "2. Gửi Ry link sản phẩm Shopee hoặc TikTok Shop.",
-  "3. Khi Ry tạo link xong, bấm nút Mua ngay để quay lại sàn.",
-  "4. Trước khi mua, bạn nên để giỏ hàng trống và mở link 2 lần để tăng khả năng đơn được ghi nhận.",
+  "Dùng Ry rất đơn giản:",
+  "1. Sao chép link sản phẩm Shopee hoặc TikTok Shop.",
+  "2. Quay lại đây, Ry sẽ phát hiện link và gợi ý dùng ngay.",
+  "3. Ry tạo link hoàn tiền, bạn bấm Mua ngay rồi đặt hàng như bình thường.",
+  "4. Theo dõi đơn, tiền hoàn và số dư ngay trong cuộc trò chuyện.",
   "",
-  "Bạn cũng có thể hỏi Ry bằng câu tự nhiên, ví dụ “ví còn bao nhiêu?” hoặc “xem đơn Shopee đang chờ”.",
+  "Ry là trợ lý chat thông minh nên bạn không cần nhớ câu lệnh. Cứ hỏi tự nhiên như:",
+  "• “Ví của tôi còn bao nhiêu?”",
+  "• “Xem các đơn Shopee đang chờ”",
+  "• “Rút 100.000 đồng”",
+  "• “Thiết bị nào đang đăng nhập tài khoản?”",
+  "• “Tôi chưa thấy đơn hoàn tiền”",
   "",
-  "Các lệnh nhanh:",
-  "/huongdan - xem hướng dẫn",
-  "/hotro - gặp hướng dẫn hỗ trợ",
-  "/taikhoan hoặc /sodu - xem hồ sơ, số dư ví, thống kê",
-  "/donhang status=approved platform=shopee - xem đơn hoàn tiền",
-  "/thongbao - xem thông báo chưa đọc",
-  "/doctatca - đánh dấu tất cả thông báo đã đọc",
-  "/lichsurut - xem lịch sử rút tiền",
-  "/ruttien - tạo yêu cầu rút tiền từng bước",
-  "/ruttien 50000_bank_Techcombank_190123_NGUYEN VAN A - gửi nhanh yêu cầu rút tiền",
-  "/capnhat Họ tên|Số điện thoại - cập nhật hồ sơ",
-  "/doimatkhau mật_khẩu_cũ|mật_khẩu_mới|nhập_lại_mật_khẩu_mới - đổi mật khẩu",
-  "/xoataikhoan - tự xóa tài khoản nếu hệ thống cho phép",
-  "/nhiemvu - xem nhiệm vụ và tiến độ nhận thưởng",
-  "/nhiemvu sync ID hoặc /nhiemvu claim ID - đồng bộ/nhận thưởng",
-  "/gioithieu - xem link, F1/F2 và hoa hồng giới thiệu",
-  "/biendongsodu - xem lịch sử cộng/trừ ví",
-  "/nhatky - xem nhật ký hoạt động tài khoản",
-  "/baomat - xem trạng thái 2FA và OTP email",
-  "/phien - xem các thiết bị đang đăng nhập",
-  "/phien revoke ID hoặc /phien revoke-others - thu hồi phiên đăng nhập",
-  "/xoachat - xóa nội dung chat hiện tại"
+  "Mẹo để đơn dễ được ghi nhận: mở link Ry tạo trước khi đặt hàng và hạn chế thêm sản phẩm từ link khác vào cùng đơn.",
+  "",
+  "Bạn cũng có thể mở menu để xem nhanh Ví, Biến động ví, Bảo mật, Phiên đăng nhập và cài đặt thông báo."
 ].join("\n");
 
 const supportMessage = [
@@ -1393,7 +1379,7 @@ function formatSessions(data: Record<string, unknown>) {
   return [
     "Các phiên đăng nhập:",
     ...items.map((item, index) => `${index + 1}. ${item.device_name ?? "Thiết bị"}${item.is_current ? " (hiện tại)" : ""}\nID: ${item.id ?? "-"}\nIP gần nhất: ${item.last_ip ?? "-"}\nHoạt động: ${item.last_used_at ?? item.created_at ?? "-"}`),
-    "Dùng /phien revoke ID để thu hồi một phiên khác hoặc /phien revoke-others để đăng xuất tất cả thiết bị khác."
+    "Bạn có thể thu hồi từng phiên hoặc đăng xuất tất cả thiết bị khác bằng các nút bên dưới."
   ].join("\n\n");
 }
 
