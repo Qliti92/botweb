@@ -38,6 +38,17 @@ Authorization: Bearer <CRON_SECRET>
 
 The admin page contains a `Push theo lịch` tab for one-time or daily reminders. Invalid/expired browser subscriptions are removed automatically after push services return HTTP 404 or 410.
 
+Push delivery includes:
+
+- admin-device test delivery before broadcasting;
+- per-device quiet hours, categories and unsubscribe controls;
+- recipient segments (`ALL`, `ADMIN`, `INACTIVE_3D`, `ACCOUNT`);
+- a default cap of two successful pushes per device per rolling 24 hours;
+- delivery errors and click tracking through `/api/push/click/[id]`;
+- cron health history and downloadable admin reports.
+
+Opening the admin push tab initializes ten one-time reminder campaigns across five days at 09:05, 11:35, 15:05 and 20:05 Asia/Ho_Chi_Minh time. Existing campaigns with the same titles are not duplicated.
+
 ## AI intent fallback
 
 Set `INTENT_AI_ENDPOINT` and `INTENT_AI_TOKEN`. The endpoint receives redacted text and an allowlist, and must return JSON with `intent`, `confidence`, and optional `parameters`. Results below `0.78` are ignored. Destructive and financial intents are not present in this fallback allowlist.

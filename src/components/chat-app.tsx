@@ -206,6 +206,11 @@ export function ChatApp() {
   const [sending, setSending] = useState(false);
   const [pushState, setPushState] = useState<"idle" | "enabling" | "enabled" | "unsupported" | "error">("idle");
   const [pushMessage, setPushMessage] = useState("");
+  const [pushEndpoint, setPushEndpoint] = useState("");
+  const [showPushSettings, setShowPushSettings] = useState(false);
+  const [pushQuietStart, setPushQuietStart] = useState("22:00");
+  const [pushQuietEnd, setPushQuietEnd] = useState("08:00");
+  const [pushCategories, setPushCategories] = useState(["REMINDER", "ORDER", "CASHBACK", "SUPPORT"]);
   const [error, setError] = useState("");
   const [history, setHistory] = useState<ChatHistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -319,6 +324,8 @@ export function ChatApp() {
         const subscription = await push.getCurrentPushSubscription();
         if (subscription) {
           await registerPushSubscription(subscription);
+          setPushEndpoint(subscription.endpoint);
+          await loadPushPreferences(subscription.endpoint);
           setPushState("enabled");
           return;
         }
@@ -326,6 +333,7 @@ export function ChatApp() {
         if (Notification.permission === "granted") {
           const nextSubscription = await push.registerForPushNotifications();
           await registerPushSubscription(nextSubscription);
+          setPushEndpoint(nextSubscription.endpoint);
           setPushState("enabled");
         }
       } catch {
@@ -461,6 +469,8 @@ export function ChatApp() {
       setShowHistory(false);
       setShowSideMenu(false);
       window.localStorage.removeItem("chat_session_id");
+      setPushEndpoint("");
+      setShowPushSettings(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ry chưa đăng xuất được. Bạn thử lại nhé.");
     } finally {
@@ -482,6 +492,21 @@ export function ChatApp() {
     if (!response.ok) throw new Error(data.error ?? "Không thể đăng ký thiết bị.");
   }
 
+  async function loadPushPreferences(endpoint: string) {
+    if (!session) return;
+    const response = await fetch(`/api/push/subscriptions?sessionId=${encodeURIComponent(session.id)}`);
+    if (!response.ok) return;
+    const data = await response.json();
+    const item = (data.subscriptions ?? []).find((entry: { endpoint?: string }) => entry.endpoint === endpoint);
+    if (!item) return;
+    setPushQuietStart(item.quietStart || "22:00");
+    setPushQuietEnd(item.quietEnd || "08:00");
+    try {
+      const categories = JSON.parse(item.categories || "[]");
+      if (Array.isArray(categories) && categories.length) setPushCategories(categories);
+    } catch {}
+  }
+
   async function enablePushNotifications() {
     setPushState("enabling");
     setPushMessage("");
@@ -489,11 +514,61 @@ export function ChatApp() {
       const push = await import("@/lib/web-push-client");
       const subscription = await push.registerForPushNotifications();
       await registerPushSubscription(subscription);
+      setPushEndpoint(subscription.endpoint);
       setPushState("enabled");
       setPushMessage("Thiết bị này đã bật thông báo đẩy.");
     } catch (err) {
       setPushState("error");
       setPushMessage(err instanceof Error ? err.message : "Không thể bật thông báo.");
+    }
+  }
+
+  async function savePushPreferences() {
+    if (!session || !pushEndpoint) return;
+    setPushState("enabling");
+    setPushMessage("");
+    try {
+      const response = await fetch("/api/push/subscriptions", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          sessionId: session.id,
+          endpoint: pushEndpoint,
+          quietStart: pushQuietStart,
+          quietEnd: pushQuietEnd,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Ho_Chi_Minh",
+          categories: pushCategories
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Không thể lưu cài đặt.");
+      setPushState("enabled");
+      setPushMessage("Đã lưu cài đặt thông báo.");
+      setShowPushSettings(false);
+    } catch (err) {
+      setPushState("error");
+      setPushMessage(err instanceof Error ? err.message : "Không thể lưu cài đặt.");
+    }
+  }
+
+  async function disablePushNotifications() {
+    if (!session || !pushEndpoint) return;
+    setPushState("enabling");
+    try {
+      await fetch("/api/push/subscriptions", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId: session.id, endpoint: pushEndpoint })
+      });
+      const push = await import("@/lib/web-push-client");
+      await push.unregisterFromPushNotifications();
+      setPushEndpoint("");
+      setShowPushSettings(false);
+      setPushMessage("Đã tắt thông báo trên thiết bị này.");
+      setPushState("idle");
+    } catch (err) {
+      setPushMessage(err instanceof Error ? err.message : "Không thể tắt thông báo.");
+      setPushState("error");
     }
   }
 
@@ -796,9 +871,30 @@ export function ChatApp() {
         ) : null}
 
         {session?.user && pushState === "enabled" ? (
-          <div className="mb-3 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            {pushMessage || "Thiết bị này đã bật thông báo đẩy."}
+          <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span className="flex-1">{pushMessage || "Thiết bị này đã bật thông báo đẩy."}</span>
+              <button type="button" onClick={() => setShowPushSettings((value) => !value)} className="rounded-lg border border-emerald-300 bg-white px-3 font-semibold text-emerald-800">Cài đặt</button>
+            </div>
+            {showPushSettings ? (
+              <div className="mt-3 grid gap-3 border-t border-emerald-200 pt-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="grid gap-1 font-medium">Yên lặng từ<input type="time" value={pushQuietStart} onChange={(event) => setPushQuietStart(event.target.value)} className="rounded-lg border border-emerald-200 bg-white px-2" /></label>
+                  <label className="grid gap-1 font-medium">Đến<input type="time" value={pushQuietEnd} onChange={(event) => setPushQuietEnd(event.target.value)} className="rounded-lg border border-emerald-200 bg-white px-2" /></label>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[["REMINDER", "Nhắc mua hàng"], ["ORDER", "Đơn hàng"], ["CASHBACK", "Tiền hoàn"], ["SUPPORT", "Hỗ trợ"]].map(([value, label]) => (
+                    <label key={value} className="flex items-center gap-2 rounded-lg bg-white px-2 py-1.5">
+                      <input type="checkbox" checked={pushCategories.includes(value)} onChange={(event) => setPushCategories((items) => event.target.checked ? [...items, value] : items.filter((item) => item !== value))} className="h-4 w-4 accent-emerald-700" />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <button type="button" onClick={savePushPreferences} disabled={!pushCategories.length} className="rounded-lg bg-emerald-700 px-4 font-semibold text-white disabled:opacity-50">Lưu cài đặt</button>
+                <button type="button" onClick={disablePushNotifications} className="rounded-lg border border-red-200 bg-white px-4 font-semibold text-red-700">Tắt trên thiết bị này</button>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

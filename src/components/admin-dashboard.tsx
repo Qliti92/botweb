@@ -14,7 +14,9 @@ type ChatDto = {
 type DashboardMetrics = { activeSessions: number; messages24h: number; openTickets: number; urgentTickets: number; unresolved: number; failedJobs: number; apiFailures: number };
 type TicketDto = { id: string; orderId?: string | null; category: string; subject: string; description: string; status: string; priority: string; assignedTo?: string | null; updatedAt: string; messages: { id: string; sender: string; content: string }[] };
 type IntentDto = { id: string; name: string; description?: string | null; examples: string; keywords: string; commandTemplate: string; requiresAuth: boolean; requiresConfirm: boolean; isActive: boolean };
-type PushCampaignDto = { id: string; title: string; message: string; actionUrl?: string | null; recurrence: string; scheduledAt: string; nextRunAt?: string | null; lastSentAt?: string | null; status: string; sentCount: number; failedCount: number };
+type PushCampaignDto = { id: string; title: string; message: string; actionUrl?: string | null; recurrence: string; scheduledAt: string; nextRunAt?: string | null; lastSentAt?: string | null; status: string; segment: string; category: string; targetAccountKey?: string | null; maxPerDay: number; sentCount: number; failedCount: number };
+type PushDeliveryDto = { id: string; campaignId?: string | null; subscriptionId: string; status: string; error?: string | null; sentAt?: string | null; clickedAt?: string | null; createdAt: string };
+type PushCronRunDto = { id: string; status: string; processed: number; error?: string | null; startedAt: string; endedAt?: string | null };
 type SiteSettingsDto = {
   siteName: string; logoUrl: string; avatarUrl: string; seoTitle: string; seoDescription: string; seoKeywords: string;
   canonicalUrl: string; ogTitle: string; ogDescription: string; ogImageUrl: string; twitterTitle: string;
@@ -87,6 +89,9 @@ export function AdminDashboard() {
   const [siteSettings, setSiteSettings] = useState<SiteSettingsDto | null>(null);
   const [pushCampaigns, setPushCampaigns] = useState<PushCampaignDto[]>([]);
   const [pushSubscriptionCount, setPushSubscriptionCount] = useState(0);
+  const [adminPushSubscriptionCount, setAdminPushSubscriptionCount] = useState(0);
+  const [pushDeliveries, setPushDeliveries] = useState<PushDeliveryDto[]>([]);
+  const [lastPushCronRun, setLastPushCronRun] = useState<PushCronRunDto | null>(null);
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
@@ -128,6 +133,9 @@ export function AdminDashboard() {
     setNotices(noticesData.notices);
     setPushCampaigns(pushData.campaigns);
     setPushSubscriptionCount(pushData.subscriptionCount);
+    setAdminPushSubscriptionCount(pushData.adminSubscriptionCount);
+    setPushDeliveries(pushData.deliveries);
+    setLastPushCronRun(pushData.lastCronRun);
     setChats(chatsData.sessions);
     setSiteSettings(settingsData.settings);
   }
@@ -190,7 +198,7 @@ export function AdminDashboard() {
         {tab === "knowledge" ? <KnowledgePanel entries={knowledge} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "unrecognized" ? <UnrecognizedPanel messages={unrecognized} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "notices" ? <NoticesPanel notices={notices} reload={loadAll} setNotice={setNotice} /> : null}
-        {tab === "push" ? <PushCampaignsPanel campaigns={pushCampaigns} subscriptionCount={pushSubscriptionCount} reload={loadAll} setNotice={setNotice} /> : null}
+        {tab === "push" ? <PushCampaignsPanel campaigns={pushCampaigns} subscriptionCount={pushSubscriptionCount} adminSubscriptionCount={adminPushSubscriptionCount} deliveries={pushDeliveries} lastCronRun={lastPushCronRun} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "chats" ? <ChatsPanel chats={chats} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "settings" && siteSettings ? <SiteSettingsPanel settings={siteSettings} setSettings={setSiteSettings} setNotice={setNotice} /> : null}
       </section>
@@ -201,11 +209,17 @@ export function AdminDashboard() {
 function PushCampaignsPanel({
   campaigns,
   subscriptionCount,
+  adminSubscriptionCount,
+  deliveries,
+  lastCronRun,
   reload,
   setNotice
 }: {
   campaigns: PushCampaignDto[];
   subscriptionCount: number;
+  adminSubscriptionCount: number;
+  deliveries: PushDeliveryDto[];
+  lastCronRun: PushCronRunDto | null;
   reload: () => Promise<void>;
   setNotice: (value: string) => void;
 }) {
@@ -218,6 +232,9 @@ function PushCampaignsPanel({
     return new Date(next.getTime() - next.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
   });
   const [recurrence, setRecurrence] = useState<"ONCE" | "DAILY">("ONCE");
+  const [segment, setSegment] = useState<"ALL" | "ADMIN" | "INACTIVE_3D" | "ACCOUNT">("ALL");
+  const [category, setCategory] = useState<"REMINDER" | "ORDER" | "CASHBACK" | "SUPPORT">("REMINDER");
+  const [targetAccountKey, setTargetAccountKey] = useState("");
   const [saving, setSaving] = useState(false);
   const [workingId, setWorkingId] = useState("");
 
@@ -228,7 +245,7 @@ function PushCampaignsPanel({
     try {
       await fetchJson("/api/admin/push-campaigns", {
         method: "POST",
-        body: JSON.stringify({ title, message, actionUrl, recurrence, scheduledAt: new Date(scheduledAt).toISOString() })
+        body: JSON.stringify({ title, message, actionUrl, recurrence, scheduledAt: new Date(scheduledAt).toISOString(), segment, category, targetAccountKey, maxPerDay: 2 })
       });
       setTitle("");
       setMessage("");
@@ -241,12 +258,12 @@ function PushCampaignsPanel({
     }
   }
 
-  async function act(id: string, action: "send-now" | "cancel") {
+  async function act(id: string, action: "send-now" | "cancel" | "test-admin") {
     setWorkingId(id);
     setNotice("");
     try {
       const data = await fetchJson("/api/admin/push-campaigns", { method: "PATCH", body: JSON.stringify({ id, action }) });
-      setNotice(action === "send-now" ? `Đã gửi: ${data.result?.sent ?? 0} thành công, ${data.result?.failed ?? 0} thất bại.` : "Đã hủy lịch gửi.");
+      setNotice(action === "cancel" ? "Đã hủy lịch gửi." : `Đã gửi: ${data.result?.sent ?? 0} thành công, ${data.result?.failed ?? 0} thất bại, ${data.result?.skipped ?? 0} bỏ qua.`);
       await reload();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Không thể xử lý thông báo.");
@@ -255,11 +272,60 @@ function PushCampaignsPanel({
     }
   }
 
+  async function enableAdminPush() {
+    setSaving(true);
+    setNotice("");
+    try {
+      const push = await import("@/lib/web-push-client");
+      const subscription = await push.registerForPushNotifications();
+      const response = await fetch("/api/admin/push-subscriptions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(subscription.toJSON())
+      });
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(data.error ?? "Không thể đăng ký thiết bị admin.");
+      setNotice("Đã đăng ký thiết bị admin để nhận thông báo thử.");
+      await reload();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Không thể bật thông báo admin.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function reuseCampaign(campaign: PushCampaignDto) {
+    setTitle(campaign.title);
+    setMessage(campaign.message);
+    setActionUrl(campaign.actionUrl || "https://tranquan.vn/");
+    setSegment(campaign.segment as typeof segment);
+    setCategory(campaign.category as typeof category);
+    setTargetAccountKey(campaign.targetAccountKey || "");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function exportPushReport() {
+    const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), campaigns, deliveries, lastCronRun }, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `push-report-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const successfulDeliveries = deliveries.filter((item) => item.status === "SENT").length;
+  const clickedDeliveries = deliveries.filter((item) => item.clickedAt).length;
+  const clickRate = successfulDeliveries ? Math.round((clickedDeliveries / successfulDeliveries) * 1000) / 10 : 0;
+  const cronIsStale = !lastCronRun || Date.now() - new Date(lastCronRun.startedAt).getTime() > 5 * 60 * 1000;
+
   return (
     <div className="grid gap-5">
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-        <p className="text-sm text-emerald-800">Thiết bị đang nhận Web Push</p>
-        <strong className="mt-1 block text-3xl text-emerald-700">{subscriptionCount}</strong>
+      <div className="grid gap-3 sm:grid-cols-4">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4"><p className="text-sm text-emerald-800">Thiết bị người dùng</p><strong className="mt-1 block text-3xl text-emerald-700">{subscriptionCount}</strong></div>
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4"><p className="text-sm text-blue-800">Thiết bị test admin</p><strong className="mt-1 block text-3xl text-blue-700">{adminSubscriptionCount}</strong><button type="button" onClick={enableAdminPush} disabled={saving} className="mt-2 rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Đăng ký máy này</button></div>
+        <div className={`rounded-xl border p-4 ${lastCronRun?.status === "FAILED" || cronIsStale ? "border-red-200 bg-red-50" : "border-neutral-200 bg-neutral-50"}`}><p className="text-sm text-neutral-700">Cron gần nhất</p><strong className="mt-1 block text-base">{lastCronRun ? `${lastCronRun.status} · ${new Date(lastCronRun.startedAt).toLocaleString("vi-VN")}` : "Chưa chạy"}</strong>{cronIsStale ? <p className="mt-1 text-xs font-semibold text-red-700">Cron đã quá 5 phút chưa chạy.</p> : null}{lastCronRun?.error ? <p className="mt-1 text-xs text-red-700">{lastCronRun.error}</p> : null}</div>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4"><p className="text-sm text-amber-800">Tỷ lệ mở gần đây</p><strong className="mt-1 block text-3xl text-amber-700">{clickRate}%</strong><button type="button" onClick={exportPushReport} className="mt-2 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-800">Xuất báo cáo</button></div>
       </div>
 
       <form onSubmit={submit} className="grid gap-3 rounded-xl border border-brand-line bg-white p-4 shadow-sm">
@@ -274,6 +340,11 @@ function PushCampaignsPanel({
           <label className="grid gap-1 text-sm font-medium">Ngày giờ gửi<input value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} type="datetime-local" required className="h-11 rounded-lg border border-brand-line px-3 font-normal" /></label>
           <label className="grid gap-1 text-sm font-medium">Lặp lại<select value={recurrence} onChange={(event) => setRecurrence(event.target.value as "ONCE" | "DAILY")} className="h-11 rounded-lg border border-brand-line px-3 font-normal"><option value="ONCE">Chỉ gửi một lần</option><option value="DAILY">Lặp hằng ngày</option></select></label>
         </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1 text-sm font-medium">Nhóm người nhận<select value={segment} onChange={(event) => setSegment(event.target.value as typeof segment)} className="h-11 rounded-lg border border-brand-line px-3 font-normal"><option value="ALL">Tất cả người dùng</option><option value="ADMIN">Chỉ thiết bị admin</option><option value="INACTIVE_3D">Không hoạt động 3 ngày</option><option value="ACCOUNT">Một tài khoản</option></select></label>
+          <label className="grid gap-1 text-sm font-medium">Loại thông báo<select value={category} onChange={(event) => setCategory(event.target.value as typeof category)} className="h-11 rounded-lg border border-brand-line px-3 font-normal"><option value="REMINDER">Nhắc mua hàng</option><option value="ORDER">Đơn hàng</option><option value="CASHBACK">Tiền hoàn</option><option value="SUPPORT">Hỗ trợ</option></select></label>
+        </div>
+        {segment === "ACCOUNT" ? <input value={targetAccountKey} onChange={(event) => setTargetAccountKey(event.target.value)} required placeholder="Account key người nhận" className="h-11 rounded-lg border border-brand-line px-3 text-sm" /> : null}
         <button disabled={saving} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand-red px-5 font-semibold text-white disabled:opacity-60">
           {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Clock3 className="h-4 w-4" />}
           {saving ? "Đang lưu..." : "Đặt lịch gửi"}
@@ -288,11 +359,13 @@ function PushCampaignsPanel({
                 <h3 className="font-semibold">{campaign.title}</h3>
                 <p className="mt-1 whitespace-pre-line text-sm text-neutral-600">{campaign.message}</p>
                 <p className="mt-2 text-xs text-neutral-500">
-                  {campaign.recurrence === "DAILY" ? "Hằng ngày" : "Một lần"} · Lần tới: {campaign.nextRunAt ? new Date(campaign.nextRunAt).toLocaleString("vi-VN") : "—"} · {campaign.status}
+                  {campaign.recurrence === "DAILY" ? "Hằng ngày" : "Một lần"} · {campaign.segment} · {campaign.category} · Lần tới: {campaign.nextRunAt ? new Date(campaign.nextRunAt).toLocaleString("vi-VN") : "—"} · {campaign.status}
                 </p>
                 <p className="mt-1 text-xs text-neutral-500">Đã gửi {campaign.sentCount} · Lỗi {campaign.failedCount}</p>
               </div>
               <div className="flex gap-2">
+                <button type="button" onClick={() => reuseCampaign(campaign)} className="rounded-lg border border-neutral-200 px-3 text-xs font-semibold text-neutral-700">Dùng lại</button>
+                <button type="button" onClick={() => act(campaign.id, "test-admin")} disabled={workingId === campaign.id || adminSubscriptionCount < 1} className="rounded-lg border border-blue-200 px-3 text-xs font-semibold text-blue-700 disabled:opacity-40">Gửi thử</button>
                 <button type="button" onClick={() => act(campaign.id, "send-now")} disabled={workingId === campaign.id} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 text-xs font-semibold text-white disabled:opacity-50">
                   {workingId === campaign.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Gửi ngay
                 </button>
@@ -302,6 +375,19 @@ function PushCampaignsPanel({
           </article>
         ))}
         {!campaigns.length ? <p className="rounded-xl border border-dashed p-4 text-sm text-neutral-500">Chưa có lịch thông báo nào.</p> : null}
+      </div>
+
+      <div className="rounded-xl border border-brand-line bg-white p-4">
+        <h2 className="font-semibold">Nhật ký gửi gần đây</h2>
+        <div className="mt-3 grid gap-2">
+          {deliveries.slice(0, 30).map((delivery) => (
+            <div key={delivery.id} className="rounded-lg bg-neutral-50 px-3 py-2 text-xs">
+              <div className="flex flex-wrap justify-between gap-2"><strong className={delivery.status === "FAILED" ? "text-red-700" : "text-emerald-700"}>{delivery.status}</strong><span>{new Date(delivery.createdAt).toLocaleString("vi-VN")}</span></div>
+              <p className="mt-1 text-neutral-500">Mở: {delivery.clickedAt ? new Date(delivery.clickedAt).toLocaleString("vi-VN") : "chưa"}{delivery.error ? ` · Lỗi: ${delivery.error}` : ""}</p>
+            </div>
+          ))}
+          {!deliveries.length ? <p className="text-sm text-neutral-500">Chưa có lượt gửi nào.</p> : null}
+        </div>
       </div>
     </div>
   );

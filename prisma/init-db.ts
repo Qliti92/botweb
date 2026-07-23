@@ -200,21 +200,62 @@ async function main() {
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS web_push_subscriptions (
       id TEXT PRIMARY KEY NOT NULL, endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL,
-      account_key TEXT, user_agent TEXT, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      account_key TEXT, user_agent TEXT, enabled BOOLEAN NOT NULL DEFAULT true, is_admin BOOLEAN NOT NULL DEFAULT false,
+      quiet_start TEXT NOT NULL DEFAULT '22:00', quiet_end TEXT NOT NULL DEFAULT '08:00',
+      timezone TEXT NOT NULL DEFAULT 'Asia/Ho_Chi_Minh',
+      categories TEXT NOT NULL DEFAULT '["REMINDER","ORDER","CASHBACK","SUPPORT"]',
+      last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME NOT NULL
     )
   `);
+  for (const statement of [
+    `ALTER TABLE web_push_subscriptions ADD COLUMN enabled BOOLEAN NOT NULL DEFAULT true`,
+    `ALTER TABLE web_push_subscriptions ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT false`,
+    `ALTER TABLE web_push_subscriptions ADD COLUMN quiet_start TEXT NOT NULL DEFAULT '22:00'`,
+    `ALTER TABLE web_push_subscriptions ADD COLUMN quiet_end TEXT NOT NULL DEFAULT '08:00'`,
+    `ALTER TABLE web_push_subscriptions ADD COLUMN timezone TEXT NOT NULL DEFAULT 'Asia/Ho_Chi_Minh'`,
+    `ALTER TABLE web_push_subscriptions ADD COLUMN categories TEXT NOT NULL DEFAULT '["REMINDER","ORDER","CASHBACK","SUPPORT"]'`,
+    `ALTER TABLE web_push_subscriptions ADD COLUMN last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`
+  ]) {
+    try { await prisma.$executeRawUnsafe(statement); } catch {}
+  }
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS web_push_subscriptions_account_key_updated_at_idx ON web_push_subscriptions(account_key, updated_at)`);
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS push_campaigns (
       id TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, message TEXT NOT NULL, action_url TEXT,
       recurrence TEXT NOT NULL DEFAULT 'ONCE', scheduled_at DATETIME NOT NULL, next_run_at DATETIME,
       last_sent_at DATETIME, status TEXT NOT NULL DEFAULT 'ACTIVE', sent_count INTEGER NOT NULL DEFAULT 0,
-      failed_count INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      failed_count INTEGER NOT NULL DEFAULT 0, segment TEXT NOT NULL DEFAULT 'ALL',
+      category TEXT NOT NULL DEFAULT 'REMINDER', target_account_key TEXT, max_per_day INTEGER NOT NULL DEFAULT 2,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME NOT NULL
     )
   `);
+  for (const statement of [
+    `ALTER TABLE push_campaigns ADD COLUMN segment TEXT NOT NULL DEFAULT 'ALL'`,
+    `ALTER TABLE push_campaigns ADD COLUMN category TEXT NOT NULL DEFAULT 'REMINDER'`,
+    `ALTER TABLE push_campaigns ADD COLUMN target_account_key TEXT`,
+    `ALTER TABLE push_campaigns ADD COLUMN max_per_day INTEGER NOT NULL DEFAULT 2`
+  ]) {
+    try { await prisma.$executeRawUnsafe(statement); } catch {}
+  }
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS push_campaigns_status_next_run_at_idx ON push_campaigns(status, next_run_at)`);
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS push_deliveries (
+      id TEXT PRIMARY KEY NOT NULL, campaign_id TEXT, subscription_id TEXT NOT NULL, status TEXT NOT NULL,
+      error TEXT, action_url TEXT, sent_at DATETIME, clicked_at DATETIME,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS push_deliveries_campaign_id_created_at_idx ON push_deliveries(campaign_id, created_at)`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS push_deliveries_subscription_id_sent_at_idx ON push_deliveries(subscription_id, sent_at)`);
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS push_cron_runs (
+      id TEXT PRIMARY KEY NOT NULL, status TEXT NOT NULL, processed INTEGER NOT NULL DEFAULT 0,
+      error TEXT, started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, ended_at DATETIME
+    )
+  `);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS push_cron_runs_started_at_idx ON push_cron_runs(started_at)`);
 
   if ((await prisma.knowledgeEntry.count()) === 0) {
     await prisma.knowledgeEntry.createMany({

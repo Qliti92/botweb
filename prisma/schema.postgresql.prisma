@@ -248,6 +248,13 @@ model WebPushSubscription {
   auth       String
   accountKey String?  @map("account_key")
   userAgent  String?  @map("user_agent")
+  enabled    Boolean  @default(true)
+  isAdmin    Boolean  @default(false) @map("is_admin")
+  quietStart String   @default("22:00") @map("quiet_start")
+  quietEnd   String   @default("08:00") @map("quiet_end")
+  timezone   String   @default("Asia/Ho_Chi_Minh")
+  categories String   @default("[\"REMINDER\",\"ORDER\",\"CASHBACK\",\"SUPPORT\"]")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
@@ -265,6 +272,10 @@ model PushCampaign {
   nextRunAt   DateTime? @map("next_run_at")
   lastSentAt  DateTime? @map("last_sent_at")
   status      String   @default("ACTIVE")
+  segment     String   @default("ALL")
+  category    String   @default("REMINDER")
+  targetAccountKey String? @map("target_account_key")
+  maxPerDay   Int      @default(2) @map("max_per_day")
   sentCount   Int      @default(0) @map("sent_count")
   failedCount Int      @default(0) @map("failed_count")
   createdAt   DateTime @default(now()) @map("created_at")
@@ -272,6 +283,34 @@ model PushCampaign {
 
   @@index([status, nextRunAt])
   @@map("push_campaigns")
+}
+
+model PushDelivery {
+  id             String   @id @default(cuid())
+  campaignId     String?  @map("campaign_id")
+  subscriptionId String   @map("subscription_id")
+  status         String
+  error          String?
+  actionUrl      String?  @map("action_url")
+  sentAt         DateTime? @map("sent_at")
+  clickedAt      DateTime? @map("clicked_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([campaignId, createdAt])
+  @@index([subscriptionId, sentAt])
+  @@map("push_deliveries")
+}
+
+model PushCronRun {
+  id        String   @id @default(cuid())
+  status    String
+  processed Int      @default(0)
+  error     String?
+  startedAt DateTime @default(now()) @map("started_at")
+  endedAt   DateTime? @map("ended_at")
+
+  @@index([startedAt])
+  @@map("push_cron_runs")
 }
 
 enum Sender {
