@@ -7,6 +7,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     name: settings.siteName,
     short_name: settings.siteName.slice(0, 30),
     description: settings.seoDescription,
+    id: "/",
     start_url: "/",
     display: "standalone",
     background_color: "#fffaf8",
@@ -14,8 +15,14 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     lang: "vi",
     icons: [
       {
-        src: "/api/site-assets/logo",
-        sizes: "any",
+        src: "/icons/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any"
+      },
+      {
+        src: "/icons/icon-512.png",
+        sizes: "512x512",
         type: "image/png",
         purpose: "any"
       }
