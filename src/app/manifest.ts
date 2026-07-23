@@ -1,18 +1,20 @@
 import type { MetadataRoute } from "next";
+import { getSiteSettings } from "@/services/site-settings";
 
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const settings = await getSiteSettings();
   return {
-    name: "Hoàn Tiền Mua Hàng",
-    short_name: "Hoàn Tiền",
-    description: "Tạo link hoàn tiền Shopee và TikTok Shop ngay trong chat.",
+    name: settings.siteName,
+    short_name: settings.siteName.slice(0, 30),
+    description: settings.seoDescription,
     start_url: "/",
     display: "standalone",
     background_color: "#fffaf8",
-    theme_color: "#e94b2c",
+    theme_color: "#287a63",
     lang: "vi",
     icons: [
       {
-        src: "/logo.png",
+        src: "/api/site-assets/logo",
         sizes: "any",
         type: "image/png",
         purpose: "any"

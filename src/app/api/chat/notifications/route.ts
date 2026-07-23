@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getNotificationSnapshot } from "@/services/conversation";
 import { rateLimit } from "@/lib/rate-limit";
+import { requireMatchingChatSession } from "@/lib/chat-session";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") ?? "local";
   const limited = rateLimit(`chat-notifications:${ip}`, 90, 60_000);
   if (!limited.ok) {
@@ -15,6 +16,7 @@ export async function GET(request: Request) {
     if (!sessionId) {
       return NextResponse.json({ error: "Thiếu sessionId." }, { status: 400 });
     }
+    await requireMatchingChatSession(request, sessionId);
 
     return NextResponse.json(await getNotificationSnapshot(sessionId));
   } catch (error) {

@@ -6,15 +6,15 @@ const config: Config = {
     extend: {
       colors: {
         brand: {
-          red: "#e11d2e",
-          dark: "#111111",
-          ink: "#222222",
-          line: "#ececec",
-          soft: "#f7f7f8"
+          red: "#287a63",
+          dark: "#30343b",
+          ink: "#30343b",
+          line: "#d9dde3",
+          soft: "#fafaf8"
         }
       },
       boxShadow: {
-        soft: "0 18px 50px rgba(17, 17, 17, 0.08)"
+        soft: "0 18px 50px rgba(48, 52, 59, 0.09)"
       }
     }
   },

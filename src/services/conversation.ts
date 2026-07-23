@@ -1,6 +1,12 @@
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
+import { writeAuditLog } from "@/lib/audit";
+import { detectIntent, normalizeVietnamese } from "@/services/intent";
+import { findKnowledgeAnswer } from "@/services/knowledge";
+import { recordUnrecognizedMessage } from "@/services/unrecognized";
+import { classifyIntentFallback } from "@/services/intent-fallback";
+import { findDynamicIntentCommand } from "@/services/dynamic-intent";
 import { emailSchema, passwordSchema, phoneSchema, urlSchema } from "@/lib/validators";
 import { createCashbackLink, type CashbackLinkResult } from "@/services/cashback-link";
 import {
@@ -20,6 +26,7 @@ import {
   getActivityLogs,
   getBalanceLogs,
   getNotifications,
+  getAllOrders,
   getOrders,
   getReferrals,
   getSecurityStatus,
@@ -28,6 +35,7 @@ import {
   getUnreadNotificationCount,
   getWithdrawals,
   markAllNotificationsRead,
+  markNotificationRead,
   revokeOtherSessions,
   revokeSession,
   sendWithdrawalOtp,
@@ -42,7 +50,6 @@ type SessionState = {
     email?: string;
     name?: string;
     phone?: string;
-    password?: string;
   };
   twoFactor?: {
     challengeToken: string;
@@ -64,20 +71,24 @@ type SessionState = {
     account_number?: string;
     account_name?: string;
   };
+  pendingSensitiveAction?: "delete_account" | "revoke_other_sessions";
+  pendingClarification?: "delete_target";
 };
 
-const startMessage = "Nếu bạn có tài khoản chọn 1\nChưa có tài khoản chọn 2";
-const readyMessage = "Bạn đã đăng nhập thành công. Hãy dán link sản phẩm Shopee hoặc TikTok Shop để tạo link hoàn tiền.";
+const startMessage = "Chào bạn, em là Ry 👋\n\nEm sẽ giúp bạn tạo link hoàn tiền và kiểm tra tài khoản thật nhanh.\n\n• Đã có tài khoản: chọn Đăng nhập hoặc nhập 1\n• Chưa có tài khoản: chọn Đăng ký hoặc nhập 2";
+const readyMessage = "Đăng nhập thành công rồi ạ 🎉\n\nBạn gửi Ry link sản phẩm Shopee hoặc TikTok Shop nhé. Ry sẽ tạo link hoàn tiền giúp bạn.";
 const loginErrorPrefix = "LOGIN_ERROR:";
 
 const guideMessage = [
-  "Hướng dẫn sử dụng:",
-  "1. Đăng nhập hoặc đăng ký tài khoản.",
-  "2. Dán link sản phẩm Shopee hoặc TikTok Shop vào ô chat.",
-  "3. Bấm nút đỏ trong kết quả để quay lại sàn mua hàng.",
-  "4. Khi mua hàng, hãy để giỏ hàng trống và ấn 2 lần link để bảo đảm chuyển đổi.",
+  "Ry hướng dẫn bạn nhé:",
+  "1. Đăng nhập hoặc tạo tài khoản.",
+  "2. Gửi Ry link sản phẩm Shopee hoặc TikTok Shop.",
+  "3. Khi Ry tạo link xong, bấm nút Mua ngay để quay lại sàn.",
+  "4. Trước khi mua, bạn nên để giỏ hàng trống và mở link 2 lần để tăng khả năng đơn được ghi nhận.",
   "",
-  "Lệnh nhanh:",
+  "Bạn cũng có thể hỏi Ry bằng câu tự nhiên, ví dụ “ví còn bao nhiêu?” hoặc “xem đơn Shopee đang chờ”.",
+  "",
+  "Các lệnh nhanh:",
   "/huongdan - xem hướng dẫn",
   "/hotro - gặp hướng dẫn hỗ trợ",
   "/taikhoan hoặc /sodu - xem hồ sơ, số dư ví, thống kê",
@@ -102,12 +113,14 @@ const guideMessage = [
 ].join("\n");
 
 const supportMessage = [
-  "Hỗ trợ khách hàng:",
+  "Ry rất tiếc vì chưa thể tự giải quyết việc này. Bạn liên hệ đội hỗ trợ qua một trong các kênh sau nhé:",
   "Điện thoại: 0375823061",
   "Zalo: https://zalo.me/g/5lqqyvfhem7kgbrjxk7k",
   "Email: hotro@hoantienmuahang.vn",
   "Trang chính thức: https://hoantienmuahang.vn",
-  "Thời gian hỗ trợ: 8h - 20h hằng ngày"
+  "Thời gian hỗ trợ: 8:00–20:00 hằng ngày",
+  "",
+  "Khi liên hệ, bạn gửi kèm email tài khoản hoặc mã đơn để được kiểm tra nhanh hơn nhé."
 ].join("\n");
 
 function readState(raw: string): SessionState {
@@ -155,7 +168,7 @@ function isForgotPasswordCommand(value: string) {
 }
 
 function isCancelCommand(value: string) {
-  return ["/huy", "/cancel", "hủy", "huy", "thoát", "thoat", "quay lại", "quay lai"].includes(normalize(value));
+  return ["/huy", "/cancel", "hủy", "huy", "không", "khong", "thoát", "thoat", "quay lại", "quay lai"].includes(normalize(value));
 }
 
 function isMemberCommand(value: string) {
@@ -167,12 +180,15 @@ function isMemberCommand(value: string) {
     "/thongbao",
     "/doctatca",
     "/lichsurut",
+    "/trasoat",
     "/ruttien",
     "/capnhat",
     "/doimatkhau",
     "/xoataikhoan",
+    "/xacnhan-xoataikhoan",
     "/nhiemvu",
     "/gioithieu",
+    "/giới",
     "/biendongsodu",
     "/nhatky",
     "/baomat",
@@ -232,7 +248,6 @@ export async function registerChatSession(input: { email: string; password: stri
   return createAuthenticatedChatSession(result, {
     register: {
       email: parsedEmail,
-      password: parsedPassword,
       name: input.name?.trim() || undefined,
       phone: parsedPhone
     }
@@ -327,9 +342,93 @@ export async function handleUserMessage(sessionId: string, content: string) {
   const session = await prisma.chatSession.findUnique({ where: { id: sessionId } });
   if (!session) throw new Error("Không tìm thấy phiên chat.");
 
-  await prisma.chatMessage.create({ data: { sessionId, sender: "USER", content } });
   const state = readState(session.state);
-  const text = content.trim();
+  const sensitiveStep = ["login_password", "register_password", "register_password_confirmation", "two_factor"].includes(state.step ?? "");
+  const sensitiveCommand = normalize(content).startsWith("/doimatkhau");
+  await prisma.chatMessage.create({
+    data: { sessionId, sender: "USER", content: sensitiveStep || sensitiveCommand ? "[Thông tin bảo mật đã được ẩn]" : content }
+  });
+  let text = content.trim();
+  let confirmedRevokeOthers = false;
+  const normalizedInput = normalizeVietnamese(content);
+  const canUnderstandIntent = Boolean(state.account) || ["auth_choice", "awaiting_email", undefined].includes(state.step);
+  const detectedIntent = canUnderstandIntent ? detectIntent(text) : null;
+  if (detectedIntent) text = detectedIntent.command;
+  else {
+    const dynamicCommand = await findDynamicIntentCommand(text, Boolean(state.account));
+    if (dynamicCommand) text = dynamicCommand;
+  }
+
+  if (state.pendingClarification === "delete_target") {
+    if (["chat", "tro chuyen", "cuoc tro chuyen", "tin nhan"].some((value) => normalizedInput.includes(value))) {
+      state.pendingClarification = undefined;
+      text = "/xoachat";
+    } else if (["tai khoan", "account"].some((value) => normalizedInput.includes(value))) {
+      state.pendingClarification = undefined;
+      text = "/xoataikhoan";
+    } else if (isCancelCommand(text)) {
+      state.pendingClarification = undefined;
+      await updateSession(sessionId, state);
+      await saveBot(sessionId, "Được rồi ạ, Ry không xóa gì cả. Dữ liệu của bạn vẫn giữ nguyên nhé.");
+      return getSessionPayload(sessionId);
+    } else {
+      await saveBot(sessionId, "Bạn muốn Ry xóa phần nào ạ?\n\n• Nhập “xóa chat” để dọn cuộc trò chuyện\n• Nhập “xóa tài khoản” để đóng tài khoản\n• Nhập “không xóa nữa” để hủy");
+      return getSessionPayload(sessionId);
+    }
+  }
+
+  if (text === "/lamro-xoa") {
+    state.pendingClarification = "delete_target";
+    await updateSession(sessionId, state);
+    await saveBot(sessionId, "Bạn muốn Ry xóa phần nào ạ?\n\n• Xóa cuộc trò chuyện hiện tại\n• Xóa tài khoản\n• Không xóa gì cả");
+    return getSessionPayload(sessionId);
+  }
+
+  if (state.pendingSensitiveAction === "delete_account") {
+    if (["1", "dong y", "xac nhan", "xoa di", "xoa tai khoan"].includes(normalizedInput)) {
+      text = "/xacnhan-xoataikhoan";
+    } else if (isCancelCommand(text) || normalizedInput === "2") {
+      state.pendingSensitiveAction = undefined;
+      await updateSession(sessionId, state);
+      await saveBot(sessionId, "Ry đã hủy yêu cầu xóa tài khoản. Tài khoản và dữ liệu của bạn vẫn được giữ nguyên nhé.");
+      return getSessionPayload(sessionId);
+    } else if (text !== "/xoataikhoan" && text !== "/xacnhan-xoataikhoan") {
+      await saveBot(sessionId, "Ry đang chờ bạn xác nhận:\n• Nhập 1 hoặc “đồng ý” để tiếp tục xóa tài khoản\n• Nhập 2 hoặc “không xóa nữa” để hủy");
+      return getSessionPayload(sessionId);
+    }
+  }
+
+  if (state.pendingSensitiveAction === "revoke_other_sessions") {
+    if (["1", "dong y", "xac nhan", "dang xuat"].includes(normalizedInput)) {
+      state.pendingSensitiveAction = undefined;
+      await updateSession(sessionId, state);
+      text = "/phien revoke-others";
+      confirmedRevokeOthers = true;
+    } else if (isCancelCommand(text) || normalizedInput === "2") {
+      state.pendingSensitiveAction = undefined;
+      await updateSession(sessionId, state);
+      await saveBot(sessionId, "Ry đã hủy. Các thiết bị khác vẫn đăng nhập bình thường nhé.");
+      return getSessionPayload(sessionId);
+    } else {
+      await saveBot(sessionId, "Ry đang chờ bạn xác nhận đăng xuất các thiết bị khác.");
+      return getSessionPayload(sessionId);
+    }
+  }
+
+  if (text === "/chao") {
+    await saveBot(sessionId, state.account ? "Ry đây ạ 👋 Hôm nay bạn muốn kiểm tra đơn hàng, số dư hay tạo link hoàn tiền?" : startMessage);
+    return getSessionPayload(sessionId);
+  }
+
+  if (text === "/camon") {
+    await saveBot(sessionId, "Không có gì ạ 😊 Giúp được bạn là Ry vui rồi. Khi cần kiểm tra đơn hoặc tạo link, bạn cứ nhắn Ry nhé.");
+    return getSessionPayload(sessionId);
+  }
+
+  if (text === "/ry-la-ai") {
+    await saveBot(sessionId, "Em là Ry, trợ lý hoàn tiền của bạn 🤖\n\nRy có thể tạo link sản phẩm, kiểm tra đơn 10 ngày gần nhất, xem số dư, hỗ trợ rút tiền và hướng dẫn các vấn đề thường gặp.");
+    return getSessionPayload(sessionId);
+  }
 
   if (isGuideCommand(text)) {
     await saveBot(sessionId, guideMessage);
@@ -338,6 +437,26 @@ export async function handleUserMessage(sessionId: string, content: string) {
 
   if (isSupportCommand(text)) {
     await saveBot(sessionId, supportMessage);
+    await writeAuditLog({
+      actorType: state.account ? "USER" : "SYSTEM",
+      actorId: state.account?.accountKey ?? sessionId,
+      action: detectedIntent?.intent === "SUPPORT" ? "SUPPORT_HANDOFF_REQUEST" : "SUPPORT_INFO_VIEW",
+      targetType: "ChatSession",
+      targetId: sessionId
+    });
+    if (detectedIntent?.intent === "SUPPORT") {
+      await saveBot(sessionId, "Ry đã ghi nhận yêu cầu hỗ trợ cùng nội dung cuộc trò chuyện này rồi ạ. Bạn có thể liên hệ qua các kênh phía trên để được hỗ trợ sớm hơn nhé.");
+    }
+    return getSessionPayload(sessionId);
+  }
+
+  if (text.startsWith("/page ")) {
+    const slug = text.slice("/page ".length).trim();
+    if (/^[a-z0-9-]{1,100}$/i.test(slug)) {
+      await saveBot(sessionId, `STATIC_PAGE:${JSON.stringify({ slug })}`);
+    } else {
+      await saveBot(sessionId, "Ry chưa tìm thấy trang thông tin phù hợp.");
+    }
     return getSessionPayload(sessionId);
   }
 
@@ -350,14 +469,14 @@ export async function handleUserMessage(sessionId: string, content: string) {
     state.step = "ready_for_link";
     state.withdrawalDraft = undefined;
     await updateSession(sessionId, state);
-    await saveBot(sessionId, "Đã hủy thao tác rút tiền hiện tại để chuyển sang lệnh mới.");
+    await saveBot(sessionId, "Ry đã hủy phần rút tiền đang làm dở để chuyển sang yêu cầu mới của bạn.");
   } else if (state.account && state.step?.startsWith("withdrawal_")) {
     await handleWithdrawalStep(sessionId, text, state);
     return getSessionPayload(sessionId);
   }
 
   if (!state.account && isMemberCommand(text)) {
-    await saveBot(sessionId, `Bạn cần đăng nhập để dùng lệnh này.\n${startMessage}`);
+    await saveBot(sessionId, `Bạn đăng nhập trước để Ry kiểm tra đúng thông tin tài khoản nhé.\n\n${startMessage}`);
     return getSessionPayload(sessionId);
   }
 
@@ -374,14 +493,56 @@ export async function handleUserMessage(sessionId: string, content: string) {
     if (isRegisterChoice(text)) return switchToRegister(sessionId, state);
   }
 
+  if (state.account && state.pendingSensitiveAction && isCancelCommand(text)) {
+    state.pendingSensitiveAction = undefined;
+    await updateSession(sessionId, state);
+    await saveBot(sessionId, "Ry đã hủy thao tác này. Tài khoản của bạn chưa có gì thay đổi nhé.");
+    return getSessionPayload(sessionId);
+  }
+
   if (state.account && isMemberCommand(text)) {
+    if (text === "/phien revoke-others" && !confirmedRevokeOthers) {
+      state.pendingSensitiveAction = "revoke_other_sessions";
+      await updateSession(sessionId, state);
+      await saveBot(sessionId, "Bạn muốn đăng xuất tài khoản khỏi tất cả thiết bị khác đúng không ạ?\n\nThiết bị bạn đang dùng vẫn được giữ đăng nhập.");
+      return getSessionPayload(sessionId);
+    }
+    if (detectedIntent?.intent === "WITHDRAW" && detectedIntent.parameters?.amount) {
+      await saveBot(sessionId, `WITHDRAWAL_FORM:${JSON.stringify({ amount: detectedIntent.parameters.amount })}`);
+      return getSessionPayload(sessionId);
+    }
     await handleMemberCommand(sessionId, text, state);
     return getSessionPayload(sessionId);
   }
 
   if (state.account) {
-    await handleProductLink(sessionId, text, state);
+    if (urlSchema.safeParse(text).success) {
+      await handleProductLink(sessionId, text, state);
+      return getSessionPayload(sessionId);
+    }
+    const answer = await findKnowledgeAnswer(content);
+    if (answer) {
+      await saveBot(sessionId, answer.content);
+      await writeAuditLog({ actorType: "USER", actorId: state.account.accountKey, action: "KNOWLEDGE_ANSWER", targetType: "KnowledgeEntry", targetId: answer.entryId, metadata: { confidence: answer.confidence } });
+    } else {
+      const fallbackIntent = await classifyIntentFallback(content);
+      if (fallbackIntent) {
+        await handleMemberCommand(sessionId, fallbackIntent.command, state);
+        await writeAuditLog({ actorType: "USER", actorId: state.account.accountKey, action: "AI_INTENT_FALLBACK", targetType: "ChatSession", targetId: sessionId, metadata: { intent: fallbackIntent.intent, confidence: fallbackIntent.confidence } });
+        return getSessionPayload(sessionId);
+      }
+      await recordUnrecognizedMessage(sessionId, content);
+      await saveBot(sessionId, "Ry chưa hiểu rõ ý bạn nên không muốn trả lời sai 😊\n\nBạn thử nói ngắn gọn hơn, chọn một chức năng trong menu hoặc nhập “gặp nhân viên” để được hỗ trợ nhé.");
+    }
     return getSessionPayload(sessionId);
+  }
+
+  if (!detectedIntent && ["auth_choice", "awaiting_email", undefined].includes(state.step)) {
+    const answer = await findKnowledgeAnswer(content);
+    if (answer) {
+      await saveBot(sessionId, answer.content);
+      return getSessionPayload(sessionId);
+    }
   }
 
   switch (state.step) {
@@ -402,7 +563,7 @@ export async function handleUserMessage(sessionId: string, content: string) {
       state.register = { ...state.register, name: text };
       state.step = "register_phone";
       await updateSession(sessionId, state);
-      await saveBot(sessionId, "Vui lòng nhập số điện thoại.");
+      await saveBot(sessionId, "Bạn nhập số điện thoại để Ry hoàn tất thông tin nhé.");
       return getSessionPayload(sessionId);
     case "register_phone":
       return handleRegisterPhone(sessionId, text, state);
@@ -433,7 +594,7 @@ export async function getNotificationSnapshot(sessionId: string) {
 async function clearCurrentChat(sessionId: string, state: SessionState) {
   await prisma.chatMessage.deleteMany({ where: { sessionId } });
   await updateSession(sessionId, state);
-  await saveBot(sessionId, state.account ? `Đã xóa nội dung chat.\n${readyMessage}` : `Đã xóa nội dung chat.\n${startMessage}`);
+  await saveBot(sessionId, state.account ? `Ry đã dọn cuộc trò chuyện cũ rồi ạ.\n\n${readyMessage}` : `Ry đã dọn cuộc trò chuyện cũ rồi ạ.\n\n${startMessage}`);
 }
 
 async function handleMemberCommand(sessionId: string, text: string, state: SessionState) {
@@ -447,39 +608,56 @@ async function handleMemberCommand(sessionId: string, text: string, state: Sessi
     }
 
     if (command === "/donhang") {
-      await saveBot(sessionId, formatOrders(await getOrders(account.token, account.tokenType, parseOrderQuery(text))));
+      const all = isAllOrderRequest(text);
+      const query = parseOrderQuery(text);
+      const data = all
+        ? await getAllOrders(account.token, account.tokenType, query)
+        : await getOrders(account.token, account.tokenType, query);
+      await saveBot(sessionId, formatOrders(data, all));
       return;
     }
 
     if (command === "/thongbao") {
+      const [, action, id] = text.trim().split(/\s+/);
+      if (action === "read" && id) {
+        await markNotificationRead(account.token, account.tokenType, id);
+        await saveBot(sessionId, formatNotifications(await getNotifications(account.token, account.tokenType, { filter: "unread" })));
+        return;
+      }
       await saveBot(sessionId, formatNotifications(await getNotifications(account.token, account.tokenType, { filter: "unread" })));
       return;
     }
 
     if (command === "/doctatca") {
       await markAllNotificationsRead(account.token, account.tokenType);
-      await saveBot(sessionId, "Đã đánh dấu tất cả thông báo là đã đọc.");
+      await saveBot(sessionId, "Ry đã đánh dấu tất cả thông báo là đã đọc rồi nhé.");
       return;
     }
 
     if (command === "/lichsurut") {
-      await saveBot(sessionId, formatWithdrawals(await getWithdrawals(account.token, account.tokenType)));
+      const fullHistory = /\b(all|tat ca|toan bo)\b/.test(normalizeVietnamese(text));
+      const page = Math.max(1, Number(text.match(/\bpage=(\d+)/i)?.[1] ?? 1));
+      const perPage = fullHistory ? 5 : 2;
+      await saveBot(sessionId, formatWithdrawals(await getWithdrawals(account.token, account.tokenType, page, perPage), fullHistory));
+      return;
+    }
+
+    if (command === "/trasoat") {
+      const category = text.match(/\bcategory=(MISSING_ORDER|WRONG_CASHBACK|DELAYED|REJECTED|ACCOUNT|OTHER)\b/i)?.[1]?.toUpperCase() ?? "MISSING_ORDER";
+      await saveBot(sessionId, `TICKET_FORM:${JSON.stringify({ category })}`);
       return;
     }
 
     if (command === "/ruttien") {
       if (isWithdrawalOtpRequest(text)) {
         await sendWithdrawalOtp(account.token, account.tokenType);
-        await saveBot(sessionId, "Đã gửi mã OTP rút tiền về email của bạn.");
+        await saveBot(sessionId, "Ry đã gửi mã OTP đến email của bạn. Bạn kiểm tra cả hộp thư rác nếu chưa thấy nhé.");
         return;
       }
 
       const payload = parseWithdrawalCommand(text);
       if (!payload) {
-        state.step = "withdrawal_amount";
-        state.withdrawalDraft = {};
-        await updateSession(sessionId, state);
-        await saveBot(sessionId, withdrawalGuide());
+        await saveBot(sessionId, "WITHDRAWAL_FORM:{}");
         return;
       }
       await saveBot(sessionId, formatGenericSuccess(await createWithdrawal(account.token, account.tokenType, payload), "Đã tạo yêu cầu rút tiền."));
@@ -489,7 +667,7 @@ async function handleMemberCommand(sessionId: string, text: string, state: Sessi
     if (command === "/capnhat") {
       const payload = parseProfileCommand(text);
       if (!payload) {
-        await saveBot(sessionId, "Cú pháp: /capnhat Họ tên|Số điện thoại");
+        await saveBot(sessionId, "Bạn nhập theo mẫu này giúp Ry nhé:\n/capnhat Họ tên|Số điện thoại\n\nVí dụ: /capnhat Nguyễn Văn An|0912345678");
         return;
       }
       await saveBot(sessionId, formatGenericSuccess(await updateProfile(account.token, account.tokenType, payload), "Đã cập nhật hồ sơ."));
@@ -499,7 +677,7 @@ async function handleMemberCommand(sessionId: string, text: string, state: Sessi
     if (command === "/doimatkhau") {
       const payload = parsePasswordCommand(text);
       if (!payload) {
-        await saveBot(sessionId, "Cú pháp: /doimatkhau mật_khẩu_hiện_tại|mật_khẩu_mới|nhập_lại_mật_khẩu_mới");
+        await saveBot(sessionId, "Để bảo mật, bạn vui lòng đổi mật khẩu trong biểu mẫu tài khoản. Không gửi mật khẩu trong nội dung chat nhé.");
         return;
       }
       await saveBot(sessionId, formatGenericSuccess(await changePassword(account.token, account.tokenType, payload), "Đã đổi mật khẩu."));
@@ -507,8 +685,22 @@ async function handleMemberCommand(sessionId: string, text: string, state: Sessi
     }
 
     if (command === "/xoataikhoan") {
+      state.pendingSensitiveAction = "delete_account";
+      await updateSession(sessionId, state);
+      await saveBot(sessionId, "Bạn đang yêu cầu xóa tài khoản. Sau khi xóa, dữ liệu có thể không khôi phục được.\n\n• Chắc chắn muốn xóa: nhập /xacnhan-xoataikhoan\n• Không muốn xóa nữa: nhập /huy");
+      return;
+    }
+
+    if (command === "/xacnhan-xoataikhoan") {
+      if (state.pendingSensitiveAction !== "delete_account") {
+        await saveBot(sessionId, "Hiện không có yêu cầu xóa tài khoản nào cần xác nhận. Tài khoản của bạn vẫn an toàn nhé.");
+        return;
+      }
       await deleteAccount(account.token, account.tokenType);
-      await saveBot(sessionId, "Đã gửi yêu cầu xóa tài khoản.");
+      await writeAuditLog({ actorType: "USER", actorId: account.accountKey, action: "ACCOUNT_DELETE_REQUEST", targetType: "Account", targetId: account.accountKey });
+      state.pendingSensitiveAction = undefined;
+      await updateSession(sessionId, state);
+      await saveBot(sessionId, "Ry đã gửi yêu cầu xóa tài khoản. Nếu cần hỗ trợ thêm, bạn cứ nhập “gặp nhân viên” nhé.");
       return;
     }
 
@@ -520,13 +712,14 @@ async function handleMemberCommand(sessionId: string, text: string, state: Sessi
       }
       if (action === "claim" && id) {
         await saveBot(sessionId, formatGenericSuccess(await claimTask(account.token, account.tokenType, id), "Đã nhận thưởng nhiệm vụ."));
+        await saveBot(sessionId, formatTasks(await getTasks(account.token, account.tokenType)));
         return;
       }
       await saveBot(sessionId, formatTasks(await getTasks(account.token, account.tokenType)));
       return;
     }
 
-    if (command === "/gioithieu") {
+    if (command === "/gioithieu" || normalizeVietnamese(text) === "/gioi thieu") {
       await saveBot(sessionId, formatReferrals(await getReferrals(account.token, account.tokenType)));
       return;
     }
@@ -549,10 +742,12 @@ async function handleMemberCommand(sessionId: string, text: string, state: Sessi
     if (command === "/phien") {
       const [, action, id] = text.trim().split(/\s+/);
       if (action === "revoke" && id) {
+        await writeAuditLog({ actorType: "USER", actorId: account.accountKey, action: "SESSION_REVOKE_ATTEMPT", targetType: "RemoteSession", targetId: id });
         await saveBot(sessionId, formatGenericSuccess(await revokeSession(account.token, account.tokenType, id), "Đã thu hồi phiên đăng nhập."));
         return;
       }
       if (action === "revoke-others") {
+        await writeAuditLog({ actorType: "USER", actorId: account.accountKey, action: "SESSION_REVOKE_OTHERS_ATTEMPT", targetType: "Account", targetId: account.accountKey });
         await saveBot(sessionId, formatGenericSuccess(await revokeOtherSessions(account.token, account.tokenType), "Đã đăng xuất các thiết bị khác."));
         return;
       }
@@ -560,7 +755,7 @@ async function handleMemberCommand(sessionId: string, text: string, state: Sessi
       return;
     }
   } catch (error) {
-    await saveBot(sessionId, error instanceof Error ? error.message : "Không thể xử lý yêu cầu này.");
+    await saveBot(sessionId, error instanceof Error ? `Ry chưa xử lý được yêu cầu này: ${error.message}\n\nBạn thử lại sau ít phút nhé.` : "Ry chưa xử lý được yêu cầu này. Bạn thử lại sau ít phút nhé.");
   }
 }
 
@@ -573,20 +768,20 @@ async function handleWithdrawalStep(sessionId: string, text: string, state: Sess
     state.step = "ready_for_link";
     state.withdrawalDraft = undefined;
     await updateSession(sessionId, state);
-    await saveBot(sessionId, "Đã hủy yêu cầu rút tiền.");
+    await saveBot(sessionId, "Ry đã hủy yêu cầu rút tiền. Số dư của bạn không thay đổi nhé.");
     return;
   }
 
   if (state.step === "withdrawal_amount") {
     const amount = Number(text.replace(/[^\d]/g, ""));
     if (!Number.isFinite(amount) || amount <= 10000) {
-      await saveBot(sessionId, "Số tiền rút phải lớn hơn 10.000 VND. Ví dụ: 50000");
+      await saveBot(sessionId, "Số tiền rút cần lớn hơn 10.000đ. Bạn chỉ cần nhập số, ví dụ: 50000.");
       return;
     }
     state.withdrawalDraft = { ...draft, amount };
     state.step = "withdrawal_bank";
     await updateSession(sessionId, state);
-    await saveBot(sessionId, "Nhập tên ngân hàng nhận tiền. Ví dụ: Techcombank");
+    await saveBot(sessionId, "Bạn muốn nhận tiền qua ngân hàng nào?\nVí dụ: Techcombank");
     return;
   }
 
@@ -594,7 +789,7 @@ async function handleWithdrawalStep(sessionId: string, text: string, state: Sess
     state.withdrawalDraft = { ...draft, bank_name: text };
     state.step = "withdrawal_account_number";
     await updateSession(sessionId, state);
-    await saveBot(sessionId, "Nhập số tài khoản nhận tiền.");
+    await saveBot(sessionId, "Bạn nhập số tài khoản nhận tiền nhé. Ry sẽ cho bạn kiểm tra lại trước khi gửi yêu cầu.");
     return;
   }
 
@@ -602,7 +797,7 @@ async function handleWithdrawalStep(sessionId: string, text: string, state: Sess
     state.withdrawalDraft = { ...draft, account_number: text };
     state.step = "withdrawal_account_name";
     await updateSession(sessionId, state);
-    await saveBot(sessionId, "Nhập tên chủ tài khoản.");
+    await saveBot(sessionId, "Bạn nhập tên chủ tài khoản đúng như trên ngân hàng nhé.");
     return;
   }
 
@@ -614,14 +809,15 @@ async function handleWithdrawalStep(sessionId: string, text: string, state: Sess
     await saveBot(
       sessionId,
       [
-        "Xác nhận rút tiền:",
+        "Bạn kiểm tra lại thông tin rút tiền nhé:",
         `Số tiền: ${formatMoney(nextDraft.amount)} VND`,
         `Ngân hàng: ${nextDraft.bank_name}`,
         `Số tài khoản: ${nextDraft.account_number}`,
         `Chủ tài khoản: ${nextDraft.account_name}`,
         "",
-        "Vui lòng kiểm tra thật kỹ thông tin nhận tiền. Chúng tôi không chịu trách nhiệm nếu bạn nhập sai thông tin.",
-        "Gõ 1 để đồng ý gửi yêu cầu, hoặc 2 để hủy."
+        "Thông tin ngân hàng cần chính xác để tiền về đúng tài khoản.",
+        "• Đúng thông tin: nhập 1 để gửi yêu cầu",
+        "• Cần dừng lại: nhập 2 để hủy"
       ].join("\n")
     );
     return;
@@ -632,12 +828,12 @@ async function handleWithdrawalStep(sessionId: string, text: string, state: Sess
       state.step = "ready_for_link";
       state.withdrawalDraft = undefined;
       await updateSession(sessionId, state);
-      await saveBot(sessionId, "Đã hủy yêu cầu rút tiền.");
+      await saveBot(sessionId, "Ry đã hủy yêu cầu rút tiền. Số dư của bạn không thay đổi nhé.");
       return;
     }
 
     if (!["1", "xac nhan", "xác nhận", "confirm"].includes(normalized)) {
-      await saveBot(sessionId, "Vui lòng gõ 1 để đồng ý gửi yêu cầu rút tiền, hoặc 2 để hủy.");
+      await saveBot(sessionId, "Ry cần bạn xác nhận trước khi gửi yêu cầu:\n• Nhập 1 để đồng ý\n• Nhập 2 để hủy");
       return;
     }
 
@@ -645,7 +841,7 @@ async function handleWithdrawalStep(sessionId: string, text: string, state: Sess
       state.step = "withdrawal_amount";
       state.withdrawalDraft = {};
       await updateSession(sessionId, state);
-      await saveBot(sessionId, "Thông tin rút tiền chưa đủ. Vui lòng nhập lại số tiền muốn rút.");
+      await saveBot(sessionId, "Ry chưa nhận đủ thông tin rút tiền. Mình làm lại từ số tiền nhé.");
       return;
     }
 
@@ -664,7 +860,7 @@ async function handleWithdrawalStep(sessionId: string, text: string, state: Sess
         )
       );
     } catch (error) {
-      await saveBot(sessionId, error instanceof Error ? error.message : "Không thể tạo yêu cầu rút tiền.");
+      await saveBot(sessionId, error instanceof Error ? `Ry chưa tạo được yêu cầu rút tiền: ${error.message}\nBạn kiểm tra lại thông tin hoặc thử lại sau nhé.` : "Ry chưa tạo được yêu cầu rút tiền. Bạn thử lại sau nhé.");
     } finally {
       state.step = "ready_for_link";
       state.withdrawalDraft = undefined;
@@ -683,7 +879,7 @@ async function handleEmail(sessionId: string, text: string, state: SessionState)
   state.email = email.data;
   state.step = "auth_choice";
   await updateSession(sessionId, state);
-  await saveBot(sessionId, "Chọn 1 để đăng nhập, hoặc 2 để đăng ký tài khoản mới.");
+  await saveBot(sessionId, "Ry đã nhận được email. Bây giờ bạn chọn:\n• Nhập 1 để đăng nhập\n• Nhập 2 để tạo tài khoản mới");
   return getSessionPayload(sessionId);
 }
 
@@ -697,7 +893,7 @@ async function handleLoginEmail(sessionId: string, text: string, state: SessionS
   state.email = email.data;
   state.step = "login_password";
   await updateSession(sessionId, state);
-  await saveBot(sessionId, "Vui lòng nhập mật khẩu để đăng nhập.");
+  await saveBot(sessionId, "Bạn nhập mật khẩu để đăng nhập nhé. Ry sẽ không lưu mật khẩu trong lịch sử chat.");
   return getSessionPayload(sessionId);
 }
 
@@ -712,7 +908,7 @@ async function handleRegisterEmail(sessionId: string, text: string, state: Sessi
   state.register = { email: email.data };
   state.step = "register_name";
   await updateSession(sessionId, state);
-  await saveBot(sessionId, "Vui lòng nhập họ tên.");
+  await saveBot(sessionId, "Ry gọi bạn là gì nhỉ? Bạn nhập họ tên đầy đủ nhé.");
   return getSessionPayload(sessionId);
 }
 
@@ -750,7 +946,7 @@ async function switchToLogin(sessionId: string, state: SessionState) {
   state.register = undefined;
   state.twoFactor = undefined;
   await updateSession(sessionId, state);
-  await saveBot(sessionId, "Đã chuyển sang đăng nhập. Vui lòng nhập email đăng nhập.");
+  await saveBot(sessionId, "Được rồi ạ, Ry chuyển sang đăng nhập. Bạn nhập email tài khoản nhé.");
   return getSessionPayload(sessionId);
 }
 
@@ -760,7 +956,7 @@ async function switchToRegister(sessionId: string, state: SessionState) {
   state.register = {};
   state.twoFactor = undefined;
   await updateSession(sessionId, state);
-  await saveBot(sessionId, "Đã chuyển sang đăng ký. Vui lòng nhập email đăng ký.");
+  await saveBot(sessionId, "Được rồi ạ, Ry sẽ giúp bạn tạo tài khoản. Trước tiên, bạn nhập email nhé.");
   return getSessionPayload(sessionId);
 }
 
@@ -770,7 +966,7 @@ async function cancelAuthFlow(sessionId: string, state: SessionState) {
   state.register = undefined;
   state.twoFactor = undefined;
   await updateSession(sessionId, state);
-  await saveBot(sessionId, `Đã hủy thao tác hiện tại.\n${startMessage}`);
+  await saveBot(sessionId, `Ry đã hủy thao tác đang làm. Mình bắt đầu lại nhé.\n\n${startMessage}`);
   return getSessionPayload(sessionId);
 }
 
@@ -779,14 +975,14 @@ async function handleLoginRecoveryAction(sessionId: string, text: string, state:
     state.step = "login_email";
     state.email = undefined;
     await updateSession(sessionId, state);
-    await saveBot(sessionId, "Mình sẽ cho bạn nhập lại từ đầu. Vui lòng nhập email đăng nhập.");
+    await saveBot(sessionId, "Được rồi, Ry cho bạn nhập lại từ đầu. Bạn gửi email đăng nhập nhé.");
     return getSessionPayload(sessionId);
   }
 
   if (!state.email) {
     state.step = "login_email";
     await updateSession(sessionId, state);
-    await saveBot(sessionId, "Vui lòng nhập email đăng nhập trước, sau đó mình sẽ hỗ trợ đặt lại mật khẩu.");
+    await saveBot(sessionId, "Bạn nhập email tài khoản trước nhé. Sau đó Ry sẽ hướng dẫn đặt lại mật khẩu.");
     return getSessionPayload(sessionId);
   }
 
@@ -794,9 +990,9 @@ async function handleLoginRecoveryAction(sessionId: string, text: string, state:
     const message = await forgotPasswordWithOpenApi(state.email);
     state.step = "login_email";
     await updateSession(sessionId, state);
-    await saveBot(sessionId, `${message}\nSau khi đặt lại mật khẩu, bạn có thể nhập lại email để đăng nhập.`);
+    await saveBot(sessionId, `${message}\n\nKhi đổi mật khẩu xong, bạn quay lại và nhập email để đăng nhập nhé.`);
   } catch (error) {
-    await saveBot(sessionId, error instanceof Error ? error.message : "Chưa thể gửi email đặt lại mật khẩu, vui lòng thử lại.");
+    await saveBot(sessionId, error instanceof Error ? `Ry chưa gửi được email đặt lại mật khẩu: ${error.message}` : "Ry chưa gửi được email đặt lại mật khẩu. Bạn thử lại sau ít phút nhé.");
   }
 
   return getSessionPayload(sessionId);
@@ -833,10 +1029,10 @@ async function handleRegisterPhone(sessionId: string, text: string, state: Sessi
     return getSessionPayload(sessionId);
   }
 
-  state.register = { ...state.register, phone: phone.data };
-  state.step = "register_password";
+  state.register = undefined;
+  state.step = "auth_choice";
   await updateSession(sessionId, state);
-  await saveBot(sessionId, "Vui lòng nhập mật khẩu.");
+  await saveBot(sessionId, "Bạn nhập mật khẩu trong biểu mẫu đăng ký an toàn nhé.");
   return getSessionPayload(sessionId);
 }
 
@@ -847,15 +1043,22 @@ async function handleRegisterPasswordStep(sessionId: string, text: string, state
     return getSessionPayload(sessionId);
   }
 
-  state.register = { ...state.register, password: password.data };
-  state.step = "register_password_confirmation";
+  state.register = undefined;
+  state.step = "auth_choice";
   await updateSession(sessionId, state);
-  await saveBot(sessionId, "Vui lòng nhập lại mật khẩu để xác nhận.");
+  await saveBot(sessionId, "Bạn nhập lại mật khẩu một lần nữa để tránh gõ nhầm nhé.");
   return getSessionPayload(sessionId);
 }
 
 async function handleRegisterPasswordConfirmation(sessionId: string, text: string, state: SessionState) {
-  const register = state.register;
+  state.register = undefined;
+  state.step = "auth_choice";
+  await updateSession(sessionId, state);
+  await saveBot(sessionId, "Ry đã xóa thông tin mật khẩu cũ để bảo vệ bạn. Bạn vui lòng dùng biểu mẫu Đăng ký an toàn nhé.");
+  return getSessionPayload(sessionId);
+
+  /* Legacy code below is intentionally unreachable and retained only for migration reference.
+  const register = state.register as (typeof state.register & { password?: string });
   if (!register?.email || !register.password || !register.name || !register.phone) {
     state.step = "awaiting_email";
     await updateSession(sessionId, state);
@@ -873,8 +1076,8 @@ async function handleRegisterPasswordConfirmation(sessionId: string, text: strin
       sessionId,
       state,
       await registerWithOpenApi({
-        email: register.email,
-        password: register.password,
+        email: register.email!,
+        password: register.password!,
         passwordConfirmation: text,
         name: register.name,
         phone: register.phone
@@ -887,18 +1090,21 @@ async function handleRegisterPasswordConfirmation(sessionId: string, text: strin
   return getSessionPayload(sessionId);
 }
 
+  */
+}
+
 async function handleTwoFactor(sessionId: string, text: string, state: SessionState) {
   if (!state.twoFactor?.challengeToken) {
     state.step = "login_password";
     await updateSession(sessionId, state);
-    await saveBot(sessionId, "Phiên 2FA đã hết hạn. Vui lòng nhập lại mật khẩu.");
+    await saveBot(sessionId, "Mã xác thực đã hết hạn. Bạn nhập lại mật khẩu để Ry gửi yêu cầu mới nhé.");
     return getSessionPayload(sessionId);
   }
 
   try {
     await applyAuthResult(sessionId, state, await completeOpenApi2fa(state.twoFactor.challengeToken, text, state.twoFactor.method));
   } catch (error) {
-    await saveBot(sessionId, error instanceof Error ? error.message : "Mã xác thực chưa đúng, vui lòng thử lại.");
+    await saveBot(sessionId, error instanceof Error ? `Mã xác thực chưa dùng được: ${error.message}` : "Mã xác thực chưa đúng. Bạn kiểm tra rồi nhập lại nhé.");
   }
 
   return getSessionPayload(sessionId);
@@ -912,14 +1118,11 @@ async function applyAuthResult(sessionId: string, state: SessionState, result: A
     };
     state.step = "two_factor";
     await updateSession(sessionId, state);
-    await saveBot(sessionId, `${result.message}\nVui lòng nhập mã ${state.twoFactor.method === "email_otp" ? "OTP email" : "Google Authenticator"}.`);
     return;
   }
 
   persistAuthSuccess(state, result);
   await updateSession(sessionId, state);
-  await saveBot(sessionId, result.message);
-  await saveBot(sessionId, readyMessage);
 }
 
 function persistAuthSuccess(state: SessionState, result: AuthSuccess) {
@@ -944,7 +1147,7 @@ function persistAuthSuccess(state: SessionState, result: AuthSuccess) {
 async function handleProductLink(sessionId: string, text: string, state: SessionState) {
   const url = urlSchema.safeParse(text);
   if (!url.success) {
-    await saveBot(sessionId, "Vui lòng gửi link sản phẩm Shopee hoặc TikTok Shop hợp lệ.");
+    await saveBot(sessionId, "Ry chưa nhận ra link sản phẩm. Bạn sao chép đầy đủ link Shopee hoặc TikTok Shop rồi gửi lại nhé.");
     return;
   }
 
@@ -955,16 +1158,25 @@ async function handleProductLink(sessionId: string, text: string, state: Session
     return;
   }
 
-  await saveBot(sessionId, formatCashbackResult(result.data));
+  await saveBot(sessionId, formatCashbackResult(result.data, url.data));
 }
 
-function formatCashbackResult(data: CashbackLinkResult) {
+function formatCashbackResult(data: CashbackLinkResult, sourceUrl = "") {
   return `CASHBACK_RESULT:${JSON.stringify({
     productName: data.productName ?? "Sản phẩm Shopee/TikTok Shop",
     affiliateUrl: data.affiliateUrl,
     cashbackAmount: data.cashbackAmount !== undefined && data.cashbackAmount !== null && data.cashbackAmount !== "" ? `${formatMoney(data.cashbackAmount)} VND` : "Đang cập nhật",
+    productImage: data.productImage,
+    platform: detectShoppingPlatform(sourceUrl || data.affiliateUrl),
     transId: data.transId
   })}`;
+}
+
+function detectShoppingPlatform(value: string) {
+  const normalized = value.toLowerCase();
+  if (normalized.includes("tiktok")) return "tiktok";
+  if (normalized.includes("shopee") || normalized.includes("shp.ee")) return "shopee";
+  return "shop";
 }
 
 function formatMoney(value: unknown) {
@@ -1020,7 +1232,7 @@ function formatAccount(data: Record<string, unknown>) {
   const wallet = record(data.wallet);
   const stats = record(data.stats);
   return [
-    "Thông tin tài khoản:",
+    "Tổng quan tài khoản:",
     `Email: ${data.email ?? "-"}`,
     `Họ tên: ${data.name ?? "-"}`,
     `Số dư ví: ${formatMoney(wallet.balance)} ${wallet.currency ?? "VND"}`,
@@ -1029,39 +1241,82 @@ function formatAccount(data: Record<string, unknown>) {
   ].join("\n");
 }
 
-function formatOrders(data: Record<string, unknown>) {
-  const items = recentOrders(listFromData(data));
-  if (!items.length) return "Chưa có đơn hàng phù hợp.";
+function formatDate(value: unknown) {
+  if (!value) return "";
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? String(value) : new Intl.DateTimeFormat("vi-VN", { dateStyle: "short" }).format(date);
+}
+
+function formatDateTime(value: unknown) {
+  if (!value) return "";
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime())
+    ? String(value)
+    : new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" }).format(date);
+}
+
+function formatOrders(data: Record<string, unknown>, all = false) {
+  const source = listFromData(data);
+  const items = all ? source : recentOrders(source);
+  const scope = all ? "toàn bộ đơn hàng" : "10 ngày gần đây";
+  if (!items.length) return `Ry chưa tìm thấy đơn hàng phù hợp trong ${scope}.`;
 
   return [
-    "Đơn hàng 10 ngày gần đây:",
+    `Các đơn hàng trong ${scope}:`,
     ...items.map((item, index) =>
       [
         `${index + 1}. ${item.product_name ?? item.productName ?? item.order_id ?? "Đơn hàng"}`,
+        `Ảnh sản phẩm: ${item.product_image ?? item.productImage ?? item.image_url ?? item.imageUrl ?? item.thumbnail ?? "-"}`,
+        `Ngày đối soát: ${formatDate(item.reconciliation_date ?? item.reconciliationDate ?? item.approved_at ?? item.approvedAt ?? item.confirmed_at ?? item.confirmedAt) || "Chưa có"}`,
         `Tiền hoàn dự kiến: ${formatMoney(item.cashback_amount)} VND`,
         `Trạng thái: ${formatStatus(item.status)}`
       ].join("\n")
-    )
+    ),
+    all ? "ORDER_SCOPE:10" : "ORDER_SCOPE:ALL"
   ].join("\n\n");
 }
 
 function formatNotifications(data: Record<string, unknown>) {
   const items = listFromData(data);
-  if (!items.length) return "Bạn chưa có thông báo chưa đọc.";
+  if (!items.length) return "Bạn đã đọc hết thông báo rồi ạ.";
 
   return [
     "Thông báo chưa đọc:",
-    ...items.map((item, index) => `${index + 1}. ${item.title ?? item.subject ?? "Thông báo"}\n${item.message ?? item.content ?? ""}`)
+    ...items.map((item, index) => [
+      `${index + 1}. ${item.title ?? item.subject ?? "Thông báo"}`,
+      `ID: ${item.id ?? "-"}`,
+      `Nội dung: ${item.message ?? item.content ?? ""}`,
+      `Loại: ${item.type ?? item.category ?? "Hệ thống"}`,
+      `Trạng thái đọc: ${item.is_read ?? item.isRead ? "Đã đọc" : "Chưa đọc"}`,
+      `Thời gian: ${formatDateTime(item.created_at ?? item.createdAt) || "Mới cập nhật"}`
+    ].join("\n")),
+    "NOTIFICATION_ACTIONS:READ_ALL"
   ].join("\n\n");
 }
 
-function formatWithdrawals(data: Record<string, unknown>) {
+function formatWithdrawals(data: Record<string, unknown>, fullHistory = false) {
   const items = listFromData(data);
-  if (!items.length) return "Chưa có lịch sử rút tiền.";
+  if (!items.length) return "Bạn chưa có lần rút tiền nào.";
+  const pagination = record(data.pagination ?? data.meta);
+  const currentPage = Number(pagination.current_page ?? pagination.currentPage ?? 1);
+  const lastPage = Number(pagination.last_page ?? pagination.lastPage ?? currentPage);
+  const total = Number(pagination.total ?? items.length);
+  const navigation = fullHistory
+    ? { mode: "full", currentPage, lastPage, total }
+    : { mode: "summary", currentPage: 1, lastPage: 1, total };
 
   return [
-    "Lịch sử rút tiền:",
-    ...items.map((item, index) => `${index + 1}. ${formatMoney(item.amount)} VND\nTrạng thái: ${formatStatus(item.status)}\nNgân hàng: ${item.bank_name ?? item.wallet_name ?? item.payment_method ?? "-"}`)
+    fullHistory ? "Toàn bộ lịch sử rút tiền:" : "2 lần rút tiền gần đây:",
+    ...items.map((item, index) => [
+      `${index + 1}. ${formatMoney(item.amount)} VND`,
+      `Mã yêu cầu: ${item.code ?? item.id ?? "-"}`,
+      `Trạng thái: ${formatStatus(item.status)}`,
+      `Thực nhận: ${formatMoney(item.real_amount ?? item.realAmount ?? item.amount)} VND`,
+      `Ngân hàng: ${item.bank_name ?? item.wallet_name ?? "-"}`,
+      `Ngày tạo: ${formatDate(item.created_at ?? item.createdAt) || "Chưa có"}`,
+      ...(item.notes ? [`Ghi chú: ${item.notes}`] : [])
+    ].join("\n")),
+    `WITHDRAWAL_NAV:${JSON.stringify(navigation)}`
   ].join("\n\n");
 }
 
@@ -1071,18 +1326,29 @@ function formatGenericSuccess(data: Record<string, unknown>, fallback: string) {
 
 function formatTasks(data: Record<string, unknown>) {
   const items = listFromData(data);
-  if (!items.length) return "Hiện chưa có nhiệm vụ đang hoạt động.";
+  if (!items.length) return "Hiện chưa có nhiệm vụ mới. Khi có, Ry sẽ hiển thị tại đây nhé.";
   return [
     "Nhiệm vụ nhận thưởng:",
-    ...items.map((item, index) => `${index + 1}. ${item.title ?? item.name ?? "Nhiệm vụ"}\nID: ${item.id ?? "-"}\nTiến độ: ${item.progress ?? 0}/${item.target_count ?? item.target ?? "-"} (${item.percent ?? 0}%)\nThưởng: ${formatMoney(item.reward_amount ?? item.reward)} VND\nTrạng thái: ${formatStatus(item.status)}`),
-    "Dùng /nhiemvu sync ID để đồng bộ hoặc /nhiemvu claim ID để nhận thưởng."
+    ...items.map((item, index) => [
+      `${index + 1}. ${item.title ?? item.name ?? "Nhiệm vụ"}`,
+      `ID: ${item.id ?? "-"}`,
+      `Mô tả: ${item.description ?? item.content ?? ""}`,
+      ...(item.guide ? [`Hướng dẫn: ${item.guide}`] : []),
+      `Loại nhiệm vụ: ${item.type_label ?? item.type ?? "-"}`,
+      `Cần thực hiện: ${item.action_label ?? item.action ?? "-"}`,
+      `Tiến độ: ${item.progress ?? 0}/${item.target_count ?? item.target ?? "-"} (${item.percent ?? 0}%)`,
+      `Thưởng: ${formatMoney(item.reward_amount ?? item.reward)} VND`,
+      `Trạng thái: ${formatStatus(item.status)}`,
+      ...(item.start_at ? [`Bắt đầu: ${formatDate(item.start_at)}`] : []),
+      ...(item.end_at ? [`Kết thúc: ${formatDate(item.end_at)}`] : [])
+    ].join("\n"))
   ].join("\n\n");
 }
 
 function formatReferrals(data: Record<string, unknown>) {
   const stats = record(data.stats);
   return [
-    "Chương trình giới thiệu F1/F2:",
+    "Giới thiệu cho bạn bè:",
     `Mã giới thiệu: ${data.referral_code ?? "-"}`,
     `Link giới thiệu: ${data.referral_link ?? "-"}`,
     `Thành viên F1: ${stats.f1_count ?? 0}`,
@@ -1094,13 +1360,13 @@ function formatReferrals(data: Record<string, unknown>) {
 
 function formatBalanceLogs(data: Record<string, unknown>) {
   const items = listFromData(data);
-  if (!items.length) return "Chưa có biến động số dư.";
+  if (!items.length) return "Ví của bạn chưa có giao dịch nào.";
   return ["Biến động số dư:", ...items.map((item, index) => `${index + 1}. ${item.description ?? item.content ?? item.type ?? "Giao dịch"}\nSố tiền: ${item.is_credit === false ? "-" : "+"}${formatMoney(item.amount_change ?? item.amount)} VND\nSố dư sau giao dịch: ${formatMoney(item.amount_after)} VND`)].join("\n\n");
 }
 
 function formatActivityLogs(data: Record<string, unknown>) {
   const items = listFromData(data);
-  if (!items.length) return "Chưa có nhật ký hoạt động.";
+  if (!items.length) return "Ry chưa thấy hoạt động nào gần đây trên tài khoản.";
   return ["Nhật ký hoạt động:", ...items.map((item, index) => `${index + 1}. ${item.activity ?? item.description ?? "Hoạt động tài khoản"}\nThời gian: ${item.created_at ?? item.createdAt ?? "-"}\nIP: ${item.ip_address ?? "-"}`)].join("\n\n");
 }
 
@@ -1133,6 +1399,11 @@ function parseOrderQuery(text: string) {
     if (key === "page" || key === "per_page") query[key] = Number(value);
   });
   return query;
+}
+
+function isAllOrderRequest(text: string) {
+  const normalized = normalizeVietnamese(text);
+  return /\b(all|tat ca|toan bo|het)\b/.test(normalized);
 }
 
 function parseProfileCommand(text: string) {

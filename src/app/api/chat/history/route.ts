@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserChatHistory } from "@/services/conversation";
 import { rateLimit } from "@/lib/rate-limit";
+import { requireMatchingChatSession } from "@/lib/chat-session";
 
 export async function GET(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") ?? "local";
@@ -14,6 +15,7 @@ export async function GET(request: NextRequest) {
     if (!sessionId) {
       return NextResponse.json({ error: "Thiếu sessionId." }, { status: 400 });
     }
+    await requireMatchingChatSession(request, sessionId);
 
     return NextResponse.json({ history: await getUserChatHistory(sessionId) });
   } catch (error) {

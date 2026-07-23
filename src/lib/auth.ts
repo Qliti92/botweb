@@ -1,10 +1,11 @@
 import { cookies } from "next/headers";
 import { jwtVerify, SignJWT } from "jose";
+import { requireServerSecret } from "@/lib/secrets";
 
 const cookieName = "admin_token";
 
 function getSecret() {
-  const secret = process.env.JWT_SECRET ?? "dev-secret-change-me";
+  const secret = requireServerSecret("JWT_SECRET");
   return new TextEncoder().encode(secret);
 }
 

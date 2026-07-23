@@ -59,3 +59,22 @@ export type AppNoticeDto = {
   isActive: boolean;
   updatedAt?: string;
 };
+
+export type KnowledgeEntryDto = {
+  id: string;
+  question: string;
+  answer: string;
+  keywords: string;
+  category: string;
+  sourceLabel: string;
+  sourceUrl?: string | null;
+  isActive: boolean;
+};
+
+export type UnrecognizedMessageDto = {
+  id: string;
+  content: string;
+  normalized: string;
+  isResolved: boolean;
+  createdAt: string;
+};

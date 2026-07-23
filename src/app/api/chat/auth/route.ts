@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { completeChatSessionTwoFactor, forgotChatPassword, loginChatSession, registerChatSession } from "@/services/conversation";
 import { rateLimit } from "@/lib/rate-limit";
+import { requireMatchingChatSession, setChatSessionCookie } from "@/lib/chat-session";
 
 const authSchema = z.discriminatedUnion("mode", [
   z.object({
@@ -29,7 +30,7 @@ const authSchema = z.discriminatedUnion("mode", [
   })
 ]);
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") ?? "local";
   const limited = rateLimit(`chat-auth:${ip}`, 15, 60_000);
   if (!limited.ok) {
@@ -38,9 +39,19 @@ export async function POST(request: Request) {
 
   try {
     const body = authSchema.parse(await request.json());
-    if (body.mode === "login") return NextResponse.json(await loginChatSession(body.email, body.password));
-    if (body.mode === "register") return NextResponse.json(await registerChatSession(body));
-    if (body.mode === "2fa") return NextResponse.json(await completeChatSessionTwoFactor(body.sessionId, body.code));
+    if (body.mode === "login") {
+      const session = await loginChatSession(body.email, body.password);
+      return setChatSessionCookie(NextResponse.json(session), session.id);
+    }
+    if (body.mode === "register") {
+      const session = await registerChatSession(body);
+      return setChatSessionCookie(NextResponse.json(session), session.id);
+    }
+    if (body.mode === "2fa") {
+      await requireMatchingChatSession(request, body.sessionId);
+      const session = await completeChatSessionTwoFactor(body.sessionId, body.code);
+      return setChatSessionCookie(NextResponse.json(session), session.id);
+    }
 
     return NextResponse.json({ message: await forgotChatPassword(body.email) });
   } catch (error) {

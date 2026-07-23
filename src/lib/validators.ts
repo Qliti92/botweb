@@ -44,3 +44,47 @@ export const appNoticeSchema = z.object({
   displaySeconds: z.coerce.number().int().min(1).max(3600).default(10),
   isActive: z.boolean().default(true)
 });
+
+export const knowledgeEntrySchema = z.object({
+  question: z.string().trim().min(5).max(300),
+  answer: z.string().trim().min(5).max(4000),
+  keywords: z.string().trim().max(500).default(""),
+  category: z.string().trim().min(1).max(80).default("Chung"),
+  sourceLabel: z.string().trim().min(1).max(120).default("Trung tâm trợ giúp"),
+  sourceUrl: z.string().trim().url().optional().nullable().or(z.literal("")),
+  isActive: z.boolean().default(true)
+});
+
+export const supportTicketSchema = z.object({
+  orderId: z.string().trim().max(100).optional().nullable(),
+  category: z.enum(["MISSING_ORDER", "WRONG_CASHBACK", "DELAYED", "REJECTED", "ACCOUNT", "OTHER"]),
+  subject: z.string().trim().min(5).max(160),
+  description: z.string().trim().min(10).max(4000)
+});
+
+export const intentDefinitionSchema = z.object({
+  name: z.string().trim().regex(/^[A-Z][A-Z0-9_]{2,60}$/),
+  description: z.string().trim().max(500).optional().nullable(),
+  examples: z.string().trim().default("[]"),
+  keywords: z.string().trim().default("[]"),
+  commandTemplate: z.string().trim().regex(/^\/[a-z0-9-]+(?:\s+[a-z0-9={}_-]+)*$/i),
+  requiresAuth: z.boolean().default(true),
+  requiresConfirm: z.boolean().default(false),
+  isActive: z.boolean().default(true)
+});
+
+export const proactiveNotificationSchema = z.object({
+  accountKey: z.string().trim().optional().nullable(),
+  sessionId: z.string().trim().optional().nullable(),
+  title: z.string().trim().min(2).max(120),
+  message: z.string().trim().min(2).max(1000),
+  actionUrl: z.string().trim().url().optional().nullable().or(z.literal("")),
+  deliverAt: z.coerce.date().optional()
+});
+
+export const withdrawalFormSchema = z.object({
+  amount: z.coerce.number().int().gt(10_000).max(1_000_000_000),
+  bankName: z.string().trim().min(2).max(100),
+  accountNumber: z.string().trim().regex(/^[0-9]{6,30}$/),
+  accountName: z.string().trim().min(2).max(120)
+});

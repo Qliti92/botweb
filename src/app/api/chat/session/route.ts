@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createChatSession, restoreChatSession } from "@/services/conversation";
 import { rateLimit } from "@/lib/rate-limit";
+import { requireMatchingChatSession, setChatSessionCookie } from "@/lib/chat-session";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") ?? "local";
   const limited = rateLimit(`chat-session-get:${ip}`, 60, 60_000);
   if (!limited.ok) {
@@ -16,13 +17,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Thiếu sessionId." }, { status: 400 });
     }
 
+    await requireMatchingChatSession(request, sessionId);
     return NextResponse.json(await restoreChatSession(sessionId));
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Không thể khôi phục phiên chat." }, { status: 404 });
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") ?? "local";
   const limited = rateLimit(`chat-session-create:${ip}`, 10, 60_000);
   if (!limited.ok) {
@@ -30,7 +32,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    return NextResponse.json(await createChatSession());
+    const session = await createChatSession();
+    return setChatSessionCookie(NextResponse.json(session), session.id);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Không thể tạo phiên chat." }, { status: 500 });
   }

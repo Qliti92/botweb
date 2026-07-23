@@ -1,0 +1,290 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("admins")
+}
+
+model ChatSession {
+  id        String        @id @default(cuid())
+  status    SessionStatus @default(ACTIVE)
+  state     String        @default("{}")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  messages  ChatMessage[]
+
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  sessionId String      @map("session_id")
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sender    Sender
+  content   String
+  metadata  String?
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  @@map("chat_messages")
+}
+
+model ConversationFlow {
+  id                String      @id @default(cuid())
+  flowKey           String      @unique @map("flow_key")
+  title             String
+  triggerKeyword    String?     @map("trigger_keyword")
+  botMessage        String      @map("bot_message")
+  expectedInputType String?     @map("expected_input_type")
+  nextFlowKey       String?     @map("next_flow_key")
+  actionType        ActionType? @map("action_type")
+  apiId             String?     @map("api_id")
+  api               ApiConfig?  @relation(fields: [apiId], references: [id])
+  isActive          Boolean     @default(true) @map("is_active")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  @@map("conversation_flows")
+}
+
+model ApiConfig {
+  id          String             @id @default(cuid())
+  name        String
+  key         String             @unique
+  endpoint    String
+  method      HttpMethod         @default(POST)
+  headers     String             @default("{}")
+  bodySample  String             @default("{}") @map("body_sample")
+  description String?
+  isActive    Boolean            @default(true) @map("is_active")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+  flows       ConversationFlow[]
+  logs        ApiLog[]
+
+  @@map("api_configs")
+}
+
+model ApiLog {
+  id         String    @id @default(cuid())
+  apiId      String?   @map("api_id")
+  api        ApiConfig? @relation(fields: [apiId], references: [id], onDelete: SetNull)
+  sessionId  String?   @map("session_id")
+  request    String
+  response   String?
+  statusCode Int?      @map("status_code")
+  error      String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@map("api_logs")
+}
+
+model ShortLink {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  originalUrl String   @map("original_url")
+  title       String?
+  clickCount  Int      @default(0) @map("click_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("short_links")
+}
+
+model AppNotice {
+  id              String   @id @default(cuid())
+  title           String
+  message         String
+  displaySeconds  Int      @default(10) @map("display_seconds")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("app_notices")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorType  String   @map("actor_type")
+  actorId    String?  @map("actor_id")
+  action     String
+  targetType String?  @map("target_type")
+  targetId   String?  @map("target_id")
+  outcome    String   @default("SUCCESS")
+  metadata   String   @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([actorType, actorId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+model KnowledgeEntry {
+  id          String   @id @default(cuid())
+  question    String
+  answer      String
+  keywords    String   @default("")
+  category    String   @default("Chung")
+  sourceLabel String   @default("Trung tâm trợ giúp") @map("source_label")
+  sourceUrl   String?  @map("source_url")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, updatedAt])
+  @@map("knowledge_entries")
+}
+
+model UnrecognizedMessage {
+  id         String   @id @default(cuid())
+  sessionId  String?  @map("session_id")
+  content    String
+  normalized String
+  isResolved Boolean  @default(false) @map("is_resolved")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([isResolved, createdAt])
+  @@map("unrecognized_messages")
+}
+
+model SupportTicket {
+  id          String          @id @default(cuid())
+  sessionId   String?         @map("session_id")
+  accountKey  String?         @map("account_key")
+  orderId     String?         @map("order_id")
+  category    String
+  subject     String
+  description String
+  status      TicketStatus    @default(NEW)
+  priority    TicketPriority  @default(NORMAL)
+  assignedTo  String?         @map("assigned_to")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  messages    SupportTicketMessage[]
+
+  @@index([status, priority, updatedAt])
+  @@index([accountKey, updatedAt])
+  @@map("support_tickets")
+}
+
+model SupportTicketMessage {
+  id        String        @id @default(cuid())
+  ticketId  String        @map("ticket_id")
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender    String
+  content   String
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  @@index([ticketId, createdAt])
+  @@map("support_ticket_messages")
+}
+
+model IntentDefinition {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  description     String?
+  examples        String   @default("[]")
+  keywords        String   @default("[]")
+  commandTemplate String   @map("command_template")
+  requiresAuth    Boolean  @default(true) @map("requires_auth")
+  requiresConfirm Boolean  @default(false) @map("requires_confirm")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("intent_definitions")
+}
+
+model JobQueue {
+  id          String    @id @default(cuid())
+  type        String
+  payload     String
+  status      JobStatus @default(PENDING)
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3) @map("max_attempts")
+  runAt       DateTime  @default(now()) @map("run_at")
+  lockedAt    DateTime? @map("locked_at")
+  lastError   String?   @map("last_error")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, runAt])
+  @@map("job_queue")
+}
+
+model ProactiveNotification {
+  id         String    @id @default(cuid())
+  accountKey String?   @map("account_key")
+  sessionId  String?   @map("session_id")
+  title      String
+  message    String
+  actionUrl  String?   @map("action_url")
+  deliverAt  DateTime  @default(now()) @map("deliver_at")
+  deliveredAt DateTime? @map("delivered_at")
+  readAt     DateTime? @map("read_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([accountKey, deliveredAt, deliverAt])
+  @@index([sessionId, deliveredAt, deliverAt])
+  @@map("proactive_notifications")
+}
+
+enum Sender {
+  USER
+  BOT
+  SYSTEM
+}
+
+enum SessionStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum ActionType {
+  CHECK_PHONE
+  REGISTER_USER
+  LOGIN_USER
+  SHOW_MENU
+  CONVERT_LINK
+  API_CALL
+  STATIC_MESSAGE
+}
+
+enum HttpMethod {
+  GET
+  POST
+}
+
+enum TicketStatus {
+  NEW
+  IN_PROGRESS
+  WAITING_USER
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}

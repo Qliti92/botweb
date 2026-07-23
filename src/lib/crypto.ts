@@ -1,9 +1,10 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
+import { requireServerSecret } from "@/lib/secrets";
 
 const prefix = "enc:v1:";
 
 function key() {
-  const secret = process.env.ENCRYPTION_SECRET ?? process.env.JWT_SECRET ?? "dev-secret-change-me";
+  const secret = requireServerSecret("ENCRYPTION_SECRET");
   return createHash("sha256").update(secret).digest();
 }
 

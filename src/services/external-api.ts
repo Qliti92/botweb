@@ -1,4 +1,5 @@
 import { ApiConfig } from "@prisma/client";
+import { decryptSecret } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
 
 function parseJson(value: string) {
@@ -57,7 +58,7 @@ export async function callConfiguredApi(api: ApiConfig, payload: Record<string, 
   }
 
   try {
-    const headers = parseJson(api.headers);
+    const headers = parseJson(decryptSecret(api.headers));
     const isShopeeProductApi = api.endpoint.includes("apishopee.cmsnt.co/api/v1/shopee/product");
     const requestPayload = isShopeeProductApi
       ? { product_link: String(payload.input ?? payload.product_link ?? "") }

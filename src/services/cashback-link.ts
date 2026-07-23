@@ -8,6 +8,7 @@ export type CashbackLinkResult = {
   affiliateUrl: string;
   cashbackAmount?: number | string;
   productName?: string;
+  productImage?: string;
 };
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -54,7 +55,8 @@ export async function createCashbackLink(url: string, token: string, tokenType =
         transId: data.trans_id ? String(data.trans_id) : undefined,
         affiliateUrl,
         cashbackAmount: data.cashback_amount as number | string | undefined,
-        productName: String(data.product_name ?? data.productName ?? data.title ?? data.name ?? "") || undefined
+        productName: String(data.product_name ?? data.productName ?? data.title ?? data.name ?? "") || undefined,
+        productImage: String(data.image ?? data.product_image ?? data.productImage ?? data.image_url ?? data.imageUrl ?? data.thumbnail ?? "") || undefined
       }
     };
   } catch (error) {

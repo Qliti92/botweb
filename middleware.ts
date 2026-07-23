@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { securityHeaders } from "@/lib/security";
+import { requireServerSecret } from "@/lib/secrets";
 
 const protectedPaths = ["/admin", "/api/admin"];
 
@@ -19,7 +20,7 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET ?? "dev-secret-change-me");
+    const secret = new TextEncoder().encode(requireServerSecret("JWT_SECRET"));
     await jwtVerify(token, secret);
     return securityHeaders(NextResponse.next());
   } catch {

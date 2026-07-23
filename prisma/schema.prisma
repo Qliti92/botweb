@@ -115,6 +115,140 @@ model AppNotice {
   @@map("app_notices")
 }
 
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorType  String   @map("actor_type")
+  actorId    String?  @map("actor_id")
+  action     String
+  targetType String?  @map("target_type")
+  targetId   String?  @map("target_id")
+  outcome    String   @default("SUCCESS")
+  metadata   String   @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([actorType, actorId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+model KnowledgeEntry {
+  id          String   @id @default(cuid())
+  question    String
+  answer      String
+  keywords    String   @default("")
+  category    String   @default("Chung")
+  sourceLabel String   @default("Trung tâm trợ giúp") @map("source_label")
+  sourceUrl   String?  @map("source_url")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, updatedAt])
+  @@map("knowledge_entries")
+}
+
+model UnrecognizedMessage {
+  id         String   @id @default(cuid())
+  sessionId  String?  @map("session_id")
+  content    String
+  normalized String
+  isResolved Boolean  @default(false) @map("is_resolved")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([isResolved, createdAt])
+  @@map("unrecognized_messages")
+}
+
+model SupportTicket {
+  id          String          @id @default(cuid())
+  sessionId   String?         @map("session_id")
+  accountKey  String?         @map("account_key")
+  orderId     String?         @map("order_id")
+  category    String
+  subject     String
+  description String
+  status      TicketStatus    @default(NEW)
+  priority    TicketPriority  @default(NORMAL)
+  assignedTo  String?         @map("assigned_to")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  messages    SupportTicketMessage[]
+
+  @@index([status, priority, updatedAt])
+  @@index([accountKey, updatedAt])
+  @@map("support_tickets")
+}
+
+model SupportTicketMessage {
+  id        String        @id @default(cuid())
+  ticketId  String        @map("ticket_id")
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender    String
+  content   String
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  @@index([ticketId, createdAt])
+  @@map("support_ticket_messages")
+}
+
+model IntentDefinition {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  description     String?
+  examples        String   @default("[]")
+  keywords        String   @default("[]")
+  commandTemplate String   @map("command_template")
+  requiresAuth    Boolean  @default(true) @map("requires_auth")
+  requiresConfirm Boolean  @default(false) @map("requires_confirm")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("intent_definitions")
+}
+
+model JobQueue {
+  id          String    @id @default(cuid())
+  type        String
+  payload     String
+  status      JobStatus @default(PENDING)
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3) @map("max_attempts")
+  runAt       DateTime  @default(now()) @map("run_at")
+  lockedAt    DateTime? @map("locked_at")
+  lastError   String?   @map("last_error")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, runAt])
+  @@map("job_queue")
+}
+
+model ProactiveNotification {
+  id         String    @id @default(cuid())
+  accountKey String?   @map("account_key")
+  sessionId  String?   @map("session_id")
+  title      String
+  message    String
+  actionUrl  String?   @map("action_url")
+  deliverAt  DateTime  @default(now()) @map("deliver_at")
+  deliveredAt DateTime? @map("delivered_at")
+  readAt     DateTime? @map("read_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([accountKey, deliveredAt, deliverAt])
+  @@index([sessionId, deliveredAt, deliverAt])
+  @@map("proactive_notifications")
+}
+
+model SiteSetting {
+  id        String   @id @default("site")
+  data      String   @default("{}")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("site_settings")
+}
+
 enum Sender {
   USER
   BOT
@@ -139,4 +273,26 @@ enum ActionType {
 enum HttpMethod {
   GET
   POST
+}
+
+enum TicketStatus {
+  NEW
+  IN_PROGRESS
+  WAITING_USER
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
 }

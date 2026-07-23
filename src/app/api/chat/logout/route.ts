@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logoutChatSession } from "@/services/conversation";
 import { rateLimit } from "@/lib/rate-limit";
+import { requireMatchingChatSession, setChatSessionCookie } from "@/lib/chat-session";
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") ?? "local";
@@ -14,8 +15,9 @@ export async function POST(request: NextRequest) {
     if (!body.sessionId) {
       return NextResponse.json({ error: "Thiếu sessionId." }, { status: 400 });
     }
-
-    return NextResponse.json(await logoutChatSession(body.sessionId));
+    await requireMatchingChatSession(request, body.sessionId);
+    const session = await logoutChatSession(body.sessionId);
+    return setChatSessionCookie(NextResponse.json(session), session.id);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Không thể đăng xuất." }, { status: 400 });
   }

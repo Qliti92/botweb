@@ -57,8 +57,8 @@ export function deleteAccount(token: string, tokenType?: string) {
   return requestJson("POST", "/account/delete", { token, tokenType });
 }
 
-export function getWithdrawals(token: string, tokenType?: string, page = 1) {
-  return requestJson("GET", "/withdrawals", { token, tokenType, query: { page, per_page: 5 } });
+export function getWithdrawals(token: string, tokenType?: string, page = 1, perPage = 5) {
+  return requestJson("GET", "/withdrawals", { token, tokenType, query: { page, per_page: perPage } });
 }
 
 export function sendWithdrawalOtp(token: string, tokenType?: string) {
@@ -82,7 +82,26 @@ export function createWithdrawal(
 }
 
 export function getOrders(token: string, tokenType?: string, query?: { status?: string; platform?: string; search?: string; page?: number; per_page?: number }) {
-  return requestJson("GET", "/orders", { token, tokenType, query: { per_page: 50, ...query } });
+  return requestJson("GET", "/orders", { token, tokenType, query: { per_page: 100, ...query } });
+}
+
+export async function getAllOrders(token: string, tokenType?: string, query?: { status?: string; platform?: string; search?: string }) {
+  const combined: Record<string, unknown>[] = [];
+  let firstPage: Record<string, unknown> = {};
+
+  for (let page = 1; page <= 50; page += 1) {
+    const data = await getOrders(token, tokenType, { ...query, page, per_page: 100 });
+    if (page === 1) firstPage = data;
+    const rawItems = data.items ?? data.orders ?? data.data;
+    const items = Array.isArray(rawItems) ? rawItems.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object") : [];
+    combined.push(...items);
+
+    const pagination = asRecord(data.pagination ?? data.meta);
+    const lastPage = Number(pagination.last_page ?? pagination.lastPage ?? data.last_page ?? data.lastPage);
+    if ((Number.isFinite(lastPage) && page >= lastPage) || items.length < 100) break;
+  }
+
+  return { ...firstPage, items: combined };
 }
 
 export function getNotifications(token: string, tokenType?: string, query?: { type?: string; filter?: string; page?: number; per_page?: number }) {

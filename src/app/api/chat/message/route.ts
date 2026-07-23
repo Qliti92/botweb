@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { chatMessageSchema } from "@/lib/validators";
 import { handleUserMessage } from "@/services/conversation";
 import { rateLimit } from "@/lib/rate-limit";
+import { requireMatchingChatSession } from "@/lib/chat-session";
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") ?? "local";
@@ -15,6 +16,7 @@ export async function POST(request: NextRequest) {
     if (!body.sessionId) {
       return NextResponse.json({ error: "Thiếu sessionId." }, { status: 400 });
     }
+    await requireMatchingChatSession(request, body.sessionId);
     return NextResponse.json(await handleUserMessage(body.sessionId, body.message));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Không thể gửi tin nhắn.";

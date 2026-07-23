@@ -40,6 +40,10 @@ function redactValue(value: unknown): unknown {
   );
 }
 
+export function redactSensitive(value: unknown) {
+  return redactValue(value);
+}
+
 export function safeLogJson(value: unknown, maxLength = 4000) {
   const text = JSON.stringify(redactValue(value));
   return text.length > maxLength ? `${text.slice(0, maxLength)}...[TRUNCATED]` : text;

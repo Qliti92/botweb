@@ -3,9 +3,11 @@
 @tailwind utilities;
 
 :root {
-  --brand-red: #e11d2e;
-  --brand-black: #111111;
-  --brand-white: #ffffff;
+  --brand-red: #287a63;
+  --brand-black: #30343b;
+  --brand-white: #fafaf8;
+  --metal-silver: #d9dde3;
+  --metal-champagne: #c6a76a;
   --font-sans: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 }
 
@@ -21,7 +23,7 @@ body {
 body {
   margin: 0;
   color: var(--brand-black);
-  background: #f4f4f5;
+  background: #fafaf8;
   font-family: var(--font-sans);
   font-synthesis: none;
   font-feature-settings: "kern" 1, "liga" 1;
@@ -56,4 +58,86 @@ select {
   max-width: 100%;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+/* Metal theme: ivory, silver, champagne and calm jade. */
+.metal-theme {
+  background-color: #fafaf8;
+  color: #30343b;
+}
+
+.metal-theme [class~="bg-orange-50"],
+.metal-theme [class~="bg-[#fffaf8]"],
+.metal-theme [class~="bg-[#fff5f1]"] {
+  background-color: #f7f4ed;
+}
+
+.metal-theme [class~="bg-[#ee4d2d]"],
+.metal-theme [class~="bg-[#e94b2c]"],
+.metal-theme [class~="bg-[#ff6545]"] {
+  background-color: #287a63;
+}
+
+.metal-theme [class~="text-[#b9361e]"],
+.metal-theme [class~="text-[#c13b21]"],
+.metal-theme [class~="text-[#d83b1d]"],
+.metal-theme [class~="text-[#d84628]"],
+.metal-theme [class~="text-[#e94b2c]"],
+.metal-theme [class~="text-[#ee4d2d]"] {
+  color: #287a63;
+}
+
+.metal-theme [class*="border-orange-"] {
+  border-color: #e4dac5;
+}
+
+.metal-theme [class~="from-orange-100"],
+.metal-theme [class~="from-orange-200/70"] {
+  --tw-gradient-from: #eee6d6 var(--tw-gradient-from-position);
+  --tw-gradient-to: rgb(238 230 214 / 0) var(--tw-gradient-to-position);
+}
+
+.metal-theme [class~="to-amber-100"] {
+  --tw-gradient-to: #f1e8d7 var(--tw-gradient-to-position);
+}
+
+.metal-theme [class~="text-orange-100"] {
+  color: #e7dcc6;
+}
+
+.metal-theme [class~="ring-orange-100"] {
+  --tw-ring-color: #e4dac5;
+}
+
+/* Compact controls keep long chat flows visually calm while preserving tap targets. */
+.chat-compact button {
+  max-height: 2.25rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.chat-compact button svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.chat-compact button[aria-label],
+.chat-compact button[title="Gửi"],
+.chat-compact button[title="Dán"] {
+  width: 2.25rem;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.chat-compact form button:not([aria-label]) {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .chat-compact button {
+    max-height: 2.125rem;
+    font-size: 0.71875rem;
+  }
 }

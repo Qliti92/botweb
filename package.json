@@ -6,13 +6,16 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
+    "test": "tsx tests/intent.test.ts",
     "lint": "next lint",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "db:init": "tsx prisma/init-db.ts",
     "db:seed": "tsx prisma/seed.ts",
-    "db:cleanup": "tsx prisma/cleanup.ts"
+    "db:cleanup": "tsx prisma/cleanup.ts",
+    "jobs:work": "tsx scripts/job-worker.ts",
+    "postgres:prepare": "tsx scripts/prepare-postgres.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.1.0",
