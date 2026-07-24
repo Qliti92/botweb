@@ -387,11 +387,6 @@ export function ChatApp() {
     return session.user.email || session.user.userId;
   }, [session]);
 
-  const status = useMemo(() => {
-    if (!session?.user) return "Chưa đăng nhập";
-    return `Đang dùng: ${accountLabel}`;
-  }, [accountLabel, session]);
-
   async function restoreSession(sessionId: string) {
     setLoading(true);
     setError("");
@@ -841,29 +836,22 @@ export function ChatApp() {
 
   return (
     <main className="chat-compact relative mx-auto flex h-dvh max-w-3xl flex-col overflow-hidden bg-[#eef2f7] shadow-soft md:my-6 md:h-[calc(100dvh-48px)] md:rounded-2xl">
-      <header className="safe-top flex min-h-[68px] items-center justify-between gap-3 border-b border-red-950/10 bg-brand-red px-3.5 py-2.5 text-white">
-        <div className="flex min-w-0 items-center gap-3">
-          <img src="/api/site-assets/logo" alt="Hoàn Tiền Mua Hàng" className="h-11 w-11 shrink-0 rounded-full bg-white p-1 object-cover" />
+      <header className="safe-top relative flex min-h-[76px] items-center justify-between gap-3 overflow-hidden border-b border-emerald-950/15 bg-gradient-to-r from-[#236c58] to-[#287a63] px-4 py-3 text-white shadow-[0_4px_18px_rgba(24,79,62,0.18)]">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-12 h-28 w-28 rounded-full bg-white/10 blur-2xl" />
+        <div className="relative flex min-w-0 items-center gap-3">
+          <span className="relative shrink-0">
+            <img src="/api/site-assets/avatar" alt="Em Ry" className="h-12 w-12 rounded-2xl border border-white/25 bg-white object-cover shadow-sm" />
+            <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-[3px] border-[#287a63] bg-emerald-300" />
+          </span>
           <div className="min-w-0">
-            <h1 className="truncate text-[17px] font-semibold">Em Ry · Trợ lý hoàn tiền</h1>
-            <p className="mt-0.5 truncate text-[13px] text-white/85">{status}</p>
+            <h1 className="truncate text-[19px] font-bold leading-6 tracking-[-0.02em]">Em Ry</h1>
+            <p className="truncate text-[12px] font-medium leading-5 text-white/80">Trợ lý hoàn tiền · {session?.user ? "Sẵn sàng hỗ trợ" : "Đang hoạt động"}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {session?.user ? <ShieldCheck className="h-5 w-5 text-white" /> : null}
-          {session?.user ? (
-            <button
-              className="relative grid h-11 w-11 place-items-center rounded-xl border border-white/30 bg-white/10"
-              onClick={() => setShowHistory((value) => !value)}
-              title="Lịch sử chat"
-            >
-              <History className="h-4 w-4" />
-              {unreadCount > 0 ? <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-white px-1 text-[10px] font-bold text-brand-red">{unreadCount}</span> : null}
-            </button>
-          ) : null}
+        <div className="relative flex items-center">
           <button
             onClick={() => setShowSideMenu(true)}
-            className="grid h-11 w-11 place-items-center rounded-xl bg-white text-brand-red shadow-sm"
+            className="grid h-11 w-11 place-items-center rounded-xl border border-white/20 bg-white/10 text-white shadow-sm backdrop-blur transition hover:bg-white/20"
             title="Menu"
             aria-label="Mở menu"
           >
@@ -891,6 +879,10 @@ export function ChatApp() {
         onChat={() => {
           setShowSideMenu(false);
           setShowHistory(false);
+        }}
+        onHistory={() => {
+          setShowSideMenu(false);
+          setShowHistory(true);
         }}
         onCommand={(command) => {
           setShowSideMenu(false);
@@ -1810,6 +1802,7 @@ function SideMenu({
   open,
   onClose,
   onChat,
+  onHistory,
   onCommand,
   onPage,
   pushEnabled,
@@ -1819,6 +1812,7 @@ function SideMenu({
   open: boolean;
   onClose: () => void;
   onChat: () => void;
+  onHistory: () => void;
   onCommand: (command: string) => void;
   onPage: (slug: string) => void;
   pushEnabled: boolean;
@@ -1838,6 +1832,7 @@ function SideMenu({
 
   const items = [
     { label: "Chat", icon: MessageCircle, action: onChat },
+    { label: "Lịch sử trò chuyện", icon: History, action: onHistory },
     { label: "Ví của tôi", icon: WalletCards, action: () => onCommand("/taikhoan") },
     { label: "Biến động ví", icon: Clock3, action: () => onCommand("/biendongsodu") },
     { label: "Đơn hàng", icon: PackageCheck, action: () => onCommand("/donhang") },
