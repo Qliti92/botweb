@@ -84,6 +84,7 @@ export const proactiveNotificationSchema = z.object({
 
 export const withdrawalFormSchema = z.object({
   amount: z.coerce.number().int().gt(10_000).max(1_000_000_000),
+  paymentMethod: z.enum(["bank", "wallet"]).default("bank"),
   bankName: z.string().trim().min(2).max(100),
   accountNumber: z.string().trim().regex(/^[0-9]{6,30}$/),
   accountName: z.string().trim().min(2).max(120)

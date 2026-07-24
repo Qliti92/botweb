@@ -38,7 +38,7 @@ const affiliateSteps = [
 
 export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
   return (
-    <main className="metal-theme min-h-dvh overflow-hidden bg-[#fafaf8] pb-20 text-[#30343b] sm:pb-0">
+    <main className="landing-page metal-theme min-h-dvh overflow-hidden bg-[#fafaf8] pb-20 text-[#30343b] sm:pb-0">
       <header className="safe-top sticky top-0 z-40 border-b border-[#e4e6e9] bg-[#fafaf8]/95 backdrop-blur-xl">
         <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-2 px-3 sm:px-6">
           <a href="#trang-chu" className="flex min-w-0 flex-1 items-center gap-2.5">
@@ -73,11 +73,11 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
             <span className="inline-flex items-center gap-2 rounded-full border border-[#d6e4de] bg-white/80 px-3 py-2 text-[10px] font-semibold uppercase tracking-[.1em] text-[#287a63] shadow-sm">
               <Sparkles className="h-3.5 w-3.5" /> Hoàn tiền đơn giản cùng Em Ry
             </span>
-            <h1 className="mx-auto mt-5 max-w-2xl text-[34px] font-bold leading-[1.12] tracking-[-.04em] min-[390px]:text-[38px] sm:text-[48px] lg:mx-0 lg:text-[56px]">
+            <h1 className="mx-auto mt-5 max-w-2xl text-[32px] font-bold leading-[1.16] tracking-[-.025em] min-[390px]:text-[36px] sm:text-[48px] lg:mx-0 lg:text-[56px]">
               Mua hàng có hoàn tiền
               <span className="mt-1 block text-[#287a63]">chỉ bằng một tin nhắn.</span>
             </h1>
-            <p className="mx-auto mt-5 max-w-xl text-[16px] leading-7 text-neutral-600 lg:mx-0">
+            <p className="mx-auto mt-5 max-w-xl text-[16px] leading-[1.65] text-neutral-600 lg:mx-0">
               Gửi link Shopee hoặc TikTok Shop cho Em Ry. Trợ lý sẽ tạo link hoàn tiền, theo dõi đơn và quản lý ví ngay trong chat.
             </p>
 
@@ -108,7 +108,7 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
             {botFeatures.map(({ icon: Icon, title, text }) => (
               <article key={title} className="flex gap-4 rounded-2xl border border-[#dfe2e6] bg-[#fafaf8] p-4 transition hover:-translate-y-0.5 hover:border-[#cbd8d3] hover:shadow-[0_12px_32px_rgba(48,52,59,.07)] sm:block sm:p-5">
                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#f1f7f4] text-[#287a63]"><Icon className="h-5 w-5" /></span>
-                <div><h3 className="text-[15px] font-semibold sm:mt-4">{title}</h3><p className="mt-1.5 text-[13px] leading-5 text-neutral-500 sm:mt-2">{text}</p></div>
+                <div><h3 className="text-[16px] font-semibold leading-6 sm:mt-4">{title}</h3><p className="mt-1.5 text-[14px] leading-[1.55] text-neutral-500 sm:mt-2">{text}</p></div>
               </article>
             ))}
           </div>
@@ -124,8 +124,8 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-2">
           <div>
             <span className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#8a6c35]"><Gift className="h-4 w-4" /> Chương trình tiếp thị liên kết</span>
-            <h2 className="mt-3 max-w-xl text-[30px] font-bold leading-tight tracking-[-.03em] sm:text-[38px]">Giới thiệu cho bạn bè, nhận thêm hoa hồng</h2>
-            <p className="mt-4 max-w-xl text-[15px] leading-7 text-neutral-600">
+            <h2 className="mt-3 max-w-xl text-[28px] font-bold leading-[1.2] tracking-[-.02em] sm:text-[38px]">Giới thiệu cho bạn bè, nhận thêm hoa hồng</h2>
+            <p className="mt-4 max-w-xl text-[15px] leading-[1.65] text-neutral-600">
               Mỗi thành viên có một link giới thiệu riêng. Khi người được giới thiệu mua sắm và đơn đủ điều kiện, bạn có cơ hội nhận hoa hồng từ F1 và F2.
             </p>
             <div className="mt-6 grid max-w-lg gap-3 min-[380px]:grid-cols-2">
@@ -162,7 +162,7 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
               <span className="text-[10px] font-semibold uppercase tracking-[.14em] text-[#8a6c35]">Minh bạch & an toàn</span>
-              <h2 className="mt-2 text-[26px] font-bold leading-tight tracking-[-.025em]">Thông tin bạn nên biết trước khi sử dụng</h2>
+              <h2 className="mt-2 text-[25px] font-bold leading-[1.22] tracking-[-.015em]">Thông tin bạn nên biết trước khi sử dụng</h2>
               <p className="mt-2 max-w-2xl text-[13px] leading-5 text-neutral-500">Đọc quyền, trách nhiệm và cách chúng tôi bảo vệ thông tin của bạn.</p>
             </div>
           </div>
@@ -184,7 +184,7 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
       <section className="px-4 pb-12 pt-10 sm:px-6 sm:pb-20 sm:pt-0">
         <div className="mx-auto max-w-6xl overflow-hidden rounded-3xl bg-[#30343b] px-5 py-10 text-center text-white sm:px-12 sm:py-11">
           <CircleDollarSign className="mx-auto h-8 w-8 text-[#c6a76a]" />
-          <h2 className="mt-4 text-[26px] font-bold tracking-[-.025em] sm:text-[34px]">Bắt đầu với Em Ry hôm nay</h2>
+          <h2 className="mt-4 text-[25px] font-bold leading-[1.22] tracking-[-.015em] sm:text-[34px]">Bắt đầu với Em Ry hôm nay</h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/65">Đăng ký miễn phí để tạo link hoàn tiền và nhận link giới thiệu riêng của bạn.</p>
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
             <button onClick={onRegister} className="min-h-14 rounded-2xl bg-[#287a63] px-6 text-base font-bold text-white hover:bg-[#329176]">Đăng ký miễn phí</button>
@@ -244,8 +244,8 @@ function SectionHeading({ eyebrow, title, description }: { eyebrow: string; titl
   return (
     <div className="mx-auto max-w-2xl text-center">
       <span className="text-[10px] font-semibold uppercase tracking-[.14em] text-[#287a63]">{eyebrow}</span>
-      <h2 className="mt-3 text-[30px] font-bold leading-tight tracking-[-.03em] sm:text-[38px]">{title}</h2>
-      <p className="mt-4 text-[15px] leading-6 text-neutral-500">{description}</p>
+      <h2 className="mt-3 text-[28px] font-bold leading-[1.2] tracking-[-.02em] sm:text-[38px]">{title}</h2>
+      <p className="mt-4 text-[15px] leading-[1.65] text-neutral-500">{description}</p>
     </div>
   );
 }

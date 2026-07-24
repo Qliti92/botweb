@@ -8,7 +8,7 @@
   --brand-white: #fafaf8;
   --metal-silver: #d9dde3;
   --metal-champagne: #c6a76a;
-  --font-sans: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
 }
 
 * {
@@ -151,23 +151,23 @@ select {
     line-height: 1.55;
   }
 
-  .text-xs {
+  .chat-compact .text-xs {
     font-size: 0.875rem !important;
     line-height: 1.35rem !important;
   }
 
-  .text-sm {
+  .chat-compact .text-sm {
     font-size: 1rem !important;
     line-height: 1.5rem !important;
   }
 
-  [class~="text-[9px]"],
-  [class~="text-[10px]"] {
+  .chat-compact [class~="text-[9px]"],
+  .chat-compact [class~="text-[10px]"] {
     font-size: 0.75rem !important;
     line-height: 1.1rem !important;
   }
 
-  [class~="text-[11px]"] {
+  .chat-compact [class~="text-[11px]"] {
     font-size: 0.8125rem !important;
     line-height: 1.2rem !important;
   }
@@ -201,5 +201,20 @@ select {
   .chat-compact button[title="Gửi"],
   .chat-compact button[title="Dán"] {
     width: 48px;
+  }
+
+  .landing-page {
+    font-size: 16px;
+    line-height: 1.6;
+    letter-spacing: -0.006em;
+  }
+
+  .landing-page h1,
+  .landing-page h2,
+  .landing-page h3,
+  .landing-page h4,
+  .landing-page strong,
+  .landing-page button {
+    letter-spacing: -0.015em;
   }
 }

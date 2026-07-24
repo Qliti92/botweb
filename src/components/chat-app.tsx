@@ -3,25 +3,33 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
+  ArrowLeft,
   Bell,
   BookOpen,
   CheckCircle2,
   Clipboard,
   Clock3,
   ExternalLink,
+  Eye,
+  EyeOff,
+  Gift,
   HandCoins,
   Headphones,
   History,
   ListChecks,
   LoaderCircle,
+  LockKeyhole,
   LogOut,
   LogIn,
+  Mail,
   Menu,
   MessageCircle,
   PackageCheck,
+  Phone,
   Send,
   ShieldCheck,
   Trash2,
+  User,
   UserRound,
   WalletCards,
   X
@@ -47,7 +55,7 @@ type ProactiveNotice = { id: string; title: string; message: string; actionUrl?:
 type PublicPageItem = { slug: string; title: string };
 type PublicPage = PublicPageItem & { content: string; metaDescription?: string; updatedAt?: string | null };
 
-type AuthMode = "login" | "register" | "forgot" | "2fa";
+type AuthMode = "login" | "register" | "forgot" | "2fa" | "verify-email";
 
 const quickCommands = [
   { label: "Hướng dẫn", command: "/huongdan", icon: BookOpen },
@@ -229,6 +237,7 @@ export function ChatApp() {
   const [pushMessage, setPushMessage] = useState("");
   const [pushEndpoint, setPushEndpoint] = useState("");
   const [showPushSettings, setShowPushSettings] = useState(false);
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
   const [pushQuietStart, setPushQuietStart] = useState("22:00");
   const [pushQuietEnd, setPushQuietEnd] = useState("08:00");
   const [pushCategories, setPushCategories] = useState(["REMINDER", "ORDER", "CASHBACK", "SUPPORT"]);
@@ -280,7 +289,7 @@ export function ChatApp() {
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [session?.messages.length, optimisticMessages.length, sending]);
+  }, [session?.messages.length, optimisticMessages.length, sending, showPushSettings]);
 
   useEffect(() => {
     if (!session?.user || !navigator.clipboard?.readText) return;
@@ -339,6 +348,7 @@ export function ChatApp() {
         const push = await import("@/lib/web-push-client");
         if (!push.isWebPushSupported()) {
           setPushState("unsupported");
+          setShowPushPrompt(false);
           return;
         }
 
@@ -356,9 +366,16 @@ export function ChatApp() {
           await registerPushSubscription(nextSubscription);
           setPushEndpoint(nextSubscription.endpoint);
           setPushState("enabled");
+          setShowPushPrompt(false);
+          return;
+        }
+
+        if (Notification.permission === "default" && window.sessionStorage.getItem("push_prompt_dismissed") !== "1") {
+          setShowPushPrompt(true);
         }
       } catch {
         setPushState("error");
+        setShowPushPrompt(false);
       }
     }
 
@@ -538,9 +555,17 @@ export function ChatApp() {
       setPushEndpoint(subscription.endpoint);
       setPushState("enabled");
       setPushMessage("Thiết bị này đã bật thông báo đẩy.");
+      setShowPushPrompt(false);
     } catch (err) {
-      setPushState("error");
-      setPushMessage(err instanceof Error ? err.message : "Không thể bật thông báo.");
+      setShowPushPrompt(false);
+      if (typeof Notification !== "undefined" && Notification.permission === "denied") {
+        window.sessionStorage.setItem("push_prompt_dismissed", "1");
+        setPushState("idle");
+        setPushMessage("");
+      } else {
+        setPushState("error");
+        setPushMessage(err instanceof Error ? err.message : "Không thể bật thông báo.");
+      }
     }
   }
 
@@ -614,8 +639,8 @@ export function ChatApp() {
             }
           : authMode === "forgot"
             ? { mode: "forgot", email: normalizedEmail }
-            : authMode === "2fa"
-              ? { mode: "2fa", sessionId: pendingTwoFactorSessionId, code: twoFactorCode }
+            : authMode === "2fa" || authMode === "verify-email"
+              ? { mode: authMode, sessionId: pendingTwoFactorSessionId, code: twoFactorCode }
               : { mode: "login", email: normalizedEmail, password: authPassword };
 
       const response = await fetch("/api/chat/auth", {
@@ -634,8 +659,13 @@ export function ChatApp() {
 
       if (!data.user) {
         setPendingTwoFactorSessionId(data.id);
-        setAuthMode("2fa");
-        setAuthMessage("Bạn nhập mã xác thực để Ry hoàn tất đăng nhập nhé.");
+        if (data.authChallenge === "verify-email") {
+          setAuthMode("verify-email");
+          setAuthMessage("Ry đã gửi mã OTP tới email của bạn. Nhập mã để kích hoạt tài khoản nhé.");
+        } else {
+          setAuthMode("2fa");
+          setAuthMessage("Bạn nhập mã xác thực để Ry hoàn tất đăng nhập nhé.");
+        }
         return;
       }
 
@@ -844,6 +874,16 @@ export function ChatApp() {
 
       <AppNoticeBanner notice={appNotice} secondsLeft={appNoticeSecondsLeft} />
       {proactiveNotices[0] ? <ProactiveNoticeBanner notice={proactiveNotices[0]} onClose={async () => { const current = proactiveNotices[0]; setProactiveNotices((items) => items.slice(1)); await fetch("/api/chat/proactive", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: current.id }) }); }} /> : null}
+      {showPushPrompt ? (
+        <NotificationPermissionPrompt
+          enabling={pushState === "enabling"}
+          onEnable={enablePushNotifications}
+          onClose={() => {
+            window.sessionStorage.setItem("push_prompt_dismissed", "1");
+            setShowPushPrompt(false);
+          }}
+        />
+      ) : null}
 
       <SideMenu
         open={showSideMenu}
@@ -864,23 +904,6 @@ export function ChatApp() {
         }}
         onLogout={logout}
       />
-
-      {showPushSettings ? (
-        <DeviceNotificationModal
-          state={pushState}
-          message={pushMessage}
-          quietStart={pushQuietStart}
-          quietEnd={pushQuietEnd}
-          categories={pushCategories}
-          onQuietStart={setPushQuietStart}
-          onQuietEnd={setPushQuietEnd}
-          onCategories={setPushCategories}
-          onEnable={enablePushNotifications}
-          onSave={savePushPreferences}
-          onDisable={disablePushNotifications}
-          onClose={() => setShowPushSettings(false)}
-        />
-      ) : null}
 
       <section className="flex-1 overflow-y-auto bg-[#eef2f7] px-2.5 py-3 sm:px-4">
         {session?.user ? (
@@ -941,6 +964,23 @@ export function ChatApp() {
           <MessageBubble key={message.id} message={message} onSend={sendMessage} />
         ))}
 
+        {showPushSettings ? (
+          <DeviceNotificationCard
+            state={pushState}
+            message={pushMessage}
+            quietStart={pushQuietStart}
+            quietEnd={pushQuietEnd}
+            categories={pushCategories}
+            onQuietStart={setPushQuietStart}
+            onQuietEnd={setPushQuietEnd}
+            onCategories={setPushCategories}
+            onEnable={enablePushNotifications}
+            onSave={savePushPreferences}
+            onDisable={disablePushNotifications}
+            onClose={() => setShowPushSettings(false)}
+          />
+        ) : null}
+
         {sending ? (
           <div className="mb-3 flex items-end gap-2">
             <BotAvatar />
@@ -955,7 +995,7 @@ export function ChatApp() {
 
       {error ? <div className="border-t border-red-100 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div> : null}
       {showTicket ? <TicketForm initialCategory={ticketInitialCategory} onClose={() => setShowTicket(false)} onCreated={(id) => { setShowTicket(false); setError(`Ry đã tạo yêu cầu hỗ trợ #${id.slice(-8)}. Bạn sẽ nhận thông báo khi có phản hồi.`); }} /> : null}
-      {showWithdrawal ? <WithdrawalForm initialAmount={withdrawalInitialAmount} onClose={() => setShowWithdrawal(false)} onSuccess={() => { setShowWithdrawal(false); setError("Ry đã gửi yêu cầu rút tiền thành công."); }} /> : null}
+      {showWithdrawal ? <WithdrawalForm initialAmount={withdrawalInitialAmount} balance={session?.user?.balance} onClose={() => setShowWithdrawal(false)} onSuccess={() => { setShowWithdrawal(false); setError("Ry đã gửi yêu cầu rút tiền thành công."); }} /> : null}
       {publicPageLoading ? <div className="absolute inset-0 z-50 grid place-items-center bg-black/30"><div className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-xs font-medium text-brand-ink shadow-xl"><LoaderCircle className="h-5 w-5 animate-spin text-brand-red" />Đang tải nội dung...</div></div> : null}
       {publicPage ? <PublicPageModal page={publicPage} onClose={() => setPublicPage(null)} /> : null}
 
@@ -1069,14 +1109,88 @@ function PublicPageModal({ page, onClose }: { page: PublicPage; onClose: () => v
   );
 }
 
-function WithdrawalForm({ initialAmount, onClose, onSuccess }: { initialAmount: string; onClose: () => void; onSuccess: () => void }) {
+function WithdrawalForm({ initialAmount, balance, onClose, onSuccess }: { initialAmount: string; balance?: number | string; onClose: () => void; onSuccess: () => void }) {
   const [amount, setAmount] = useState(initialAmount);
+  const [currentBalance, setCurrentBalance] = useState<number | string | undefined>(balance);
+  const [balanceLoading, setBalanceLoading] = useState(true);
+  const [paymentMethod, setPaymentMethod] = useState<"bank" | "wallet">("bank");
   const [bankName, setBankName] = useState("");
+  const [customBankName, setCustomBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+  const [savedAccounts, setSavedAccounts] = useState<Array<{ id: string | number; payment_method: "bank" | "wallet"; bank_name: string; account_number: string; account_name: string; is_default?: boolean }>>([]);
+  const [accountsLoading, setAccountsLoading] = useState(true);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | number | null>(null);
+  const [saveForLater, setSaveForLater] = useState(false);
+  const quickAmounts = [20_000, 50_000, 100_000];
+  const banks = [
+    ["Vietcombank", "Ngân hàng Ngoại thương Việt Nam"],
+    ["BIDV", "Ngân hàng Đầu tư và Phát triển Việt Nam"],
+    ["VietinBank", "Ngân hàng Công Thương Việt Nam"],
+    ["Agribank", "Ngân hàng Nông nghiệp và Phát triển Nông thôn"],
+    ["Techcombank", "Ngân hàng Kỹ thương Việt Nam"],
+    ["MB Bank", "Ngân hàng Quân đội"],
+    ["ACB", "Ngân hàng Á Châu"],
+    ["VPBank", "Ngân hàng Việt Nam Thịnh Vượng"],
+    ["TPBank", "Ngân hàng Tiên Phong"],
+    ["Sacombank", "Ngân hàng Sài Gòn Thương Tín"]
+  ] as const;
+  useEffect(() => {
+    let active = true;
+    fetch("/api/chat/withdrawals")
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        if (active) setCurrentBalance(data.balance);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setBalanceLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/chat/payment-accounts")
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        const items = Array.isArray(data.items) ? data.items : [];
+        if (!active) return;
+        setSavedAccounts(items);
+        const preferred = items.find((item: { is_default?: boolean }) => item.is_default) ?? items[0];
+        if (preferred) {
+          setSelectedAccountId(preferred.id);
+          setPaymentMethod(preferred.payment_method === "wallet" ? "wallet" : "bank");
+          setBankName(preferred.bank_name);
+          setAccountNumber(preferred.account_number);
+          setAccountName(preferred.account_name);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setAccountsLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  const numericBalance = (() => {
+    if (typeof currentBalance === "number") return Number.isFinite(currentBalance) ? Math.max(0, Math.floor(currentBalance)) : 0;
+    const value = String(currentBalance ?? "").trim().replace(/\s*(VND|VNĐ|đ)$/i, "").trim();
+    if (!value) return 0;
+    if (/^\d+[.,]\d{1,2}$/.test(value)) return Math.max(0, Math.floor(Number(value.replace(",", "."))));
+    const digits = value.replace(/\D/g, "");
+    return digits ? Number(digits) : 0;
+  })();
+  const hasBalance = currentBalance !== undefined && currentBalance !== null && String(currentBalance).trim() !== "";
+  const selectedBankName = bankName === "other" ? customBankName : bankName;
+  const formattedAmount = amount && Number.isFinite(Number(amount))
+    ? new Intl.NumberFormat("vi-VN").format(Number(amount))
+    : "0";
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -1087,10 +1201,17 @@ function WithdrawalForm({ initialAmount, onClose, onSuccess }: { initialAmount: 
       const response = await fetch("/api/chat/withdrawals", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ amount: Number(amount), bankName, accountNumber, accountName })
+        body: JSON.stringify({ amount: Number(amount), paymentMethod, bankName: selectedBankName, accountNumber, accountName })
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error ?? "Chưa thể gửi yêu cầu rút tiền.");
+      if (saveForLater && !selectedAccountId) {
+        await fetch("/api/chat/payment-accounts", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ paymentMethod, bankName: selectedBankName, accountNumber, accountName, isDefault: savedAccounts.length === 0 })
+        }).catch(() => {});
+      }
       onSuccess();
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Chưa thể gửi yêu cầu rút tiền.");
@@ -1100,21 +1221,131 @@ function WithdrawalForm({ initialAmount, onClose, onSuccess }: { initialAmount: 
   }
 
   return (
-    <div className="absolute inset-0 z-40 grid place-items-end overflow-y-auto bg-black/40 p-2 sm:place-items-center">
-      <form onSubmit={submit} className="w-full max-w-md rounded-xl bg-white p-3 shadow-xl">
-        <div className="flex items-center justify-between"><div><h2 className="text-sm font-semibold">Rút tiền về ngân hàng</h2><p className="text-[11px] text-neutral-500">Điền và kiểm tra thông tin trước khi gửi.</p></div><button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-md border"><X className="h-3.5 w-3.5" /></button></div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <label className="text-xs"><span className="mb-1 block font-medium">Số tiền</span><input required type="number" min={10001} value={amount} onChange={(event) => setAmount(event.target.value)} className="h-10 w-full rounded-md border px-2.5 text-sm" /></label>
-          <label className="text-xs"><span className="mb-1 block font-medium">Ngân hàng</span><input required value={bankName} onChange={(event) => setBankName(event.target.value)} placeholder="Techcombank" className="h-10 w-full rounded-md border px-2.5 text-sm" /></label>
-          <label className="text-xs"><span className="mb-1 block font-medium">Số tài khoản</span><input required inputMode="numeric" value={accountNumber} onChange={(event) => setAccountNumber(event.target.value.replace(/\D/g, ""))} className="h-10 w-full rounded-md border px-2.5 text-sm" /></label>
-          <label className="text-xs"><span className="mb-1 block font-medium">Tên chủ tài khoản</span><input required value={accountName} onChange={(event) => setAccountName(event.target.value.toUpperCase())} className="h-10 w-full rounded-md border px-2.5 text-sm" /></label>
+    <div className="absolute inset-0 z-40 flex items-end justify-center overflow-y-auto bg-black/45 sm:items-center sm:p-4" onClick={onClose}>
+      <form onSubmit={submit} className="safe-bottom max-h-[94dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl" onClick={(event) => event.stopPropagation()}>
+        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-100 bg-white/95 px-5 py-4 backdrop-blur">
+          <div className="flex items-center gap-3">
+            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-brand-red"><HandCoins className="h-5 w-5" /></span>
+            <div><h2 className="text-lg font-bold text-brand-ink">Rút tiền</h2><p className="text-xs text-neutral-500">Chuyển tiền về tài khoản ngân hàng</p></div>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Đóng biểu mẫu" className="grid h-11 w-11 place-items-center rounded-full bg-neutral-100 text-neutral-600"><X className="h-5 w-5" /></button>
+        </header>
+
+        <div className="grid gap-5 p-5">
+          <section className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-br from-[#287a63] to-[#236c58] p-4 text-white shadow-lg shadow-emerald-900/10">
+            <div className="min-w-0">
+              <p className="flex items-center gap-1.5 text-xs font-medium text-white/75"><WalletCards className="h-4 w-4" /> Số dư hiện tại</p>
+              <strong className="mt-1 block truncate text-2xl font-bold tracking-tight">
+                {balanceLoading && !hasBalance ? "Đang cập nhật..." : hasBalance ? `${new Intl.NumberFormat("vi-VN").format(numericBalance)} VNĐ` : "Chưa cập nhật"}
+              </strong>
+            </div>
+            <button type="button" onClick={() => setAmount(String(numericBalance))} disabled={balanceLoading || !hasBalance || numericBalance <= 10_000} className="shrink-0 rounded-xl bg-white px-3 py-2 text-sm font-bold text-brand-red shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50">
+              Rút tất cả
+            </button>
+          </section>
+
+          <section>
+            <label htmlFor="withdrawal-amount" className="mb-2 block text-sm font-semibold text-brand-ink">Bạn muốn rút bao nhiêu?</label>
+            <div className="relative">
+              <input id="withdrawal-amount" required type="number" min={10001} step={1000} inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Nhập số tiền" className="h-14 w-full rounded-2xl border border-neutral-300 bg-white px-4 pr-14 text-xl font-bold text-brand-ink outline-none transition focus:border-brand-red focus:ring-4 focus:ring-emerald-100" />
+              <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-neutral-500">VNĐ</span>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {quickAmounts.map((value) => (
+                <button key={value} type="button" onClick={() => setAmount(String(value))} aria-pressed={Number(amount) === value} className={`min-h-11 rounded-xl border px-2 text-sm font-semibold transition ${Number(amount) === value ? "border-brand-red bg-emerald-50 text-brand-red ring-1 ring-brand-red" : "border-neutral-200 bg-white text-neutral-700 hover:border-brand-red"}`}>
+                  {value / 1000}k
+                </button>
+              ))}
+            </div>
+            {Number(amount) > 0 ? <p className="mt-2 text-sm text-neutral-500">Số tiền: <strong className="text-brand-red">{formattedAmount} VNĐ</strong></p> : null}
+          </section>
+
+          <div className="h-px bg-neutral-100" />
+
+          <section className="grid gap-4">
+            <h3 className="text-sm font-bold text-brand-ink">Tài khoản nhận tiền</h3>
+            {accountsLoading ? (
+              <p className="flex items-center gap-2 text-xs text-neutral-500"><LoaderCircle className="h-4 w-4 animate-spin" />Đang tải sổ tài khoản...</p>
+            ) : savedAccounts.length ? (
+              <div className="grid gap-2">
+                <p className="text-xs font-medium text-neutral-500">Chọn tài khoản đã lưu</p>
+                <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
+                  {savedAccounts.map((item) => {
+                    const selected = selectedAccountId === item.id;
+                    const tail = item.account_number.slice(-4);
+                    return (
+                      <button key={item.id} type="button" onClick={() => {
+                        setSelectedAccountId(item.id);
+                        setPaymentMethod(item.payment_method === "wallet" ? "wallet" : "bank");
+                        setBankName(item.bank_name);
+                        setCustomBankName("");
+                        setAccountNumber(item.account_number);
+                        setAccountName(item.account_name);
+                        setSaveForLater(false);
+                      }} className={`min-w-[170px] rounded-xl border p-3 text-left transition ${selected ? "border-brand-red bg-emerald-50 ring-1 ring-brand-red" : "border-neutral-200 bg-white"}`}>
+                        <span className="flex items-center justify-between gap-2"><strong className="truncate text-sm text-brand-ink">{item.bank_name}</strong>{item.is_default ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Mặc định</span> : null}</span>
+                        <span className="mt-1 block text-xs text-neutral-500">•••• {tail} · {item.account_name}</span>
+                      </button>
+                    );
+                  })}
+                  <button type="button" onClick={() => {
+                    setSelectedAccountId(null);
+                    setPaymentMethod("bank");
+                    setBankName("");
+                    setCustomBankName("");
+                    setAccountNumber("");
+                    setAccountName("");
+                  }} className={`min-w-[120px] rounded-xl border border-dashed p-3 text-center text-xs font-semibold ${selectedAccountId === null ? "border-brand-red bg-emerald-50 text-brand-red" : "border-neutral-300 text-neutral-600"}`}>
+                    + Tài khoản mới
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
+              {paymentMethod === "wallet" ? "Ví điện tử" : "Ngân hàng"}
+              <select required value={bankName} onChange={(event) => setBankName(event.target.value)} className="h-12 w-full rounded-xl border border-neutral-300 bg-white px-3 text-base font-normal outline-none focus:border-brand-red focus:ring-4 focus:ring-emerald-100">
+                <option value="">{paymentMethod === "wallet" ? "Chọn ví điện tử" : "Chọn ngân hàng"}</option>
+                {paymentMethod === "wallet" && bankName ? <option value={bankName}>{bankName}</option> : null}
+                {banks.map(([shortName, fullName]) => <option key={shortName} value={shortName}>{shortName} — {fullName}</option>)}
+                <option value="other">Ngân hàng khác</option>
+              </select>
+            </label>
+            {bankName === "other" ? (
+              <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
+                Tên ngân hàng
+                <input required value={customBankName} onChange={(event) => setCustomBankName(event.target.value)} placeholder="Nhập tên ngân hàng" className="h-12 rounded-xl border border-neutral-300 px-3 text-base font-normal outline-none focus:border-brand-red focus:ring-4 focus:ring-emerald-100" />
+              </label>
+            ) : null}
+            <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
+              Số tài khoản
+              <input required inputMode="numeric" autoComplete="off" minLength={6} value={accountNumber} onChange={(event) => setAccountNumber(event.target.value.replace(/\D/g, ""))} placeholder="Nhập số tài khoản" className="h-12 rounded-xl border border-neutral-300 px-3 text-base font-normal outline-none focus:border-brand-red focus:ring-4 focus:ring-emerald-100" />
+            </label>
+            <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
+              Tên chủ tài khoản
+              <input required autoComplete="name" value={accountName} onChange={(event) => setAccountName(event.target.value.toUpperCase())} placeholder="NGUYEN VAN AN" className="h-12 rounded-xl border border-neutral-300 px-3 text-base font-normal uppercase outline-none focus:border-brand-red focus:ring-4 focus:ring-emerald-100" />
+              <span className="text-xs font-normal text-neutral-500">Nhập đúng tên in trên tài khoản ngân hàng.</span>
+            </label>
+            {!selectedAccountId ? (
+              <label className="flex cursor-pointer items-center gap-2.5 rounded-xl bg-neutral-50 p-3 text-sm font-medium text-neutral-700 ring-1 ring-neutral-100">
+                <input type="checkbox" checked={saveForLater} onChange={(event) => setSaveForLater(event.target.checked)} className="h-5 w-5 accent-brand-red" />
+                Lưu tài khoản này để lần sau không cần nhập lại
+              </label>
+            ) : null}
+          </section>
+
+          <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-amber-50 p-3 text-sm leading-5 text-amber-900 ring-1 ring-amber-100">
+            <input type="checkbox" required checked={confirmed} onChange={(event) => { setConfirmed(event.target.checked); setFormError(""); }} className="mt-0.5 h-5 w-5 shrink-0 accent-brand-red" />
+            <span>Tôi đã kiểm tra đúng <strong>số tiền, ngân hàng và số tài khoản</strong>.</span>
+          </label>
+          {formError ? <p role="alert" className="flex items-start gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{formError}</p> : null}
         </div>
-        <label className="mt-2 flex items-start gap-2 rounded-md bg-amber-50 p-2 text-xs"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-0.5 h-3.5 w-3.5 accent-brand-red" /><span>Tôi đã kiểm tra số tiền và tài khoản nhận.</span></label>
-        {formError ? <p className="mt-2 text-xs text-red-600">{formError}</p> : null}
-        <button disabled={submitting} className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-brand-red text-sm font-semibold text-white disabled:opacity-50">
+
+        <footer className="sticky bottom-0 border-t border-neutral-100 bg-white/95 p-4 backdrop-blur">
+          <button disabled={submitting} className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand-red px-5 text-base font-bold text-white shadow-lg shadow-emerald-900/10 transition hover:bg-[#236c58] disabled:opacity-50">
           {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
           {submitting ? "Đang gửi..." : "Gửi yêu cầu rút tiền"}
-        </button>
+          </button>
+        </footer>
       </form>
     </div>
   );
@@ -1246,65 +1477,173 @@ function AuthScreen({
   const isRegister = mode === "register";
   const isForgot = mode === "forgot";
   const isTwoFactor = mode === "2fa";
+  const isEmailVerification = mode === "verify-email";
+  const isCodeVerification = isTwoFactor || isEmailVerification;
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
+  const [registerStep, setRegisterStep] = useState<1 | 2>(1);
+  const passwordsMatch = passwordConfirmation.length > 0 && password === passwordConfirmation;
+
+  useEffect(() => {
+    if (!isRegister) setRegisterStep(1);
+  }, [isRegister]);
+
+  function changeMode(nextMode: AuthMode) {
+    if (nextMode === "register") setRegisterStep(1);
+    onModeChange(nextMode);
+  }
+
+  function handleAuthSubmit(event: FormEvent) {
+    if (isRegister && registerStep === 1) {
+      event.preventDefault();
+      if (!passwordsMatch) return;
+      setRegisterStep(2);
+      return;
+    }
+    onSubmit(event);
+  }
+
+  const title = isRegister
+    ? registerStep === 1
+      ? "Tạo tài khoản"
+      : `Sắp xong rồi${name.trim() ? `, ${name.trim().split(/\s+/).slice(-1)[0]}` : ""}!`
+    : isForgot
+      ? "Lấy lại mật khẩu"
+      : isTwoFactor
+        ? "Xác thực đăng nhập"
+        : isEmailVerification
+          ? "Xác minh email"
+        : "Chào mừng bạn trở lại";
+  const description = isRegister
+    ? registerStep === 1
+      ? "Trước tiên, hãy tạo thông tin đăng nhập của bạn."
+      : "Bạn tên gì để Ry tiện xưng hô?"
+    : isForgot
+      ? "Nhập email đã đăng ký, chúng tôi sẽ gửi hướng dẫn cho bạn."
+      : isTwoFactor
+        ? "Nhập mã xác thực để bảo vệ tài khoản của bạn."
+        : isEmailVerification
+          ? "Nhập mã OTP vừa được gửi tới email để kích hoạt tài khoản."
+        : "Đăng nhập để tạo link và nhận tiền hoàn.";
+  const inputClassName =
+    "h-12 w-full rounded-xl border border-neutral-300 bg-white pl-11 pr-4 text-base font-normal text-brand-ink outline-none transition placeholder:text-neutral-400 hover:border-neutral-400 focus:border-brand-red focus:ring-4 focus:ring-emerald-100";
 
   return (
-    <main className="chat-compact flex min-h-dvh flex-col bg-[#e9edf5]">
+    <main className="chat-compact relative flex min-h-dvh flex-col overflow-hidden bg-[#f4f7f6]">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-[#dceee8] to-transparent" />
       <AppNoticeBanner notice={appNotice} secondsLeft={appNoticeSecondsLeft} />
-      <button type="button" onClick={onBack} className="fixed left-4 top-4 z-20 rounded-full border border-red-100 bg-white/90 px-4 py-2 text-sm font-semibold text-brand-red shadow-sm backdrop-blur">
-        ← Trang chủ
+      <button type="button" onClick={onBack} className="fixed left-3 top-3 z-20 flex items-center gap-2 rounded-full border border-white bg-white/90 px-3.5 py-2 text-sm font-semibold text-brand-ink shadow-sm backdrop-blur transition hover:bg-white sm:left-6 sm:top-6">
+        <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+        Trang chủ
       </button>
-      <section className="mx-auto flex w-full flex-1 items-center justify-center px-4 py-6">
-        <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-soft ring-1 ring-black/5">
-        <div className="mb-4 flex flex-col items-center text-center">
-          <img src="/api/site-assets/logo" alt="Hoàn Tiền Mua Hàng" className="h-20 w-20 rounded-full bg-white object-cover ring-1 ring-red-100" />
-          <h1 className="mt-3 text-xl font-bold text-brand-ink">Hoàn Tiền Mua Hàng</h1>
-          <p className="mt-1 text-sm leading-5 text-neutral-500">Sử dụng tài khoản hệ thống hoantienmuahang.vn</p>
+      <section className="relative mx-auto flex w-full flex-1 items-start justify-center px-3 pb-6 pt-20 sm:items-center sm:px-6 sm:py-24">
+        <div className="w-full max-w-[460px] rounded-3xl bg-white p-5 shadow-[0_20px_60px_rgba(31,75,62,0.12)] ring-1 ring-black/5 sm:p-8">
+        <div className="mb-6 text-center">
+          <img src="/api/site-assets/logo" alt="Hoàn Tiền Mua Hàng" className="mx-auto h-16 w-16 rounded-2xl bg-white object-cover shadow-sm ring-1 ring-neutral-200" />
+          <h1 className="mt-4 text-2xl font-bold tracking-tight text-brand-ink">{title}</h1>
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-neutral-600">{description}</p>
         </div>
 
-        <form onSubmit={onSubmit} className="grid gap-2.5">
-          {!isTwoFactor ? (
-            <label className="grid gap-1 text-sm font-semibold text-brand-ink">
-              Email
-              <input value={email} onChange={(event) => onEmailChange(event.target.value.toLowerCase())} type="email" autoComplete="email" required className="h-10 rounded-lg border border-red-100 px-3 text-sm font-normal lowercase outline-none focus:border-brand-red" />
+        {!isForgot && !isCodeVerification ? (
+          <div className="mb-6 grid grid-cols-2 rounded-xl bg-neutral-100 p-1" role="tablist" aria-label="Chọn đăng nhập hoặc đăng ký">
+            <button type="button" role="tab" aria-selected={!isRegister} onClick={() => changeMode("login")} className={`rounded-lg px-3 py-2.5 font-semibold transition ${!isRegister ? "bg-white text-brand-red shadow-sm" : "text-neutral-600 hover:text-brand-ink"}`}>
+              Đăng nhập
+            </button>
+            <button type="button" role="tab" aria-selected={isRegister} onClick={() => changeMode("register")} className={`rounded-lg px-3 py-2.5 font-semibold transition ${isRegister ? "bg-white text-brand-red shadow-sm" : "text-neutral-600 hover:text-brand-ink"}`}>
+              Đăng ký
+            </button>
+          </div>
+        ) : null}
+
+        {isRegister ? (
+          <div className="mb-5" aria-label={`Bước ${registerStep} trên 2`}>
+            <div className="mb-2 flex items-center justify-between text-sm font-semibold">
+              <span className="text-brand-red">Bước {registerStep}/2</span>
+              <span className="text-neutral-500">{registerStep === 1 ? "Thông tin đăng nhập" : "Thông tin cá nhân"}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
+              <div className={`h-full rounded-full bg-brand-red transition-all duration-300 ${registerStep === 1 ? "w-1/2" : "w-full"}`} />
+            </div>
+          </div>
+        ) : null}
+
+        <form onSubmit={handleAuthSubmit} className="grid gap-4">
+          {!isCodeVerification && (!isRegister || registerStep === 1) ? (
+            <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
+              Địa chỉ email
+              <span className="relative">
+                <Mail aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
+                <input value={email} onChange={(event) => onEmailChange(event.target.value.toLowerCase())} type="email" inputMode="email" autoCapitalize="none" autoComplete="email" required placeholder="vidu@gmail.com" className={`${inputClassName} lowercase`} />
+              </span>
             </label>
           ) : null}
 
-          {isRegister ? (
+          {isRegister && registerStep === 2 ? (
             <>
-              <label className="grid gap-1 text-sm font-semibold text-brand-ink">
+              <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
                 Họ tên
-                <input value={name} onChange={(event) => onNameChange(event.target.value)} autoComplete="name" className="h-10 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+                <span className="relative">
+                  <User aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
+                  <input value={name} onChange={(event) => onNameChange(event.target.value)} autoComplete="name" required placeholder="Nguyễn Văn An" className={inputClassName} />
+                </span>
               </label>
-              <label className="grid gap-1 text-sm font-semibold text-brand-ink">
-                Số điện thoại
-                <input value={phone} onChange={(event) => onPhoneChange(event.target.value)} autoComplete="tel" className="h-10 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+              <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
+                Số điện thoại <span className="font-normal text-neutral-500">(không bắt buộc)</span>
+                <span className="relative">
+                  <Phone aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
+                  <input value={phone} onChange={(event) => onPhoneChange(event.target.value)} type="tel" inputMode="tel" autoComplete="tel" placeholder="0912 345 678" className={inputClassName} />
+                </span>
+                <span className="font-normal text-neutral-500">Không bắt buộc, bạn có thể bỏ qua.</span>
               </label>
             </>
           ) : null}
 
-          {!isForgot && !isTwoFactor ? (
-            <label className="grid gap-1 text-sm font-semibold text-brand-ink">
+          {!isForgot && !isCodeVerification && (!isRegister || registerStep === 1) ? (
+            <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
               Mật khẩu
-              <input value={password} onChange={(event) => onPasswordChange(event.target.value)} type="password" autoComplete={isRegister ? "new-password" : "current-password"} required className="h-10 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+              <span className="relative">
+                <LockKeyhole aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
+                <input value={password} onChange={(event) => onPasswordChange(event.target.value)} type={showPassword ? "text" : "password"} autoComplete={isRegister ? "new-password" : "current-password"} required minLength={8} placeholder="Ít nhất 8 ký tự" className={`${inputClassName} pr-12`} />
+                <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"} className="absolute right-1 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center text-neutral-500 hover:text-brand-red">
+                  {showPassword ? <EyeOff aria-hidden="true" className="h-5 w-5" /> : <Eye aria-hidden="true" className="h-5 w-5" />}
+                </button>
+              </span>
             </label>
           ) : null}
 
-          {isRegister ? (
+          {isRegister && registerStep === 1 ? (
+            <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
+              Xác nhận mật khẩu
+              <span className="relative">
+                <LockKeyhole aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
+                <input value={passwordConfirmation} onChange={(event) => onPasswordConfirmationChange(event.target.value)} type={showPasswordConfirmation ? "text" : "password"} autoComplete="new-password" required minLength={8} placeholder="Nhập lại mật khẩu" className={`${inputClassName} pr-12`} />
+                <button type="button" onClick={() => setShowPasswordConfirmation((value) => !value)} aria-label={showPasswordConfirmation ? "Ẩn mật khẩu xác nhận" : "Hiện mật khẩu xác nhận"} className="absolute right-1 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center text-neutral-500 hover:text-brand-red">
+                  {showPasswordConfirmation ? <EyeOff aria-hidden="true" className="h-5 w-5" /> : <Eye aria-hidden="true" className="h-5 w-5" />}
+                </button>
+              </span>
+              {passwordConfirmation ? (
+                <span className={`flex items-center gap-1.5 font-normal ${passwordsMatch ? "text-emerald-700" : "text-red-600"}`}>
+                  {passwordsMatch ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                  {passwordsMatch ? "Mật khẩu đã khớp." : "Hai mật khẩu chưa giống nhau."}
+                </span>
+              ) : null}
+            </label>
+          ) : null}
+
+          {isRegister && registerStep === 2 ? (
             <>
-              <label className="grid gap-1 text-sm font-semibold text-brand-ink">
-                Nhập lại mật khẩu
-                <input value={passwordConfirmation} onChange={(event) => onPasswordConfirmationChange(event.target.value)} type="password" autoComplete="new-password" required className="h-10 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+              <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
+                Mã giới thiệu <span className="font-normal text-neutral-500">(không bắt buộc)</span>
+                <span className="relative">
+                  <Gift aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
+                  <input value={referralCode} onChange={(event) => onReferralCodeChange(event.target.value)} autoComplete="off" placeholder="Bỏ qua nếu bạn không có mã" className={inputClassName} />
+                </span>
               </label>
-              <label className="grid gap-1 text-sm font-semibold text-brand-ink">
-                Mã giới thiệu
-                <input value={referralCode} onChange={(event) => onReferralCodeChange(event.target.value)} autoComplete="off" className="h-10 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
-                <span className="text-xs font-normal text-neutral-500">Để trống nếu không có mã giới thiệu.</span>
-              </label>
-              <label className="flex items-start gap-2 rounded-lg bg-neutral-50 px-3 py-2 text-xs leading-5 text-neutral-700 ring-1 ring-neutral-100">
-                <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} required className="mt-1 h-4 w-4 shrink-0 accent-brand-red" />
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-neutral-50 p-3 text-sm leading-5 text-neutral-700 ring-1 ring-neutral-200">
+                <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} required className="mt-0.5 h-5 w-5 shrink-0 accent-brand-red" />
                 <span>
-                  Tôi đã đọc và đồng ý với{" "}
+                  Tôi đồng ý với{" "}
                   <a href="/thong-tin/dieu-khoan-dich-vu" target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="font-semibold text-brand-red underline decoration-brand-red/30 underline-offset-2">
                     Điều khoản dịch vụ
                   </a>{" "}
@@ -1318,74 +1657,76 @@ function AuthScreen({
             </>
           ) : null}
 
-          {isTwoFactor ? (
-            <label className="grid gap-1 text-sm font-semibold text-brand-ink">
-              Mã xác thực
-              <input value={twoFactorCode} onChange={(event) => onTwoFactorCodeChange(event.target.value)} inputMode="numeric" required className="h-10 rounded-lg border border-red-100 px-3 text-sm font-normal outline-none focus:border-brand-red" />
+          {isCodeVerification ? (
+            <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
+              {isEmailVerification ? "Mã OTP email" : "Mã xác thực"}
+              <input value={twoFactorCode} onChange={(event) => onTwoFactorCodeChange(event.target.value)} inputMode="numeric" autoComplete="one-time-code" required placeholder="Nhập mã được gửi cho bạn" className={`${inputClassName} pl-4 text-center tracking-[0.25em]`} />
             </label>
           ) : null}
 
-          {error ? <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
-          {message ? <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</div> : null}
+          {error ? <div role="alert" className="flex gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-100"><AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />{error}</div> : null}
+          {message ? <div role="status" className="flex gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700 ring-1 ring-emerald-100"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />{message}</div> : null}
 
-          <button type="submit" disabled={loading || (isRegister && !acceptedTerms)} className="mt-1 flex h-11 items-center justify-center gap-2 rounded-full bg-brand-red px-4 text-sm font-semibold text-white disabled:opacity-60">
+          {isRegister && registerStep === 2 ? (
+            <button type="button" onClick={() => setRegisterStep(1)} className="flex items-center justify-center gap-2 text-sm font-semibold text-neutral-600 hover:text-brand-red">
+              <ArrowLeft className="h-4 w-4" /> Sửa email hoặc mật khẩu
+            </button>
+          ) : null}
+
+          <button type="submit" disabled={loading} className="mt-1 flex min-h-14 items-center justify-center gap-2 rounded-xl bg-brand-red px-5 text-base font-bold text-white shadow-lg shadow-emerald-900/10 transition hover:bg-[#236c58] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50">
             {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
             {loading
               ? isForgot
                 ? "Đang gửi hướng dẫn..."
-                : isRegister
+                : isRegister && registerStep === 2
                   ? "Đang đăng ký..."
-                  : isTwoFactor
+                  : isRegister
+                    ? "Đang chuyển bước..."
+                  : isCodeVerification
                     ? "Đang xác thực..."
                     : "Đang đăng nhập..."
               : isForgot
                 ? "Gửi hướng dẫn"
-                : isRegister
-                  ? "Đăng ký"
-                  : isTwoFactor
+                : isRegister && registerStep === 2
+                  ? "Tạo tài khoản"
+                  : isRegister
+                    ? "Tiếp tục"
+                  : isCodeVerification
                     ? "Xác thực"
                     : "Đăng nhập"}
           </button>
         </form>
 
-        {!isTwoFactor ? (
-          <div className="mt-4 grid gap-2 text-center">
-            {!isRegister && !isForgot ? (
-              <p className="text-sm text-neutral-600">
-                Bạn chưa có tài khoản?{" "}
-                <button type="button" onClick={() => onModeChange("register")} className="font-semibold text-brand-red">
-                  Đăng ký ngay
-                </button>
-              </p>
-            ) : null}
-            {isRegister ? (
-              <p className="text-sm text-neutral-600">
-                Đã có tài khoản?{" "}
-                <button type="button" onClick={() => onModeChange("login")} className="font-semibold text-brand-red">
-                  Đăng nhập
-                </button>
-              </p>
-            ) : null}
-            {!isRegister ? (
-              <button type="button" onClick={() => onModeChange("forgot")} className="text-xs font-medium text-neutral-500 hover:text-brand-red">
-                Quên mật khẩu
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-
-        {isForgot ? (
-          <button type="button" onClick={() => onModeChange("login")} className="mt-4 w-full text-center text-sm font-semibold text-brand-red">
-            Quay lại đăng nhập
-          </button>
-        ) : null}
+        {!isRegister && !isForgot && !isCodeVerification ? <button type="button" onClick={() => onModeChange("forgot")} className="mt-4 w-full text-center text-sm font-semibold text-brand-red hover:underline">Bạn quên mật khẩu?</button> : null}
+        {(isForgot || isCodeVerification) ? <button type="button" onClick={() => onModeChange("login")} className="mt-4 flex w-full items-center justify-center gap-2 text-sm font-semibold text-brand-red hover:underline"><ArrowLeft className="h-4 w-4" />Quay lại đăng nhập</button> : null}
+        <p className="mt-5 flex items-center justify-center gap-1.5 text-center text-xs text-neutral-500"><ShieldCheck className="h-4 w-4 text-emerald-700" />Thông tin của bạn được bảo mật an toàn</p>
         </div>
       </section>
     </main>
   );
 }
 
-function DeviceNotificationModal({
+function NotificationPermissionPrompt({ enabling, onEnable, onClose }: { enabling: boolean; onEnable: () => void; onClose: () => void }) {
+  return (
+    <div className="absolute inset-0 z-[70] flex items-end justify-center bg-black/45 p-3 sm:items-center" onClick={onClose}>
+      <section role="dialog" aria-modal="true" aria-labelledby="notification-prompt-title" className="safe-bottom w-full max-w-sm rounded-3xl bg-white p-5 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-emerald-50 text-brand-red">
+          <Bell className="h-7 w-7" />
+        </span>
+        <h2 id="notification-prompt-title" className="mt-4 text-xl font-bold text-brand-ink">Không bỏ lỡ tiền hoàn</h2>
+        <p className="mt-2 text-sm leading-6 text-neutral-600">Bật thông báo để Ry báo cho bạn khi đơn hàng cập nhật, có tiền hoàn hoặc hỗ trợ phản hồi.</p>
+        <button type="button" onClick={onEnable} disabled={enabling} className="mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand-red px-5 text-base font-bold text-white shadow-lg shadow-emerald-900/10 disabled:opacity-60">
+          {enabling ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Bell className="h-5 w-5" />}
+          {enabling ? "Đang bật..." : "Bật thông báo"}
+        </button>
+        <button type="button" onClick={onClose} disabled={enabling} className="mt-2 min-h-11 w-full text-sm font-semibold text-neutral-500 disabled:opacity-50">Để sau</button>
+        <p className="mt-1 text-xs text-neutral-400">Bạn có thể thay đổi lựa chọn trong menu bất cứ lúc nào.</p>
+      </section>
+    </div>
+  );
+}
+
+function DeviceNotificationCard({
   state, message, quietStart, quietEnd, categories, onQuietStart, onQuietEnd, onCategories, onEnable, onSave, onDisable, onClose
 }: {
   state: "idle" | "enabling" | "enabled" | "unsupported" | "error";
@@ -1402,38 +1743,64 @@ function DeviceNotificationModal({
   onClose: () => void;
 }) {
   const enabled = state === "enabled";
+  const busy = state === "enabling";
+  const options = [["REMINDER", "Nhắc mua hàng"], ["ORDER", "Đơn hàng"], ["CASHBACK", "Tiền hoàn"], ["SUPPORT", "Hỗ trợ"]];
   return (
-    <div className="absolute inset-0 z-[60] flex items-end bg-black/40 sm:items-center sm:justify-center sm:p-4" onClick={onClose}>
-      <section className="safe-bottom w-full rounded-t-3xl bg-white p-5 shadow-xl sm:max-w-md sm:rounded-3xl" onClick={(event) => event.stopPropagation()}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-50 text-emerald-700"><Bell className="h-6 w-6" /></span>
-            <div><h2 className="text-lg font-bold text-brand-ink">Thông báo thiết bị</h2><p className="text-sm text-neutral-500">{enabled ? "Thiết bị này đang nhận thông báo." : "Nhận nhắc mua hàng và cập nhật đơn."}</p></div>
+    <div className="mb-3 flex items-end gap-2">
+      <BotAvatar />
+      <section className="min-w-0 max-w-[calc(100%-44px)] flex-1 overflow-hidden rounded-2xl rounded-bl-md border border-[#d9dde3] bg-white shadow-sm sm:max-w-[440px]">
+        <header className="flex items-center gap-2.5 border-b border-neutral-100 bg-[#fafaf8] px-3 py-2.5">
+          <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
+            <Bell className="h-4 w-4" />
+            <span className={`absolute right-1 top-1 h-2 w-2 rounded-full ring-2 ring-white ${enabled ? "bg-emerald-500" : "bg-neutral-300"}`} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-bold text-brand-ink">Cài đặt thông báo</h2>
+            <p className="truncate text-[11px] text-neutral-500">{enabled ? "Đang bật trên thiết bị này" : "Nhận cập nhật quan trọng từ Ry"}</p>
           </div>
-          <button type="button" onClick={onClose} className="grid h-11 w-11 place-items-center rounded-xl bg-neutral-100"><X className="h-5 w-5" /></button>
-        </div>
-        {message ? <p className={`mt-3 rounded-xl px-3 py-2 text-sm ${enabled ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>{message}</p> : null}
-        {state === "unsupported" ? <p className="mt-4 text-sm text-red-700">Trình duyệt này chưa hỗ trợ thông báo đẩy. Trên iPhone, hãy cài trang vào Màn hình chính rồi mở từ biểu tượng ứng dụng.</p> : !enabled ? (
-          <button type="button" onClick={onEnable} disabled={state === "enabling"} className="mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-4 text-base font-bold text-white disabled:opacity-60">
-            {state === "enabling" ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Bell className="h-5 w-5" />}{state === "enabling" ? "Đang bật..." : "Bật thông báo"}
-          </button>
+          <button type="button" onClick={onClose} aria-label="Đóng cài đặt thông báo" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"><X className="h-4 w-4" /></button>
+        </header>
+        <div className="p-3">
+        {message ? <p role="status" className={`mb-3 rounded-lg px-2.5 py-2 text-xs ${enabled ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>{message}</p> : null}
+        {state === "unsupported" ? (
+          <p className="rounded-xl bg-red-50 p-3 text-xs leading-5 text-red-700">Trình duyệt chưa hỗ trợ thông báo. Trên iPhone, hãy thêm trang vào Màn hình chính rồi mở lại từ biểu tượng ứng dụng.</p>
+        ) : !enabled ? (
+          <div>
+            <p className="text-xs leading-5 text-neutral-600">Bật để nhận thông báo về đơn hàng, tiền hoàn và hỗ trợ ngay cả khi bạn không mở trang.</p>
+            <button type="button" onClick={onEnable} disabled={state === "enabling"} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white disabled:opacity-60">
+              {state === "enabling" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}{state === "enabling" ? "Đang bật..." : "Bật thông báo"}
+            </button>
+          </div>
         ) : (
-          <div className="mt-5 grid gap-4">
-            <div className="grid grid-cols-2 gap-3">
-              <label className="grid gap-1 text-sm font-semibold">Yên lặng từ<input type="time" value={quietStart} onChange={(event) => onQuietStart(event.target.value)} className="min-h-12 rounded-xl border border-slate-200 px-3 text-base" /></label>
-              <label className="grid gap-1 text-sm font-semibold">Đến<input type="time" value={quietEnd} onChange={(event) => onQuietEnd(event.target.value)} className="min-h-12 rounded-xl border border-slate-200 px-3 text-base" /></label>
+          <div className="grid gap-3">
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Khung giờ yên lặng</p>
+              <div className="flex items-center gap-2 rounded-xl bg-neutral-50 p-2 ring-1 ring-neutral-100">
+                <label className="min-w-0 flex-1"><span className="sr-only">Yên lặng từ</span><input type="time" value={quietStart} onChange={(event) => onQuietStart(event.target.value)} className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-2 text-center text-sm font-semibold" /></label>
+                <span className="text-xs text-neutral-400">đến</span>
+                <label className="min-w-0 flex-1"><span className="sr-only">Yên lặng đến</span><input type="time" value={quietEnd} onChange={(event) => onQuietEnd(event.target.value)} className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-2 text-center text-sm font-semibold" /></label>
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              {[["REMINDER", "Nhắc mua hàng"], ["ORDER", "Đơn hàng"], ["CASHBACK", "Tiền hoàn"], ["SUPPORT", "Hỗ trợ"]].map(([value, label]) => (
-                <label key={value} className="flex min-h-12 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-medium">
-                  <input type="checkbox" checked={categories.includes(value)} onChange={(event) => onCategories(event.target.checked ? [...categories, value] : categories.filter((item) => item !== value))} className="h-5 w-5 accent-emerald-700" />{label}
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Loại thông báo</p>
+              <div className="grid grid-cols-2 gap-1.5">
+              {options.map(([value, label]) => {
+                const checked = categories.includes(value);
+                return (
+                <label key={value} className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-2.5 text-xs font-medium transition ${checked ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600"}`}>
+                  <input type="checkbox" checked={checked} onChange={(event) => onCategories(event.target.checked ? [...categories, value] : categories.filter((item) => item !== value))} className="h-4 w-4 accent-emerald-700" />{label}
                 </label>
-              ))}
+                );
+              })}
+              </div>
             </div>
-            <button type="button" onClick={onSave} disabled={!categories.length} className="min-h-14 rounded-2xl bg-emerald-700 px-4 text-base font-bold text-white disabled:opacity-50">Lưu cài đặt</button>
-            <button type="button" onClick={onDisable} className="min-h-12 rounded-xl border border-red-200 text-sm font-semibold text-red-700">Tắt trên thiết bị này</button>
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <button type="button" onClick={onSave} disabled={!categories.length || busy} className="min-h-11 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white disabled:opacity-50">{busy ? "Đang lưu..." : "Lưu thay đổi"}</button>
+              <button type="button" onClick={onDisable} disabled={busy} aria-label="Tắt thông báo trên thiết bị này" className="min-h-11 rounded-xl border border-neutral-200 px-3 text-xs font-semibold text-red-600 disabled:opacity-50">Tắt</button>
+            </div>
           </div>
         )}
+        </div>
       </section>
     </div>
   );

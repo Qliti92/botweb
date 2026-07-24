@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { completeChatSessionTwoFactor, forgotChatPassword, loginChatSession, registerChatSession } from "@/services/conversation";
+import { completeChatSessionEmailVerification, completeChatSessionTwoFactor, forgotChatPassword, loginChatSession, registerChatSession } from "@/services/conversation";
 import { rateLimit } from "@/lib/rate-limit";
 import { requireMatchingChatSession, setChatSessionCookie } from "@/lib/chat-session";
 
@@ -27,6 +27,11 @@ const authSchema = z.discriminatedUnion("mode", [
     mode: z.literal("2fa"),
     sessionId: z.string().min(1),
     code: z.string().trim().min(4)
+  }),
+  z.object({
+    mode: z.literal("verify-email"),
+    sessionId: z.string().min(1),
+    code: z.string().trim().min(4)
   })
 ]);
 
@@ -50,6 +55,11 @@ export async function POST(request: NextRequest) {
     if (body.mode === "2fa") {
       await requireMatchingChatSession(request, body.sessionId);
       const session = await completeChatSessionTwoFactor(body.sessionId, body.code);
+      return setChatSessionCookie(NextResponse.json(session), session.id);
+    }
+    if (body.mode === "verify-email") {
+      await requireMatchingChatSession(request, body.sessionId);
+      const session = await completeChatSessionEmailVerification(body.sessionId, body.code);
       return setChatSessionCookie(NextResponse.json(session), session.id);
     }
 

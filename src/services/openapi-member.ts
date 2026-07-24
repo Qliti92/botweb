@@ -26,11 +26,11 @@ function buildUrl(path: string, query?: ApiOptions["query"]) {
   return url.toString();
 }
 
-async function requestJson(method: "GET" | "POST", path: string, options: ApiOptions) {
+async function requestJson(method: "GET" | "POST" | "DELETE", path: string, options: ApiOptions) {
   const response = await fetch(buildUrl(path, options.query), {
     method,
     headers: authHeaders(options.token, options.tokenType),
-    body: method === "POST" ? JSON.stringify(options.body ?? {}) : undefined
+    body: method === "GET" ? undefined : JSON.stringify(options.body ?? {})
   });
   const data = asRecord(await response.json().catch(() => ({})));
 
@@ -59,6 +59,32 @@ export function deleteAccount(token: string, tokenType?: string) {
 
 export function getWithdrawals(token: string, tokenType?: string, page = 1, perPage = 5) {
   return requestJson("GET", "/withdrawals", { token, tokenType, query: { page, per_page: perPage } });
+}
+
+export function getPaymentAccounts(token: string, tokenType?: string) {
+  return requestJson("GET", "/payment-accounts", { token, tokenType });
+}
+
+export function createPaymentAccount(
+  token: string,
+  tokenType: string | undefined,
+  body: {
+    payment_method: "bank" | "wallet";
+    bank_name: string;
+    account_number: string;
+    account_name: string;
+    is_default?: boolean;
+  }
+) {
+  return requestJson("POST", "/payment-accounts", { token, tokenType, body });
+}
+
+export function setDefaultPaymentAccount(token: string, tokenType: string | undefined, id: string | number) {
+  return requestJson("POST", `/payment-accounts/${encodeURIComponent(String(id))}/default`, { token, tokenType });
+}
+
+export function deletePaymentAccount(token: string, tokenType: string | undefined, id: string | number) {
+  return requestJson("DELETE", `/payment-accounts/${encodeURIComponent(String(id))}`, { token, tokenType });
 }
 
 export function sendWithdrawalOtp(token: string, tokenType?: string) {

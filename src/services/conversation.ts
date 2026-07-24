@@ -14,6 +14,7 @@ import {
   forgotPasswordWithOpenApi,
   loginWithOpenApi,
   registerWithOpenApi,
+  verifyEmailWithOpenApi,
   type AuthResult,
   type AuthSuccess
 } from "@/services/openapi-auth";
@@ -54,6 +55,9 @@ type SessionState = {
   twoFactor?: {
     challengeToken: string;
     method?: string;
+  };
+  emailVerification?: {
+    email: string;
   };
   account?: {
     id?: string;
@@ -257,6 +261,16 @@ export async function completeChatSessionTwoFactor(sessionId: string, code: stri
   return getSessionPayload(sessionId);
 }
 
+export async function completeChatSessionEmailVerification(sessionId: string, code: string) {
+  const session = await prisma.chatSession.findUnique({ where: { id: sessionId } });
+  if (!session) throw new Error("Không tìm thấy phiên xác minh.");
+  const state = readState(session.state);
+  if (!state.emailVerification?.email) throw new Error("Phiên xác minh email đã hết hạn.");
+
+  await applyAuthResult(sessionId, state, await verifyEmailWithOpenApi(state.emailVerification.email, code));
+  return getSessionPayload(sessionId);
+}
+
 export async function forgotChatPassword(email: string) {
   return forgotPasswordWithOpenApi(emailSchema.parse(email));
 }
@@ -312,6 +326,7 @@ export async function getSessionPayload(sessionId: string) {
 
   return {
     id: session.id,
+    authChallenge: state.emailVerification ? "verify-email" : state.twoFactor ? "2fa" : undefined,
     user: state.account
       ? {
           id: state.account.id ?? state.account.accountKey,
@@ -1104,6 +1119,12 @@ async function handleTwoFactor(sessionId: string, text: string, state: SessionSt
 }
 
 async function applyAuthResult(sessionId: string, state: SessionState, result: AuthResult) {
+  if (result.status === "verify-email") {
+    state.emailVerification = { email: result.email || state.email || state.register?.email || "" };
+    state.step = "email_verification";
+    await updateSession(sessionId, state);
+    return;
+  }
   if (result.status === "2fa") {
     state.twoFactor = {
       challengeToken: result.challengeToken,
@@ -1134,6 +1155,7 @@ function persistAuthSuccess(state: SessionState, result: AuthSuccess) {
   };
   state.step = "ready_for_link";
   state.twoFactor = undefined;
+  state.emailVerification = undefined;
   state.register = undefined;
 }
 

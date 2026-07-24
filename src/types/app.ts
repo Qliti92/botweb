@@ -7,6 +7,7 @@ export type ChatMessage = {
 
 export type ChatSessionPayload = {
   id: string;
+  authChallenge?: "2fa" | "verify-email";
   user: null | {
     id: string;
     phone: string;
