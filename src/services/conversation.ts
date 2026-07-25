@@ -9,6 +9,7 @@ import { classifyIntentFallback } from "@/services/intent-fallback";
 import { findDynamicIntentCommand } from "@/services/dynamic-intent";
 import { emailSchema, passwordSchema, phoneSchema, urlSchema } from "@/lib/validators";
 import { createCashbackLink, type CashbackLinkResult } from "@/services/cashback-link";
+import { classifyShoppingLink } from "@/lib/shopping-link";
 import {
   completeOpenApi2fa,
   forgotPasswordWithOpenApi,
@@ -27,7 +28,6 @@ import {
   getActivityLogs,
   getBalanceLogs,
   getNotifications,
-  getAllOrders,
   getOrders,
   getReferrals,
   getSecurityStatus,
@@ -77,6 +77,11 @@ type SessionState = {
   };
   pendingSensitiveAction?: "delete_account" | "revoke_other_sessions";
   pendingClarification?: "delete_target";
+  recentCashback?: {
+    sourceUrl: string;
+    result: CashbackLinkResult;
+    createdAt: number;
+  };
 };
 
 const startMessage = "Chào bạn, em là Ry 👋\n\nEm sẽ giúp bạn tạo link hoàn tiền và kiểm tra tài khoản thật nhanh.\n\n• Đã có tài khoản: chọn Đăng nhập hoặc nhập 1\n• Chưa có tài khoản: chọn Đăng ký hoặc nhập 2";
@@ -359,10 +364,14 @@ export async function handleUserMessage(sessionId: string, content: string) {
   let text = content.trim();
   let confirmedRevokeOthers = false;
   const normalizedInput = normalizeVietnamese(content);
+  const repeatLastLink = /(?:link|lien ket).*(?:vua roi|luc nay|gan nhat|tao lai)/i.test(normalizedInput)
+    || /(?:tao lai|lam lai).*(?:link|lien ket)/i.test(normalizedInput);
+  const contextualLink = repeatLastLink ? state.recentCashback?.sourceUrl : undefined;
+  const shoppingLink = state.account ? classifyShoppingLink(contextualLink ?? text) : null;
   const canUnderstandIntent = Boolean(state.account) || ["auth_choice", "awaiting_email", undefined].includes(state.step);
-  const detectedIntent = canUnderstandIntent ? detectIntent(text) : null;
+  const detectedIntent = shoppingLink?.kind === "supported" ? null : canUnderstandIntent ? detectIntent(text) : null;
   if (detectedIntent) text = detectedIntent.command;
-  else {
+  else if (shoppingLink?.kind !== "supported") {
     const dynamicCommand = await findDynamicIntentCommand(text, Boolean(state.account));
     if (dynamicCommand) text = dynamicCommand;
   }
@@ -524,8 +533,12 @@ export async function handleUserMessage(sessionId: string, content: string) {
   }
 
   if (state.account) {
-    if (urlSchema.safeParse(text).success) {
-      await handleProductLink(sessionId, text, state);
+    if (shoppingLink?.kind === "supported") {
+      await handleProductLink(sessionId, shoppingLink.url, state);
+      return getSessionPayload(sessionId);
+    }
+    if (shoppingLink?.kind === "unsupported" || shoppingLink?.kind === "invalid-url") {
+      await saveBot(sessionId, "Ry chỉ hỗ trợ link sản phẩm từ Shopee hoặc TikTok Shop. Bạn kiểm tra và gửi lại đúng link nhé.");
       return getSessionPayload(sessionId);
     }
     const answer = await findKnowledgeAnswer(content);
@@ -618,10 +631,13 @@ async function handleMemberCommand(sessionId: string, text: string, state: Sessi
     if (command === "/donhang") {
       const all = isAllOrderRequest(text);
       const query = parseOrderQuery(text);
-      const data = all
-        ? await getAllOrders(account.token, account.tokenType, query)
-        : await getOrders(account.token, account.tokenType, query);
-      await saveBot(sessionId, formatOrders(data, all));
+      const page = Math.max(1, Number(query.page ?? 1));
+      const data = await getOrders(account.token, account.tokenType, {
+        ...query,
+        page,
+        per_page: all ? 5 : 100
+      });
+      await saveBot(sessionId, formatOrders(data, all, query));
       return;
     }
 
@@ -1137,6 +1153,7 @@ async function applyAuthResult(sessionId: string, state: SessionState, result: A
 
   persistAuthSuccess(state, result);
   await updateSession(sessionId, state);
+  await saveBot(sessionId, readyMessage);
 }
 
 function persistAuthSuccess(state: SessionState, result: AuthSuccess) {
@@ -1160,20 +1177,28 @@ function persistAuthSuccess(state: SessionState, result: AuthSuccess) {
 }
 
 async function handleProductLink(sessionId: string, text: string, state: SessionState) {
-  const url = urlSchema.safeParse(text);
-  if (!url.success) {
+  const link = classifyShoppingLink(text);
+  if (link.kind !== "supported") {
     await saveBot(sessionId, "Ry chưa nhận ra link sản phẩm. Bạn sao chép đầy đủ link Shopee hoặc TikTok Shop rồi gửi lại nhé.");
     return;
   }
 
+  const cached = state.recentCashback;
+  if (cached && cached.sourceUrl === link.url && Date.now() - cached.createdAt < 60_000) {
+    await saveBot(sessionId, formatCashbackResult(cached.result, link.url));
+    return;
+  }
+
   const account = accountWithToken(state.account!);
-  const result = await createCashbackLink(url.data, account.token, account.tokenType, sessionId);
+  const result = await createCashbackLink(link.url, account.token, account.tokenType, sessionId);
   if (!result.ok) {
     await saveBot(sessionId, result.error);
     return;
   }
 
-  await saveBot(sessionId, formatCashbackResult(result.data, url.data));
+  state.recentCashback = { sourceUrl: link.url, result: result.data, createdAt: Date.now() };
+  await updateSession(sessionId, state);
+  await saveBot(sessionId, formatCashbackResult(result.data, link.url));
 }
 
 function formatCashbackResult(data: CashbackLinkResult, sourceUrl = "") {
@@ -1270,24 +1295,39 @@ function formatDateTime(value: unknown) {
     : new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" }).format(date);
 }
 
-function formatOrders(data: Record<string, unknown>, all = false) {
+function formatOrders(
+  data: Record<string, unknown>,
+  all = false,
+  query: { status?: string; platform?: string; search?: string; page?: number } = {}
+) {
   const source = listFromData(data);
-  const items = all ? source : recentOrders(source);
+  const items = all ? source : recentOrders(source).slice(0, 5);
   const scope = all ? "toàn bộ đơn hàng" : "10 ngày gần đây";
   if (!items.length) return `Ry chưa tìm thấy đơn hàng phù hợp trong ${scope}.`;
+  const pagination = record(data.pagination ?? data.meta);
+  const currentPage = Math.max(1, Number(pagination.current_page ?? pagination.currentPage ?? query.page ?? 1));
+  const lastPage = Math.max(currentPage, Number(pagination.last_page ?? pagination.lastPage ?? currentPage));
+  const total = Math.max(items.length, Number(pagination.total ?? items.length));
+  const filters = {
+    status: query.status,
+    platform: query.platform,
+    search: query.search
+  };
+  const startIndex = all ? (currentPage - 1) * 5 : 0;
 
   return [
     `Các đơn hàng trong ${scope}:`,
     ...items.map((item, index) =>
       [
-        `${index + 1}. ${item.product_name ?? item.productName ?? item.order_id ?? "Đơn hàng"}`,
+        `${startIndex + index + 1}. ${item.product_name ?? item.productName ?? item.order_id ?? "Đơn hàng"}`,
         `Ảnh sản phẩm: ${item.product_image ?? item.productImage ?? item.image_url ?? item.imageUrl ?? item.thumbnail ?? "-"}`,
         `Ngày đối soát: ${formatDate(item.reconciliation_date ?? item.reconciliationDate ?? item.approved_at ?? item.approvedAt ?? item.confirmed_at ?? item.confirmedAt) || "Chưa có"}`,
         `Tiền hoàn dự kiến: ${formatMoney(item.cashback_amount)} VND`,
         `Trạng thái: ${formatStatus(item.status)}`
       ].join("\n")
     ),
-    all ? "ORDER_SCOPE:10" : "ORDER_SCOPE:ALL"
+    all ? "ORDER_SCOPE:10" : "ORDER_SCOPE:ALL",
+    ...(all ? [`ORDER_NAV:${JSON.stringify({ currentPage, lastPage, total, filters })}`] : [])
   ].join("\n\n");
 }
 

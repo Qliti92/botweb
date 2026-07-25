@@ -23,6 +23,7 @@ type SiteSettingsDto = {
   twitterDescription: string; twitterImageUrl: string; robotsIndex: boolean; robotsFollow: boolean;
   organizationName: string; organizationEmail: string; organizationPhone: string;
 };
+type FeedbackDto = { id: string; messageId?: string | null; rating: string; preview: string; createdAt: string };
 
 const blankFlow: Omit<FlowDto, "id"> = {
   flowKey: "",
@@ -76,12 +77,13 @@ const blankIntent: Omit<IntentDto, "id"> = {
 };
 
 export function AdminDashboard() {
-  const [tab, setTab] = useState<"overview" | "tickets" | "intents" | "flows" | "apis" | "knowledge" | "unrecognized" | "notices" | "push" | "chats" | "settings">("overview");
+  const [tab, setTab] = useState<"overview" | "tickets" | "intents" | "flows" | "apis" | "knowledge" | "unrecognized" | "feedback" | "notices" | "push" | "chats" | "settings">("overview");
   const [flows, setFlows] = useState<FlowDto[]>([]);
   const [apis, setApis] = useState<ApiConfigDto[]>([]);
   const [notices, setNotices] = useState<AppNoticeDto[]>([]);
   const [knowledge, setKnowledge] = useState<KnowledgeEntryDto[]>([]);
   const [unrecognized, setUnrecognized] = useState<UnrecognizedMessageDto[]>([]);
+  const [feedback, setFeedback] = useState<FeedbackDto[]>([]);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [tickets, setTickets] = useState<TicketDto[]>([]);
   const [intents, setIntents] = useState<IntentDto[]>([]);
@@ -110,7 +112,7 @@ export function AdminDashboard() {
   }
 
   async function loadAll() {
-    const [dashboardData, ticketsData, intentsData, flowsData, apisData, knowledgeData, unrecognizedData, noticesData, pushData, chatsData, settingsData] = await Promise.all([
+    const [dashboardData, ticketsData, intentsData, flowsData, apisData, knowledgeData, unrecognizedData, feedbackData, noticesData, pushData, chatsData, settingsData] = await Promise.all([
       apiFetch("/api/admin/dashboard"),
       apiFetch("/api/admin/tickets"),
       apiFetch("/api/admin/intents"),
@@ -118,6 +120,7 @@ export function AdminDashboard() {
       apiFetch("/api/admin/apis"),
       apiFetch("/api/admin/knowledge"),
       apiFetch("/api/admin/unrecognized"),
+      apiFetch("/api/admin/feedback"),
       apiFetch("/api/admin/notices"),
       apiFetch("/api/admin/push-campaigns"),
       apiFetch("/api/admin/chats"),
@@ -130,6 +133,7 @@ export function AdminDashboard() {
     setApis(apisData.apis);
     setKnowledge(knowledgeData.entries);
     setUnrecognized(unrecognizedData.messages);
+    setFeedback(feedbackData.feedback);
     setNotices(noticesData.notices);
     setPushCampaigns(pushData.campaigns);
     setPushSubscriptionCount(pushData.subscriptionCount);
@@ -155,6 +159,7 @@ export function AdminDashboard() {
         { id: "apis", label: "API", icon: Server },
         { id: "knowledge", label: "Kiến thức", icon: BookOpen },
         { id: "unrecognized", label: "Chưa hiểu", icon: AlertCircle },
+        { id: "feedback", label: "Đánh giá", icon: Bot },
         { id: "notices", label: "Thông báo", icon: Bell },
         { id: "push", label: "Push theo lịch", icon: Clock3 },
         { id: "chats", label: "Lịch sử", icon: History }
@@ -197,6 +202,7 @@ export function AdminDashboard() {
         {tab === "apis" ? <ApisPanel apis={apis} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "knowledge" ? <KnowledgePanel entries={knowledge} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "unrecognized" ? <UnrecognizedPanel messages={unrecognized} reload={loadAll} setNotice={setNotice} /> : null}
+        {tab === "feedback" ? <FeedbackPanel items={feedback} /> : null}
         {tab === "notices" ? <NoticesPanel notices={notices} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "push" ? <PushCampaignsPanel campaigns={pushCampaigns} subscriptionCount={pushSubscriptionCount} adminSubscriptionCount={adminPushSubscriptionCount} deliveries={pushDeliveries} lastCronRun={lastPushCronRun} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "chats" ? <ChatsPanel chats={chats} reload={loadAll} setNotice={setNotice} /> : null}
@@ -660,6 +666,31 @@ function KnowledgePanel({ entries, reload, setNotice }: { entries: KnowledgeEntr
           </div>
         </form>
       ) : null}
+    </div>
+  );
+}
+
+function FeedbackPanel({ items }: { items: FeedbackDto[] }) {
+  const helpful = items.filter((item) => item.rating === "helpful").length;
+  const notHelpful = items.filter((item) => item.rating === "not_helpful").length;
+  return (
+    <div className="grid gap-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3"><span className="text-xs text-emerald-700">Hữu ích</span><strong className="mt-1 block text-2xl text-emerald-800">{helpful}</strong></div>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3"><span className="text-xs text-amber-700">Chưa đúng</span><strong className="mt-1 block text-2xl text-amber-800">{notHelpful}</strong></div>
+      </div>
+      <div className="grid gap-2">
+        {items.map((item) => (
+          <article key={item.id} className="rounded-xl border border-brand-line bg-white p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${item.rating === "helpful" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{item.rating === "helpful" ? "Hữu ích" : "Chưa đúng"}</span>
+              <time className="text-[10px] text-neutral-400">{new Date(item.createdAt).toLocaleString("vi-VN")}</time>
+            </div>
+            <p className="mt-2 line-clamp-3 whitespace-pre-line text-xs leading-5 text-neutral-600">{item.preview || "Không có nội dung xem trước."}</p>
+          </article>
+        ))}
+        {!items.length ? <p className="rounded-xl bg-neutral-50 p-4 text-sm text-neutral-500">Chưa có đánh giá từ người dùng.</p> : null}
+      </div>
     </div>
   );
 }

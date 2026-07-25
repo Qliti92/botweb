@@ -28,6 +28,8 @@ import {
   Phone,
   Send,
   ShieldCheck,
+  ThumbsDown,
+  ThumbsUp,
   Trash2,
   User,
   UserRound,
@@ -36,6 +38,7 @@ import {
 } from "lucide-react";
 import type { AppNoticeDto, ChatHistoryItem, ChatMessage, ChatSessionPayload } from "@/types/app";
 import { LandingPage } from "@/components/landing-page";
+import { classifyShoppingLink, shoppingPlatformLabel } from "@/lib/shopping-link";
 
 type CashbackCardData = {
   productName?: string;
@@ -97,10 +100,8 @@ function parseLoginErrorCard(content: string) {
 }
 
 function detectLinkPlatform(value: string) {
-  const normalized = value.toLowerCase();
-  if (/(tiktok\.com|vt\.tiktok\.com|tiktokshop)/.test(normalized)) return "TikTok Shop";
-  if (/(shopee\.vn|shp\.ee|shopee)/.test(normalized)) return "Shopee";
-  return null;
+  const result = classifyShoppingLink(value);
+  return result.kind === "supported" ? shoppingPlatformLabel(result.platform) : null;
 }
 
 function extractShoppingLink(value: string) {
@@ -270,6 +271,8 @@ export function ChatApp() {
       setShowAuth(true);
     }
     const existing = window.localStorage.getItem("chat_session_id");
+    const pendingLink = window.localStorage.getItem("pending_cashback_link");
+    if (pendingLink && classifyShoppingLink(pendingLink).kind === "supported") setInput(pendingLink);
     if (existing) {
       restoreSession(existing);
       return;
@@ -697,6 +700,17 @@ export function ChatApp() {
     }
     if (!trimmed || !session || sending) return;
 
+    const link = classifyShoppingLink(trimmed);
+    if (link.kind === "invalid-url") {
+      setError("Link chưa đúng định dạng. Bạn hãy sao chép đầy đủ link Shopee hoặc TikTok Shop rồi thử lại nhé.");
+      return;
+    }
+    if (link.kind === "unsupported") {
+      setError("Ry chỉ hỗ trợ link sản phẩm từ Shopee hoặc TikTok Shop. Link này chưa được gửi đi.");
+      return;
+    }
+    if (link.kind === "supported") window.localStorage.setItem("pending_cashback_link", link.url);
+
     const optimisticMessage: ChatMessage = {
       id: `optimistic-${Date.now()}`,
       sender: "USER",
@@ -721,6 +735,9 @@ export function ChatApp() {
       setSession(data);
       setOptimisticMessages([]);
       const latestBotMessage = [...(data.messages ?? [])].reverse().find((item: ChatMessage) => item.sender === "BOT");
+      if (link.kind === "supported" && latestBotMessage?.content?.startsWith("CASHBACK_RESULT:")) {
+        window.localStorage.removeItem("pending_cashback_link");
+      }
       if (latestBotMessage?.content?.startsWith("TICKET_FORM:")) {
         try {
           const ticketData = JSON.parse(latestBotMessage.content.slice("TICKET_FORM:".length)) as { category?: string };
@@ -740,7 +757,7 @@ export function ChatApp() {
       if (trimmed.toLowerCase() === "/thongbao") setShowNotificationBanner(false);
     } catch (err) {
       setOptimisticMessages((items) => items.filter((item) => item.id !== optimisticMessage.id));
-      setError(err instanceof Error ? err.message : "Tin nhắn chưa gửi được. Bạn thử lại giúp Ry nhé.");
+      setError(err instanceof Error ? `${err.message} Link vẫn được giữ lại để bạn thử lại.` : "Tin nhắn chưa gửi được. Link vẫn được giữ lại để bạn thử lại.");
     } finally {
       setSending(false);
     }
@@ -771,7 +788,8 @@ export function ChatApp() {
     try {
       const text = await navigator.clipboard?.readText();
       if (text) {
-        setInput((current) => `${current}${current && !current.endsWith(" ") ? " " : ""}${text}`.trimStart());
+        const shoppingLink = extractShoppingLink(text);
+        setInput((current) => shoppingLink ?? `${current}${current && !current.endsWith(" ") ? " " : ""}${text}`.trimStart());
         setError("");
       }
     } catch {
@@ -779,7 +797,15 @@ export function ChatApp() {
     }
   }
 
-  const detectedLinkPlatform = detectLinkPlatform(input);
+  const inputLinkClassification = classifyShoppingLink(input);
+  const detectedLinkPlatform =
+    inputLinkClassification.kind === "supported" ? shoppingPlatformLabel(inputLinkClassification.platform) : null;
+  const inputLinkError =
+    inputLinkClassification.kind === "unsupported"
+      ? "Link này không thuộc Shopee hoặc TikTok Shop nên Ry sẽ không gửi yêu cầu."
+      : inputLinkClassification.kind === "invalid-url"
+        ? "Link chưa đúng định dạng. Bạn hãy kiểm tra lại trước khi gửi."
+        : null;
 
   if (!session?.user) {
     if (!showAuth) {
@@ -1033,6 +1059,11 @@ export function ChatApp() {
             Ry đã nhận ra link {detectedLinkPlatform}. Bấm gửi để tạo link hoàn tiền.
           </p>
         ) : null}
+        {inputLinkError ? (
+          <p className="mx-3 mb-1 rounded-md bg-red-50 px-2 py-1 text-[11px] text-red-700">
+            {inputLinkError}
+          </p>
+        ) : null}
         <div className="no-scrollbar flex gap-2 overflow-x-auto px-3 pb-2">
           {quickCommands.map((item) => {
             const Icon = item.icon;
@@ -1057,6 +1088,14 @@ export function ChatApp() {
               rows={1}
               value={input}
               onChange={(event) => setInput(event.target.value)}
+              onPaste={(event) => {
+                const pastedText = event.clipboardData.getData("text");
+                const shoppingLink = extractShoppingLink(pastedText);
+                if (!shoppingLink) return;
+                event.preventDefault();
+                setInput(shoppingLink);
+                setError("");
+              }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                   event.preventDefault();
@@ -1071,7 +1110,7 @@ export function ChatApp() {
               <Clipboard className="h-4 w-4" />
             </button>
           </div>
-          <button type="submit" disabled={sending || !input.trim()} className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-brand-red text-white shadow-sm disabled:opacity-50" title="Gửi">
+          <button type="submit" disabled={sending || !input.trim() || Boolean(inputLinkError)} className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-brand-red text-white shadow-sm disabled:opacity-50" title="Gửi">
             {sending ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           </button>
         </div>
@@ -1214,48 +1253,46 @@ function WithdrawalForm({ initialAmount, balance, onClose, onSuccess }: { initia
 
   return (
     <div className="absolute inset-0 z-40 flex items-end justify-center overflow-y-auto bg-black/45 sm:items-center sm:p-4" onClick={onClose}>
-      <form onSubmit={submit} className="safe-bottom max-h-[94dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl" onClick={(event) => event.stopPropagation()}>
-        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-100 bg-white/95 px-5 py-4 backdrop-blur">
-          <div className="flex items-center gap-3">
-            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-brand-red"><HandCoins className="h-5 w-5" /></span>
-            <div><h2 className="text-lg font-bold text-brand-ink">Rút tiền</h2><p className="text-xs text-neutral-500">Chuyển tiền về tài khoản ngân hàng</p></div>
+      <form onSubmit={submit} className="safe-bottom max-h-[94dvh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl" onClick={(event) => event.stopPropagation()}>
+        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-100 bg-white/95 px-4 py-3 backdrop-blur">
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-50 text-brand-red"><HandCoins className="h-4 w-4" /></span>
+            <div><h2 className="text-base font-bold text-brand-ink">Rút tiền</h2><p className="text-[11px] text-neutral-500">Về ngân hàng hoặc ví đã chọn</p></div>
           </div>
-          <button type="button" onClick={onClose} aria-label="Đóng biểu mẫu" className="grid h-11 w-11 place-items-center rounded-full bg-neutral-100 text-neutral-600"><X className="h-5 w-5" /></button>
+          <button type="button" onClick={onClose} aria-label="Đóng biểu mẫu" className="grid h-9 w-9 place-items-center rounded-full bg-neutral-100 text-neutral-600"><X className="h-4 w-4" /></button>
         </header>
 
-        <div className="grid gap-5 p-5">
-          <section className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-br from-[#287a63] to-[#236c58] p-4 text-white shadow-lg shadow-emerald-900/10">
+        <div className="grid gap-3.5 p-4">
+          <section className="flex items-center justify-between gap-3 rounded-xl bg-gradient-to-br from-[#287a63] to-[#236c58] px-3.5 py-3 text-white shadow-md shadow-emerald-900/10">
             <div className="min-w-0">
               <p className="flex items-center gap-1.5 text-xs font-medium text-white/75"><WalletCards className="h-4 w-4" /> Số dư hiện tại</p>
-              <strong className="mt-1 block truncate text-2xl font-bold tracking-tight">
+              <strong className="mt-0.5 block truncate text-xl font-bold tracking-tight">
                 {balanceLoading && !hasBalance ? "Đang cập nhật..." : hasBalance ? `${new Intl.NumberFormat("vi-VN").format(numericBalance)} VNĐ` : "Chưa cập nhật"}
               </strong>
             </div>
-            <button type="button" onClick={() => setAmount(String(numericBalance))} disabled={balanceLoading || !hasBalance || numericBalance <= 10_000} className="shrink-0 rounded-xl bg-white px-3 py-2 text-sm font-bold text-brand-red shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50">
+            <button type="button" onClick={() => setAmount(String(numericBalance))} disabled={balanceLoading || !hasBalance || numericBalance <= 10_000} className="h-9 shrink-0 rounded-lg bg-white px-3 text-xs font-bold text-brand-red shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50">
               Rút tất cả
             </button>
           </section>
 
           <section>
-            <label htmlFor="withdrawal-amount" className="mb-2 block text-sm font-semibold text-brand-ink">Bạn muốn rút bao nhiêu?</label>
+            <label htmlFor="withdrawal-amount" className="mb-1.5 block text-xs font-semibold text-brand-ink">Số tiền muốn rút</label>
             <div className="relative">
-              <input id="withdrawal-amount" required type="number" min={10001} step={1000} inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Nhập số tiền" className="h-14 w-full rounded-2xl border border-neutral-300 bg-white px-4 pr-14 text-xl font-bold text-brand-ink outline-none transition focus:border-brand-red focus:ring-4 focus:ring-emerald-100" />
+              <input id="withdrawal-amount" required type="number" min={10001} step={1000} inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Nhập số tiền" className="h-12 w-full rounded-xl border border-neutral-300 bg-white px-3.5 pr-14 text-lg font-bold text-brand-ink outline-none transition focus:border-brand-red focus:ring-2 focus:ring-emerald-100" />
               <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-neutral-500">VNĐ</span>
             </div>
             <div className="mt-2 grid grid-cols-3 gap-2">
               {quickAmounts.map((value) => (
-                <button key={value} type="button" onClick={() => setAmount(String(value))} aria-pressed={Number(amount) === value} className={`min-h-11 rounded-xl border px-2 text-sm font-semibold transition ${Number(amount) === value ? "border-brand-red bg-emerald-50 text-brand-red ring-1 ring-brand-red" : "border-neutral-200 bg-white text-neutral-700 hover:border-brand-red"}`}>
+                <button key={value} type="button" onClick={() => setAmount(String(value))} aria-pressed={Number(amount) === value} className={`h-9 rounded-lg border px-2 text-xs font-semibold transition ${Number(amount) === value ? "border-brand-red bg-emerald-50 text-brand-red ring-1 ring-brand-red" : "border-neutral-200 bg-white text-neutral-700 hover:border-brand-red"}`}>
                   {value / 1000}k
                 </button>
               ))}
             </div>
-            {Number(amount) > 0 ? <p className="mt-2 text-sm text-neutral-500">Số tiền: <strong className="text-brand-red">{formattedAmount} VNĐ</strong></p> : null}
+            {Number(amount) > 0 ? <p className="mt-1.5 text-xs text-neutral-500">Xác nhận: <strong className="text-brand-red">{formattedAmount} VNĐ</strong></p> : null}
           </section>
 
-          <div className="h-px bg-neutral-100" />
-
-          <section className="grid gap-4">
-            <h3 className="text-sm font-bold text-brand-ink">Tài khoản nhận tiền</h3>
+          <section className="grid gap-3">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-neutral-500">Tài khoản nhận tiền</h3>
             {accountsLoading ? (
               <p className="flex items-center gap-2 text-xs text-neutral-500"><LoaderCircle className="h-4 w-4 animate-spin" />Đang tải sổ tài khoản...</p>
             ) : savedAccounts.length ? (
@@ -1274,7 +1311,7 @@ function WithdrawalForm({ initialAmount, balance, onClose, onSuccess }: { initia
                         setAccountNumber(item.account_number);
                         setAccountName(item.account_name);
                         setSaveForLater(false);
-                      }} className={`min-w-[170px] rounded-xl border p-3 text-left transition ${selected ? "border-brand-red bg-emerald-50 ring-1 ring-brand-red" : "border-neutral-200 bg-white"}`}>
+                      }} className={`min-w-[165px] rounded-lg border px-2.5 py-2 text-left transition ${selected ? "border-brand-red bg-emerald-50 ring-1 ring-brand-red" : "border-neutral-200 bg-white"}`}>
                         <span className="flex items-center justify-between gap-2"><strong className="truncate text-sm text-brand-ink">{item.bank_name}</strong>{item.is_default ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Mặc định</span> : null}</span>
                         <span className="mt-1 block text-xs text-neutral-500">•••• {tail} · {item.account_name}</span>
                       </button>
@@ -1287,15 +1324,15 @@ function WithdrawalForm({ initialAmount, balance, onClose, onSuccess }: { initia
                     setCustomBankName("");
                     setAccountNumber("");
                     setAccountName("");
-                  }} className={`min-w-[120px] rounded-xl border border-dashed p-3 text-center text-xs font-semibold ${selectedAccountId === null ? "border-brand-red bg-emerald-50 text-brand-red" : "border-neutral-300 text-neutral-600"}`}>
+                  }} className={`min-w-[110px] rounded-lg border border-dashed px-2.5 py-2 text-center text-xs font-semibold ${selectedAccountId === null ? "border-brand-red bg-emerald-50 text-brand-red" : "border-neutral-300 text-neutral-600"}`}>
                     + Tài khoản mới
                   </button>
                 </div>
               </div>
             ) : null}
-            <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
+            {!selectedAccountId ? <div className="grid gap-3 rounded-xl border border-neutral-200 bg-neutral-50/60 p-3"><label className="grid gap-1 text-xs font-semibold text-brand-ink">
               {paymentMethod === "wallet" ? "Ví điện tử" : "Ngân hàng"}
-              <select required value={bankName} onChange={(event) => setBankName(event.target.value)} className="h-12 w-full rounded-xl border border-neutral-300 bg-white px-3 text-base font-normal outline-none focus:border-brand-red focus:ring-4 focus:ring-emerald-100">
+              <select required value={bankName} onChange={(event) => setBankName(event.target.value)} className="h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm font-normal outline-none focus:border-brand-red focus:ring-2 focus:ring-emerald-100">
                 <option value="">{paymentMethod === "wallet" ? "Chọn ví điện tử" : "Chọn ngân hàng"}</option>
                 {paymentMethod === "wallet" && bankName ? <option value={bankName}>{bankName}</option> : null}
                 {banks.map(([shortName, fullName]) => <option key={shortName} value={shortName}>{shortName} — {fullName}</option>)}
@@ -1303,37 +1340,37 @@ function WithdrawalForm({ initialAmount, balance, onClose, onSuccess }: { initia
               </select>
             </label>
             {bankName === "other" ? (
-              <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
+              <label className="grid gap-1 text-xs font-semibold text-brand-ink">
                 Tên ngân hàng
-                <input required value={customBankName} onChange={(event) => setCustomBankName(event.target.value)} placeholder="Nhập tên ngân hàng" className="h-12 rounded-xl border border-neutral-300 px-3 text-base font-normal outline-none focus:border-brand-red focus:ring-4 focus:ring-emerald-100" />
+                <input required value={customBankName} onChange={(event) => setCustomBankName(event.target.value)} placeholder="Nhập tên ngân hàng" className="h-11 rounded-lg border border-neutral-300 bg-white px-3 text-sm font-normal outline-none focus:border-brand-red focus:ring-2 focus:ring-emerald-100" />
               </label>
             ) : null}
-            <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
+            <label className="grid gap-1 text-xs font-semibold text-brand-ink">
               Số tài khoản
-              <input required inputMode="numeric" autoComplete="off" minLength={6} value={accountNumber} onChange={(event) => setAccountNumber(event.target.value.replace(/\D/g, ""))} placeholder="Nhập số tài khoản" className="h-12 rounded-xl border border-neutral-300 px-3 text-base font-normal outline-none focus:border-brand-red focus:ring-4 focus:ring-emerald-100" />
+              <input required inputMode="numeric" autoComplete="off" minLength={6} value={accountNumber} onChange={(event) => setAccountNumber(event.target.value.replace(/\D/g, ""))} placeholder="Nhập số tài khoản" className="h-11 rounded-lg border border-neutral-300 bg-white px-3 text-sm font-normal outline-none focus:border-brand-red focus:ring-2 focus:ring-emerald-100" />
             </label>
-            <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
+            <label className="grid gap-1 text-xs font-semibold text-brand-ink">
               Tên chủ tài khoản
-              <input required autoComplete="name" value={accountName} onChange={(event) => setAccountName(event.target.value.toUpperCase())} placeholder="NGUYEN VAN AN" className="h-12 rounded-xl border border-neutral-300 px-3 text-base font-normal uppercase outline-none focus:border-brand-red focus:ring-4 focus:ring-emerald-100" />
+              <input required autoComplete="name" value={accountName} onChange={(event) => setAccountName(event.target.value.toUpperCase())} placeholder="NGUYEN VAN AN" className="h-11 rounded-lg border border-neutral-300 bg-white px-3 text-sm font-normal uppercase outline-none focus:border-brand-red focus:ring-2 focus:ring-emerald-100" />
               <span className="text-xs font-normal text-neutral-500">Nhập đúng tên in trên tài khoản ngân hàng.</span>
             </label>
             {!selectedAccountId ? (
-              <label className="flex cursor-pointer items-center gap-2.5 rounded-xl bg-neutral-50 p-3 text-sm font-medium text-neutral-700 ring-1 ring-neutral-100">
-                <input type="checkbox" checked={saveForLater} onChange={(event) => setSaveForLater(event.target.checked)} className="h-5 w-5 accent-brand-red" />
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-white p-2.5 text-xs font-medium text-neutral-700 ring-1 ring-neutral-200">
+                <input type="checkbox" checked={saveForLater} onChange={(event) => setSaveForLater(event.target.checked)} className="h-4 w-4 accent-brand-red" />
                 Lưu tài khoản này để lần sau không cần nhập lại
               </label>
-            ) : null}
+            ) : null}</div> : null}
           </section>
 
-          <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-amber-50 p-3 text-sm leading-5 text-amber-900 ring-1 ring-amber-100">
-            <input type="checkbox" required checked={confirmed} onChange={(event) => { setConfirmed(event.target.checked); setFormError(""); }} className="mt-0.5 h-5 w-5 shrink-0 accent-brand-red" />
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-amber-50 p-2.5 text-xs leading-5 text-amber-900 ring-1 ring-amber-100">
+            <input type="checkbox" required checked={confirmed} onChange={(event) => { setConfirmed(event.target.checked); setFormError(""); }} className="mt-0.5 h-4 w-4 shrink-0 accent-brand-red" />
             <span>Tôi đã kiểm tra đúng <strong>số tiền, ngân hàng và số tài khoản</strong>.</span>
           </label>
           {formError ? <p role="alert" className="flex items-start gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{formError}</p> : null}
         </div>
 
-        <footer className="sticky bottom-0 border-t border-neutral-100 bg-white/95 p-4 backdrop-blur">
-          <button disabled={submitting} className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand-red px-5 text-base font-bold text-white shadow-lg shadow-emerald-900/10 transition hover:bg-[#236c58] disabled:opacity-50">
+        <footer className="sticky bottom-0 border-t border-neutral-100 bg-white/95 p-3 backdrop-blur">
+          <button disabled={submitting} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-red px-5 text-sm font-bold text-white shadow-md shadow-emerald-900/10 transition hover:bg-[#236c58] disabled:opacity-50">
           {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
           {submitting ? "Đang gửi..." : "Gửi yêu cầu rút tiền"}
           </button>
@@ -1931,7 +1968,42 @@ function MessageBubble({ message, onSend }: { message: ChatMessage; onSend: (mes
             <BotCard content={message.content} onSend={onSend} />
           )
         )}
+        {!isUser && !message.id.startsWith("optimistic-") ? <FeedbackButtons messageId={message.id} /> : null}
       </div>
+    </div>
+  );
+}
+
+function FeedbackButtons({ messageId }: { messageId: string }) {
+  const [rating, setRating] = useState<"helpful" | "not_helpful" | null>(null);
+
+  async function submit(nextRating: "helpful" | "not_helpful") {
+    if (rating) return;
+    const response = await fetch("/api/chat/feedback", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ messageId, rating: nextRating })
+    });
+    if (response.ok) setRating(nextRating);
+  }
+
+  return (
+    <div className="mt-1 flex h-7 items-center justify-end pr-1">
+      {rating ? (
+        <span className="inline-flex h-6 items-center rounded-full bg-slate-50 px-2 text-[10px] font-medium text-slate-400">
+          Đã ghi nhận
+        </span>
+      ) : (
+        <div className="inline-flex h-7 items-center overflow-hidden rounded-full border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <button type="button" onClick={() => void submit("helpful")} aria-label="Câu trả lời hữu ích" title="Hữu ích" className="grid h-full w-8 place-items-center text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 active:bg-emerald-100">
+            <ThumbsUp className="h-3.5 w-3.5" strokeWidth={1.75} />
+          </button>
+          <span className="h-3.5 w-px bg-slate-200" aria-hidden="true" />
+          <button type="button" onClick={() => void submit("not_helpful")} aria-label="Câu trả lời chưa đúng" title="Chưa đúng" className="grid h-full w-8 place-items-center text-slate-400 transition hover:bg-amber-50 hover:text-amber-600 active:bg-amber-100">
+            <ThumbsDown className="h-3.5 w-3.5" strokeWidth={1.75} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1977,7 +2049,7 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
       <h2 className="mb-2 text-sm font-semibold leading-5">{title.replace(/:$/, "")}</h2>
       <div className="min-w-0 text-sm leading-relaxed">
         {isAccountTitle(title) ? (
-          <AccountSummary lines={body} />
+          <AccountSummary lines={body} onSend={onSend} />
         ) : isBalanceActivityTitle(title) ? (
           <BalanceActivity lines={body} />
         ) : isSecurityTitle(title) ? (
@@ -2018,14 +2090,21 @@ function BalanceActivity({ lines }: { lines: string[] }) {
     if (/^\d+\./.test(line) || !groups.length) groups.push([line]);
     else groups[groups.length - 1].push(line);
   });
-  return <div className="grid gap-2.5">{groups.map((group, index) => {
+  return <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">{groups.map((group, index) => {
     const title = group[0]?.replace(/^\d+\.\s*/, "") || "Giao dịch";
     const amount = group.find((line) => line.toLowerCase().startsWith("số tiền:"))?.split(":").slice(1).join(":").trim() || "-";
     const balance = group.find((line) => line.toLowerCase().startsWith("số dư sau giao dịch:"))?.split(":").slice(1).join(":").trim() || "-";
+    const time = group.find((line) => /^(thời gian|ngày tạo|ngày):/i.test(line))?.split(":").slice(1).join(":").trim();
     const credit = amount.trim().startsWith("+");
-    return <article key={`${title}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="flex items-start gap-3"><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${credit ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><WalletCards className="h-5 w-5" /></span>
-        <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold leading-5">{title}</h3><div className="mt-1.5 flex flex-wrap items-center justify-between gap-2"><strong className={`text-base ${credit ? "text-emerald-700" : "text-red-700"}`}>{amount}</strong><span className="text-xs text-neutral-500">Còn {balance}</span></div></div>
+    return <article key={`${title}-${index}`} className="flex min-w-0 items-center gap-2.5 px-2.5 py-2.5">
+      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${credit ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><WalletCards className="h-4 w-4" /></span>
+      <div className="min-w-0 flex-1">
+        <h3 className="truncate text-xs font-semibold leading-4">{title}</h3>
+        <p className="mt-0.5 truncate text-[10px] text-neutral-500">{time || `Số dư: ${balance}`}</p>
+      </div>
+      <div className="shrink-0 text-right">
+        <strong className={`block text-sm leading-4 ${credit ? "text-emerald-700" : "text-red-700"}`}>{amount}</strong>
+        <span className="mt-0.5 block text-[10px] text-neutral-400">Còn {balance}</span>
       </div>
     </article>;
   })}</div>;
@@ -2048,12 +2127,23 @@ function SessionSummary({ lines, onSend }: { lines: string[]; onSend: (message: 
   lines.filter((line) => !line.startsWith("Bạn có thể")).forEach((line) => {
     if (/^\d+\./.test(line) || !groups.length) groups.push([line]); else groups[groups.length - 1].push(line);
   });
-  return <div className="grid gap-2.5">{groups.map((group, index) => {
+  return <div className="grid gap-2">{groups.map((group, index) => {
     const device = group[0]?.replace(/^\d+\.\s*/, "") || "Thiết bị";
     const id = group.find((line) => line.startsWith("ID:"))?.slice(3).trim() || "";
     const current = device.includes("(hiện tại)");
-    return <article key={`${id}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"><div className="flex items-start gap-3"><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${current ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}><ShieldCheck className="h-5 w-5" /></span><div className="min-w-0 flex-1"><h3 className="text-sm font-semibold">{device}</h3>{group.slice(2).map((line) => <p key={line} className="mt-1 text-xs text-neutral-500">{line}</p>)}</div></div>{!current && id && id !== "-" ? <button type="button" onClick={() => onSend(`/phien revoke ${id}`)} className="mt-3 min-h-11 w-full rounded-xl border border-red-200 bg-red-50 text-sm font-semibold text-red-700">Đăng xuất thiết bị này</button> : null}</article>;
-  })}<button type="button" onClick={() => onSend("/phien revoke-others")} className="min-h-12 rounded-xl bg-brand-red px-3 text-sm font-semibold text-white">Đăng xuất tất cả thiết bị khác</button></div>;
+    const details = group.slice(1).filter((line) => !line.startsWith("ID:"));
+    return <article key={`${id}-${index}`} className={`flex min-w-0 items-center gap-2.5 rounded-xl border px-2.5 py-2.5 ${current ? "border-emerald-200 bg-emerald-50/50" : "border-slate-200 bg-white"}`}>
+      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${current ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}><ShieldCheck className="h-4 w-4" /></span>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <h3 className="truncate text-xs font-semibold">{device.replace(/\s*\(hiện tại\)\s*/i, "")}</h3>
+          {current ? <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">Hiện tại</span> : null}
+        </div>
+        {details.slice(0, 2).map((line) => <p key={line} className="mt-0.5 truncate text-[10px] leading-4 text-neutral-500">{line}</p>)}
+      </div>
+      {!current && id && id !== "-" ? <button type="button" onClick={() => onSend(`/phien revoke ${id}`)} className="h-8 shrink-0 rounded-lg border border-red-200 bg-red-50 px-2 text-[10px] font-semibold text-red-700">Đăng xuất</button> : null}
+    </article>;
+  })}<button type="button" onClick={() => onSend("/phien revoke-others")} className="h-10 rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-semibold text-red-700">Đăng xuất các thiết bị khác</button></div>;
 }
 
 function ActivityTimeline({ lines }: { lines: string[] }) {
@@ -2356,7 +2446,7 @@ function WithdrawalHistory({ lines, onSend }: { lines: string[]; onSend?: (messa
   );
 }
 
-function AccountSummary({ lines }: { lines: string[] }) {
+function AccountSummary({ lines, onSend }: { lines: string[]; onSend: (message: string) => void }) {
   const values = new Map(
     lines.map((line) => {
       const item = splitLabelValue(line);
@@ -2408,6 +2498,10 @@ function AccountSummary({ lines }: { lines: string[] }) {
             <span className="block text-[11px] text-neutral-500">Người giới thiệu</span>
             <strong className="mt-0.5 block text-sm font-semibold text-[#8a6c35]">{referrals}</strong>
           </div>
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => onSend("__withdraw__")} className="h-8 rounded-md bg-[#287a63] text-[11px] font-semibold text-white">Rút tiền</button>
+          <button type="button" onClick={() => onSend("/biendongsodu")} className="h-8 rounded-md border border-[#cfe1da] bg-[#f1f7f4] text-[11px] font-semibold text-[#287a63]">Xem biến động</button>
         </div>
       </div>
     </div>
@@ -2575,7 +2669,10 @@ function LoginErrorCard({ data, onSend }: { data: LoginErrorData; onSend: (messa
 
 function OrderList({ lines, onSend }: { lines: string[]; onSend: (message: string) => void }) {
   const scopeLine = lines.find((line) => line.startsWith("ORDER_SCOPE:"));
-  const orderLines = lines.filter((line) => !line.startsWith("ORDER_SCOPE:"));
+  const navigationLine = lines.find((line) => line.startsWith("ORDER_NAV:"));
+  let navigation: { currentPage: number; lastPage: number; total: number; filters?: { status?: string; platform?: string; search?: string } } | null = null;
+  try { navigation = navigationLine ? JSON.parse(navigationLine.slice("ORDER_NAV:".length)) : null; } catch {}
+  const orderLines = lines.filter((line) => !line.startsWith("ORDER_SCOPE:") && !line.startsWith("ORDER_NAV:"));
   const groups: string[][] = [];
   orderLines.forEach((line) => {
     if (/^\d+\./.test(line) || groups.length === 0) groups.push([line]);
@@ -2633,8 +2730,46 @@ function OrderList({ lines, onSend }: { lines: string[]; onSend: (message: strin
           {scopeLine.endsWith("ALL") ? "Kiểm tra toàn bộ đơn hàng" : "Chỉ xem đơn trong 10 ngày"}
         </button>
       ) : null}
+      {navigation ? (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/70 p-1.5">
+          <button
+            type="button"
+            disabled={navigation.currentPage <= 1}
+            onClick={() => onSend(orderPageCommand(navigation, navigation.currentPage - 1))}
+            className="h-8 min-w-16 rounded-md border border-slate-200 bg-white px-2 text-[11px] font-medium text-brand-ink disabled:opacity-35"
+          >
+            Trước
+          </button>
+          <span className="min-w-0 text-center text-[10px] leading-4 text-neutral-500">
+            <strong className="block text-[11px] text-brand-ink">Trang {navigation.currentPage}/{navigation.lastPage}</strong>
+            {navigation.total} đơn hàng
+          </span>
+          <button
+            type="button"
+            disabled={navigation.currentPage >= navigation.lastPage}
+            onClick={() => onSend(orderPageCommand(navigation, navigation.currentPage + 1))}
+            className="h-8 min-w-16 rounded-md bg-[#287a63] px-2 text-[11px] font-semibold text-white disabled:bg-slate-200 disabled:text-slate-400"
+          >
+            Sau
+          </button>
+        </div>
+      ) : null}
     </div>
   );
+}
+
+function orderPageCommand(
+  navigation: { filters?: { status?: string; platform?: string; search?: string } },
+  page: number
+) {
+  const filters = navigation.filters ?? {};
+  const parameters = [
+    filters.status ? `status=${filters.status}` : "",
+    filters.platform ? `platform=${filters.platform}` : "",
+    filters.search ? `search=${filters.search}` : "",
+    `page=${page}`
+  ].filter(Boolean);
+  return `/donhang all ${parameters.join(" ")}`;
 }
 
 function SupportLinks({ lines }: { lines: string[] }) {
@@ -2780,10 +2915,14 @@ function CashbackCard({ data }: { data: CashbackCardData }) {
           </p>
         </div>
       </div>
-      <a href={data.affiliateUrl} target="_blank" rel="noreferrer" className="mt-2 flex h-8 w-full min-w-0 items-center justify-center gap-1.5 rounded-md bg-[#287a63] px-2.5 text-center text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#216653]">
+      <button
+        type="button"
+        onClick={() => window.location.replace(data.affiliateUrl)}
+        className="mt-2 flex h-8 w-full min-w-0 items-center justify-center gap-1.5 rounded-md bg-[#287a63] px-2.5 text-center text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#216653]"
+      >
           <ExternalLink className="h-3 w-3 shrink-0" />
           <span className="min-w-0 truncate">Quay lại {platformLabel} để mua hàng</span>
-      </a>
+      </button>
       <div className="mt-2 break-words text-xs leading-5 text-neutral-500 [overflow-wrap:anywhere]">
         <strong className="block font-semibold text-neutral-700">Lưu ý:</strong>
         <span className="block">• Để giỏ hàng trống trước khi mở link.</span>

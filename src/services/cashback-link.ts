@@ -15,6 +15,20 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
+function friendlyCashbackError(status: number, message: string) {
+  const normalized = message.toLowerCase();
+  if (status === 401 || status === 403) return "Phiên đăng nhập đã hết hạn. Bạn đăng nhập lại rồi thử tạo link nhé.";
+  if (status === 404 || normalized.includes("not found") || normalized.includes("không tồn tại")) {
+    return "Không tìm thấy sản phẩm từ link này. Sản phẩm có thể đã bị gỡ hoặc link không còn hiệu lực.";
+  }
+  if (status === 422 || normalized.includes("invalid") || normalized.includes("không hợp lệ")) {
+    return "Link này chưa trỏ tới một sản phẩm hợp lệ. Bạn mở sản phẩm trên Shopee/TikTok Shop rồi sao chép lại link nhé.";
+  }
+  if (status === 429) return "Hệ thống đang nhận nhiều yêu cầu. Link của bạn đã được giữ lại, vui lòng thử lại sau ít phút.";
+  if (status >= 500) return "Shopee/TikTok đang phản hồi chậm. Link của bạn đã được giữ lại để thử lại.";
+  return message || "Chưa thể tạo link hoàn tiền. Bạn có thể thử lại hoặc gửi yêu cầu hỗ trợ.";
+}
+
 export async function createCashbackLink(url: string, token: string, tokenType = "Bearer", sessionId?: string) {
   const request = { url };
 
@@ -25,7 +39,8 @@ export async function createCashbackLink(url: string, token: string, tokenType =
         "content-type": "application/json",
         Authorization: `${tokenType} ${token}`
       },
-      body: JSON.stringify(request)
+      body: JSON.stringify(request),
+      signal: AbortSignal.timeout(15_000)
     });
     const text = await response.text();
 
@@ -40,7 +55,7 @@ export async function createCashbackLink(url: string, token: string, tokenType =
 
     const json = asRecord(JSON.parse(text || "{}"));
     if (!response.ok || json.success === false) {
-      return { ok: false as const, error: String(json.message ?? json.error ?? "Không thể tạo link hoàn tiền.") };
+      return { ok: false as const, error: friendlyCashbackError(response.status, String(json.message ?? json.error ?? "")) };
     }
 
     const data = asRecord(json.data);
@@ -60,7 +75,10 @@ export async function createCashbackLink(url: string, token: string, tokenType =
       }
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Không thể tạo link hoàn tiền.";
+    const rawMessage = error instanceof Error ? error.message : "";
+    const message = error instanceof Error && error.name === "TimeoutError"
+      ? "Shopee/TikTok phản hồi quá lâu. Link của bạn đã được giữ lại, hãy bấm thử lại."
+      : friendlyCashbackError(0, rawMessage);
     await prisma.apiLog.create({ data: { sessionId, request: safeLogJson(request), error: safeLogText(message, 1000) } });
     return { ok: false as const, error: message };
   }

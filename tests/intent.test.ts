@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { detectIntent, normalizeVietnamese } from "../src/services/intent";
+import { classifyShoppingLink } from "../src/lib/shopping-link";
 
 const cases: Array<[string, string, string]> = [
   ["Ví của tôi còn bao nhiêu tiền?", "BALANCE", "/taikhoan"],
@@ -42,6 +43,15 @@ for (const [input, intent, command] of cases) {
 }
 
 assert.equal(detectIntent("https://shopee.vn/product/123"), null);
+assert.deepEqual(classifyShoppingLink("https://shopee.vn/product/123"), {
+  kind: "supported",
+  url: "https://shopee.vn/product/123",
+  platform: "shopee"
+});
+assert.equal(classifyShoppingLink("https://vt.tiktok.com/abc").kind, "supported");
+assert.equal(classifyShoppingLink("https://example.com/product").kind, "unsupported");
+assert.equal(classifyShoppingLink("https://shopee.vn.evil.example/product").kind, "unsupported");
+assert.equal(classifyShoppingLink("https://").kind, "invalid-url");
 assert.equal(detectIntent("/donhang"), null);
 assert.equal(normalizeVietnamese("Đơn HÀNG đã duyệt"), "don hang da duyet");
 

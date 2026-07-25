@@ -12,6 +12,19 @@ function accountKeyFromState(raw: string) {
   }
 }
 
+function supportContextFromState(raw: string) {
+  try {
+    const state = JSON.parse(raw) as { recentCashback?: { sourceUrl?: string; result?: { transId?: string } } };
+    const recent = state.recentCashback;
+    return {
+      sourceUrl: recent?.sourceUrl,
+      transactionId: recent?.result?.transId
+    };
+  } catch {
+    return {};
+  }
+}
+
 export async function GET(request: NextRequest) {
   const sessionId = await requireMatchingChatSession(request);
   const session = await prisma.chatSession.findUnique({ where: { id: sessionId }, select: { state: true } });
@@ -30,6 +43,20 @@ export async function POST(request: NextRequest) {
   const parsed = supportTicketSchema.parse(await request.json());
   const session = await prisma.chatSession.findUnique({ where: { id: sessionId }, select: { state: true } });
   const accountKey = accountKeyFromState(session?.state ?? "{}");
+  const context = supportContextFromState(session?.state ?? "{}");
+  const recentFailure = await prisma.apiLog.findFirst({
+    where: { sessionId, error: { not: null } },
+    select: { error: true, createdAt: true },
+    orderBy: { createdAt: "desc" }
+  });
+  const contextLines = [
+    context.sourceUrl ? `Link gần nhất: ${context.sourceUrl}` : null,
+    context.transactionId ? `Mã giao dịch: ${context.transactionId}` : null,
+    recentFailure ? `Lỗi gần nhất (${recentFailure.createdAt.toISOString()}): ${recentFailure.error}` : null
+  ].filter(Boolean);
+  const enrichedDescription = contextLines.length
+    ? `${parsed.description}\n\n--- Thông tin Ry tự thu thập ---\n${contextLines.join("\n")}`
+    : parsed.description;
   const ticket = await prisma.supportTicket.create({
     data: {
       sessionId,
@@ -37,9 +64,9 @@ export async function POST(request: NextRequest) {
       orderId: parsed.orderId || null,
       category: parsed.category,
       subject: parsed.subject,
-      description: parsed.description,
+      description: enrichedDescription,
       priority: parsed.category === "MISSING_ORDER" || parsed.category === "WRONG_CASHBACK" ? "HIGH" : "NORMAL",
-      messages: { create: { sender: "USER", content: parsed.description } }
+      messages: { create: { sender: "USER", content: enrichedDescription } }
     },
     include: { messages: true }
   });
