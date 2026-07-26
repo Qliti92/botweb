@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AlertCircle, Bell, BookOpen, Bot, Clock3, History, Image as ImageIcon, LoaderCircle, LogOut, Plus, Save, Search, Send, Server, Settings, Trash2 } from "lucide-react";
+import { AlertCircle, Bell, BookOpen, Bot, Clock3, History, Image as ImageIcon, LoaderCircle, LogOut, Plus, RefreshCw, Save, Search, Send, Server, Settings, Trash2 } from "lucide-react";
 import type { ApiConfigDto, AppNoticeDto, FlowDto, KnowledgeEntryDto, UnrecognizedMessageDto } from "@/types/app";
 
 type ChatDto = {
@@ -80,7 +80,7 @@ const blankIntent: Omit<IntentDto, "id"> = {
 };
 
 export function AdminDashboard() {
-  const [tab, setTab] = useState<"overview" | "tickets" | "intents" | "flows" | "apis" | "knowledge" | "unrecognized" | "feedback" | "notices" | "push" | "chats" | "settings">("overview");
+  const [tab, setTab] = useState<"overview" | "tickets" | "intents" | "flows" | "apis" | "knowledge" | "unrecognized" | "feedback" | "notices" | "push" | "chats" | "settings" | "deployment">("overview");
   const [flows, setFlows] = useState<FlowDto[]>([]);
   const [apis, setApis] = useState<ApiConfigDto[]>([]);
   const [notices, setNotices] = useState<AppNoticeDto[]>([]);
@@ -166,7 +166,8 @@ export function AdminDashboard() {
         { id: "notices", label: "Thông báo", icon: Bell },
         { id: "push", label: "Push theo lịch", icon: Clock3 },
         { id: "chats", label: "Lịch sử", icon: History }
-        ,{ id: "settings", label: "Thương hiệu & SEO", icon: Settings }
+        ,{ id: "settings", label: "Thương hiệu & SEO", icon: Settings },
+        { id: "deployment", label: "Cập nhật", icon: RefreshCw }
       ] as const,
     []
   );
@@ -210,8 +211,101 @@ export function AdminDashboard() {
         {tab === "push" ? <PushCampaignsPanel campaigns={pushCampaigns} subscriptionCount={pushSubscriptionCount} adminSubscriptionCount={adminPushSubscriptionCount} deliveries={pushDeliveries} lastCronRun={lastPushCronRun} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "chats" ? <ChatsPanel chats={chats} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "settings" && siteSettings ? <SiteSettingsPanel settings={siteSettings} setSettings={setSiteSettings} setNotice={setNotice} /> : null}
+        {tab === "deployment" ? <DeploymentPanel /> : null}
       </section>
     </main>
+  );
+}
+
+type DeploymentDto = {
+  enabled: boolean;
+  platformSupported: boolean;
+  currentCommit: string;
+  deployment: {
+    status: "idle" | "running" | "restarting" | "success" | "failed";
+    message: string;
+    logs?: string[];
+    updatedAt?: string;
+  };
+};
+
+function DeploymentPanel() {
+  const [data, setData] = useState<DeploymentDto | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState("");
+  const active = data?.deployment.status === "running" || data?.deployment.status === "restarting";
+
+  async function load() {
+    try {
+      setData(await fetchJson("/api/admin/deployment") as DeploymentDto);
+      setError("");
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Không thể kiểm tra phiên bản.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void load(); }, []);
+
+  useEffect(() => {
+    if (!active) return;
+    const timer = window.setInterval(() => void load(), 3000);
+    return () => window.clearInterval(timer);
+  }, [active]);
+
+  async function update() {
+    if (!window.confirm("Cập nhật website lên phiên bản mới nhất từ GitHub? Website có thể gián đoạn vài giây khi khởi động lại.")) return;
+    setStarting(true);
+    setError("");
+    try {
+      await fetchJson("/api/admin/deployment", { method: "POST", body: "{}" });
+      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      await load();
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : "Không thể bắt đầu cập nhật.");
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  const statusLabel = {
+    idle: "Chưa cập nhật", running: "Đang cập nhật", restarting: "Đang khởi động lại",
+    success: "Thành công", failed: "Thất bại"
+  }[data?.deployment.status ?? "idle"];
+
+  return (
+    <div className="grid gap-4">
+      <div>
+        <h2 className="text-lg font-semibold">Cập nhật website</h2>
+        <p className="mt-1 text-sm text-neutral-500">Tải phiên bản mới từ GitHub, build và tự khởi động lại website.</p>
+      </div>
+      <div className="rounded-xl border border-brand-line bg-white p-4 shadow-sm">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-lg bg-neutral-50 p-3"><span className="text-xs text-neutral-500">Phiên bản đang chạy</span><strong className="mt-1 block font-mono text-sm">{data?.currentCommit ?? "Đang kiểm tra…"}</strong></div>
+          <div className="rounded-lg bg-neutral-50 p-3"><span className="text-xs text-neutral-500">Trạng thái</span><strong className="mt-1 block text-sm">{loading ? "Đang kiểm tra…" : statusLabel}</strong></div>
+          <div className="rounded-lg bg-neutral-50 p-3"><span className="text-xs text-neutral-500">Cập nhật gần nhất</span><strong className="mt-1 block text-sm">{data?.deployment.updatedAt ? new Date(data.deployment.updatedAt).toLocaleString("vi-VN") : "Chưa có"}</strong></div>
+        </div>
+        {data?.deployment.message ? <p className={`mt-4 rounded-lg p-3 text-sm ${data.deployment.status === "failed" ? "bg-red-50 text-red-700" : data.deployment.status === "success" ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"}`}>{data.deployment.message}</p> : null}
+        {error ? <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+        {!data?.enabled ? <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Thêm <code>ADMIN_DEPLOY_ENABLED=&quot;true&quot;</code> vào <code>.env.production</code>, sau đó restart PM2 để bật chức năng.</p> : null}
+        {data && !data.platformSupported ? <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Chỉ có thể chạy cập nhật trên server Linux.</p> : null}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button type="button" onClick={update} disabled={loading || starting || active || !data?.enabled || !data?.platformSupported} className="inline-flex h-11 items-center gap-2 rounded-lg bg-brand-red px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
+            <RefreshCw className={`h-4 w-4 ${starting || active ? "animate-spin" : ""}`} />
+            {starting || active ? "Đang cập nhật…" : "Cập nhật phiên bản mới"}
+          </button>
+          <button type="button" onClick={() => void load()} disabled={loading} className="h-11 rounded-lg border border-brand-line px-4 text-sm font-semibold disabled:opacity-50">Kiểm tra lại</button>
+        </div>
+      </div>
+      {data?.deployment.logs?.length ? (
+        <details className="rounded-xl border border-brand-line bg-neutral-950 p-4 text-neutral-100">
+          <summary className="cursor-pointer text-sm font-semibold">Xem nhật ký cập nhật</summary>
+          <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words text-xs leading-5">{data.deployment.logs.join("\n")}</pre>
+        </details>
+      ) : null}
+    </div>
   );
 }
 
