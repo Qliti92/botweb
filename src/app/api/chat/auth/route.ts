@@ -3,6 +3,7 @@ import { z } from "zod";
 import { completeChatSessionEmailVerification, completeChatSessionTwoFactor, forgotChatPassword, loginChatSession, registerChatSession } from "@/services/conversation";
 import { rateLimit } from "@/lib/rate-limit";
 import { requireMatchingChatSession, setChatSessionCookie } from "@/lib/chat-session";
+import { resolveReferralDomain } from "@/services/referral-domain";
 
 const authSchema = z.discriminatedUnion("mode", [
   z.object({
@@ -49,7 +50,12 @@ export async function POST(request: NextRequest) {
       return setChatSessionCookie(NextResponse.json(session), session.id);
     }
     if (body.mode === "register") {
-      const session = await registerChatSession(body);
+      const fixedReferral = await resolveReferralDomain(request);
+      const session = await registerChatSession({
+        ...body,
+        referralCode: fixedReferral?.referralCode ?? body.referralCode,
+        referralDomain: fixedReferral?.domain
+      });
       return setChatSessionCookie(NextResponse.json(session), session.id);
     }
     if (body.mode === "2fa") {

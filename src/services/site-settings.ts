@@ -29,6 +29,7 @@ export type SiteSettings = {
   supportTicketRetentionDays: number;
   autoSubmitShoppingLinks: boolean;
   cashbackCacheSeconds: number;
+  referralDomains: { domain: string; referralCode: string; enabled: boolean }[];
 };
 
 export const defaultSiteSettings: SiteSettings = {
@@ -59,7 +60,8 @@ export const defaultSiteSettings: SiteSettings = {
   inactiveSessionRetentionDays: 90,
   supportTicketRetentionDays: 180,
   autoSubmitShoppingLinks: true,
-  cashbackCacheSeconds: 600
+  cashbackCacheSeconds: 600,
+  referralDomains: []
 };
 
 export async function getSiteSettings(): Promise<SiteSettings> {

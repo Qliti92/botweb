@@ -33,7 +33,19 @@ const schema = z.object({
   inactiveSessionRetentionDays: z.number().int().min(7).max(730),
   supportTicketRetentionDays: z.number().int().min(30).max(1825),
   autoSubmitShoppingLinks: z.boolean(),
-  cashbackCacheSeconds: z.number().int().min(0).max(3600)
+  cashbackCacheSeconds: z.number().int().min(0).max(3600),
+  referralDomains: z.array(z.object({
+    domain: z.string().trim().toLowerCase().min(3).max(253).regex(/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i, "Domain không hợp lệ."),
+    referralCode: z.string().trim().min(2).max(100).regex(/^[A-Za-z0-9_-]+$/, "Mã giới thiệu không hợp lệ."),
+    enabled: z.boolean()
+  })).max(50).superRefine((items, context) => {
+    const domains = new Set<string>();
+    items.forEach((item, index) => {
+      const normalized = item.domain.replace(/^www\./, "");
+      if (domains.has(normalized)) context.addIssue({ code: "custom", path: [index, "domain"], message: "Domain bị trùng." });
+      domains.add(normalized);
+    });
+  })
 });
 
 export async function GET() {

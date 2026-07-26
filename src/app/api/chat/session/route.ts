@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createChatSession, restoreChatSession } from "@/services/conversation";
 import { rateLimit } from "@/lib/rate-limit";
 import { requireMatchingChatSession, setChatSessionCookie } from "@/lib/chat-session";
+import { resolveReferralDomain } from "@/services/referral-domain";
 
 export async function GET(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") ?? "local";
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const session = await createChatSession();
+    const session = await createChatSession(await resolveReferralDomain(request));
     return setChatSessionCookie(NextResponse.json(session), session.id);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Không thể tạo phiên chat." }, { status: 500 });

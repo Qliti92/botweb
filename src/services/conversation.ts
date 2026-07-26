@@ -43,6 +43,7 @@ import {
   syncTask,
   updateProfile
 } from "@/services/openapi-member";
+import type { ReferralAttribution } from "@/services/referral-domain";
 
 type SessionState = {
   step?: string;
@@ -220,9 +221,18 @@ async function updateSession(sessionId: string, state: SessionState) {
   });
 }
 
-export async function createChatSession() {
+export async function createChatSession(referral?: ReferralAttribution | null) {
   const session = await prisma.chatSession.create({ data: { state: JSON.stringify({ step: "auth_choice" }) } });
   await saveBot(session.id, startMessage);
+  if (referral) {
+    await writeAuditLog({
+      actorType: "SYSTEM",
+      action: "REFERRAL_DOMAIN_VISIT",
+      targetType: "ReferralDomain",
+      targetId: referral.domain,
+      metadata: { domain: referral.domain, referralCode: referral.referralCode, sessionId: session.id }
+    });
+  }
   return getSessionPayload(session.id);
 }
 
@@ -239,7 +249,7 @@ export async function loginChatSession(email: string, password: string) {
   return createAuthenticatedChatSession(result, { email: parsedEmail });
 }
 
-export async function registerChatSession(input: { email: string; password: string; passwordConfirmation: string; name?: string; phone?: string; referralCode?: string }) {
+export async function registerChatSession(input: { email: string; password: string; passwordConfirmation: string; name?: string; phone?: string; referralCode?: string; referralDomain?: string }) {
   const parsedEmail = emailSchema.parse(input.email);
   const parsedPassword = passwordSchema.parse(input.password);
   if (parsedPassword !== input.passwordConfirmation) throw new Error("Mật khẩu xác nhận chưa khớp.");
@@ -253,6 +263,16 @@ export async function registerChatSession(input: { email: string; password: stri
     phone: parsedPhone,
     referralCode: input.referralCode?.trim() || undefined
   });
+  if (input.referralDomain && input.referralCode) {
+    await writeAuditLog({
+      actorType: "USER",
+      actorId: parsedEmail,
+      action: "REFERRAL_DOMAIN_REGISTER",
+      targetType: "ReferralDomain",
+      targetId: input.referralDomain,
+      metadata: { domain: input.referralDomain, referralCode: input.referralCode, email: parsedEmail }
+    });
+  }
 
   return createAuthenticatedChatSession(result, {
     register: {

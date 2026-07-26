@@ -25,6 +25,7 @@ type SiteSettingsDto = {
   googleAnalyticsId: string; googleTagManagerId: string; metaPixelId: string; googleSiteVerification: string;
   guestChatRetentionDays: number; memberChatRetentionDays: number; inactiveSessionRetentionDays: number;
   supportTicketRetentionDays: number; autoSubmitShoppingLinks: boolean; cashbackCacheSeconds: number;
+  referralDomains: { domain: string; referralCode: string; enabled: boolean }[];
 };
 type FeedbackDto = { id: string; messageId?: string | null; rating: string; preview: string; createdAt: string };
 
@@ -1088,6 +1089,23 @@ function ChatsPanel({ chats, reload, setNotice }: { chats: ChatDto[]; reload: ()
 
 function SiteSettingsPanel({ settings, setSettings, setNotice }: { settings: SiteSettingsDto; setSettings: (value: SiteSettingsDto) => void; setNotice: (value: string) => void }) {
   const [saving, setSaving] = useState(false);
+  const [referralStats, setReferralStats] = useState<Record<string, { visits: number; registrations: number; lastVisitAt?: string | null; lastRegistrationAt?: string | null }>>({});
+
+  useEffect(() => {
+    void fetchJson("/api/admin/referral-domains").then((data) => {
+      const next: typeof referralStats = {};
+      for (const item of data.domains ?? []) next[String(item.domain).replace(/^www\./, "")] = item;
+      setReferralStats(next);
+    }).catch(() => null);
+  }, []);
+
+  function addReferralDomain() {
+    setSettings({ ...settings, referralDomains: [...settings.referralDomains, { domain: "", referralCode: "", enabled: true }] });
+  }
+
+  function updateReferralDomain(index: number, patch: Partial<SiteSettingsDto["referralDomains"][number]>) {
+    setSettings({ ...settings, referralDomains: settings.referralDomains.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item) });
+  }
 
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -1128,6 +1146,30 @@ function SiteSettingsPanel({ settings, setSettings, setNotice }: { settings: Sit
         <div className="grid gap-4 sm:grid-cols-2">
           <ImageSetting label="Logo website" value={settings.logoUrl} onChange={(value) => setSettings({ ...settings, logoUrl: value })} onUpload={(file) => upload("logo", file)} />
           <ImageSetting label="Avatar Em Ry" value={settings.avatarUrl} onChange={(value) => setSettings({ ...settings, avatarUrl: value })} onUpload={(file) => upload("avatar", file)} round />
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-brand-line bg-white p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><h2 className="font-semibold">Domain giới thiệu cố định</h2><p className="mt-1 text-xs leading-5 text-neutral-500">Khách vào domain này sẽ được server tự gắn đúng mã giới thiệu khi đăng ký.</p></div>
+          <button type="button" onClick={addReferralDomain} className="inline-flex h-9 items-center gap-2 rounded-lg border border-brand-line px-3 text-xs font-semibold"><Plus className="h-4 w-4" />Thêm domain</button>
+        </div>
+        <div className="mt-4 grid gap-3">
+          {settings.referralDomains.map((item, index) => {
+            const stats = referralStats[item.domain.replace(/^www\./, "")];
+            return (
+              <div key={index} className="rounded-xl border border-brand-line bg-neutral-50 p-3">
+                <div className="grid gap-3 md:grid-cols-[1fr_0.7fr_auto_auto] md:items-end">
+                  <TextInput label="Domain" value={item.domain} onChange={(domain) => updateReferralDomain(index, { domain: domain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "") })} />
+                  <TextInput label="Mã giới thiệu cố định" value={item.referralCode} onChange={(referralCode) => updateReferralDomain(index, { referralCode: referralCode.trim() })} />
+                  <Toggle checked={item.enabled} label="Đang bật" onChange={(enabled) => updateReferralDomain(index, { enabled })} />
+                  <button type="button" onClick={() => setSettings({ ...settings, referralDomains: settings.referralDomains.filter((_, itemIndex) => itemIndex !== index) })} className="grid h-10 w-10 place-items-center rounded-lg border border-red-200 bg-white text-red-600" aria-label="Xóa domain"><Trash2 className="h-4 w-4" /></button>
+                </div>
+                {item.domain ? <div className="mt-2 flex flex-wrap gap-3 text-xs text-neutral-600"><span>Truy cập: <strong>{stats?.visits ?? 0}</strong></span><span>Đăng ký: <strong>{stats?.registrations ?? 0}</strong></span>{stats?.lastRegistrationAt ? <span>Đăng ký gần nhất: <strong>{relativeTime(stats.lastRegistrationAt)}</strong></span> : null}</div> : null}
+              </div>
+            );
+          })}
+          {!settings.referralDomains.length ? <p className="rounded-lg border border-dashed p-4 text-center text-sm text-neutral-500">Chưa cấu hình domain giới thiệu.</p> : null}
         </div>
       </section>
 
