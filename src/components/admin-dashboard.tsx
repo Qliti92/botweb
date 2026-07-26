@@ -491,6 +491,38 @@ function PushCampaignsPanel({
   const [targetAccountKey, setTargetAccountKey] = useState("");
   const [saving, setSaving] = useState(false);
   const [workingId, setWorkingId] = useState("");
+  const [cronWorking, setCronWorking] = useState(false);
+  const [cronCopied, setCronCopied] = useState(false);
+  const [cronSetup, setCronSetup] = useState<{ configured: boolean; endpoint: string; command: string } | null>(null);
+
+  useEffect(() => {
+    void fetchJson("/api/admin/push-cron").then(setCronSetup).catch(() => null);
+  }, []);
+
+  async function runCronNow() {
+    setCronWorking(true);
+    setNotice("");
+    try {
+      const data = await fetchJson("/api/admin/push-cron", { method: "POST", body: "{}" });
+      setNotice(`Cron chạy thành công. Đã xử lý ${data.processed ?? 0} lịch đến hạn.`);
+      await reload();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Không thể chạy thử cron.");
+    } finally {
+      setCronWorking(false);
+    }
+  }
+
+  async function copyCronCommand() {
+    if (!cronSetup?.command) return;
+    try {
+      await navigator.clipboard.writeText(cronSetup.command);
+      setCronCopied(true);
+      window.setTimeout(() => setCronCopied(false), 2500);
+    } catch {
+      setNotice("Không thể sao chép. Hãy mở Admin bằng HTTPS rồi thử lại.");
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -581,6 +613,34 @@ function PushCampaignsPanel({
         <div className={`rounded-xl border p-4 ${lastCronRun?.status === "FAILED" || cronIsStale ? "border-red-200 bg-red-50" : "border-neutral-200 bg-neutral-50"}`}><p className="text-sm text-neutral-700">Cron gần nhất</p><strong className="mt-1 block text-base">{lastCronRun ? `${lastCronRun.status} · ${new Date(lastCronRun.startedAt).toLocaleString("vi-VN")}` : "Chưa chạy"}</strong>{cronIsStale ? <p className="mt-1 text-xs font-semibold text-red-700">Cron đã quá 5 phút chưa chạy.</p> : null}{lastCronRun?.error ? <p className="mt-1 text-xs text-red-700">{lastCronRun.error}</p> : null}</div>
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4"><p className="text-sm text-amber-800">Tỷ lệ mở gần đây</p><strong className="mt-1 block text-3xl text-amber-700">{clickRate}%</strong><button type="button" onClick={exportPushReport} className="mt-2 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-800">Xuất báo cáo</button></div>
       </div>
+
+      <section className="rounded-xl border border-brand-line bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">Cài đặt cron gửi thông báo</h2>
+            <p className="mt-1 text-xs leading-5 text-neutral-500">Cron gọi hệ thống mỗi phút để gửi đúng các thông báo đã lên lịch.</p>
+          </div>
+          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${cronSetup?.configured ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
+            {cronSetup?.configured ? "Đã có CRON_SECRET" : "Chưa cấu hình CRON_SECRET"}
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-lg bg-neutral-50 p-3 text-sm"><strong>1. Cấu hình mã bí mật</strong><p className="mt-1 text-xs leading-5 text-neutral-600">Thêm <code>CRON_SECRET</code> vào <code>.env.production</code> và restart PM2.</p></div>
+          <div className="rounded-lg bg-neutral-50 p-3 text-sm"><strong>2. Cài lịch mỗi phút</strong><p className="mt-1 text-xs leading-5 text-neutral-600">Sao chép lệnh, dán vào cửa sổ SSH của server và chạy một lần.</p></div>
+          <div className="rounded-lg bg-neutral-50 p-3 text-sm"><strong>3. Chạy thử</strong><p className="mt-1 text-xs leading-5 text-neutral-600">Bấm chạy thử rồi kiểm tra ô “Cron gần nhất” ở phía trên.</p></div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button type="button" onClick={() => void copyCronCommand()} disabled={!cronSetup?.command} className="inline-flex h-11 items-center gap-2 rounded-lg border border-brand-line px-4 text-sm font-semibold disabled:opacity-50">
+            {cronCopied ? <Check className="h-4 w-4 text-emerald-600" /> : <ClipboardCopy className="h-4 w-4" />}
+            {cronCopied ? "Đã sao chép lệnh" : "Sao chép lệnh cài cron"}
+          </button>
+          <button type="button" onClick={() => void runCronNow()} disabled={cronWorking} className="inline-flex h-11 items-center gap-2 rounded-lg bg-brand-red px-4 text-sm font-semibold text-white disabled:opacity-50">
+            {cronWorking ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            {cronWorking ? "Đang chạy cron…" : "Chạy thử cron ngay"}
+          </button>
+        </div>
+        {cronSetup?.endpoint ? <p className="mt-3 break-all text-xs text-neutral-500">Endpoint: <code>{cronSetup.endpoint}</code></p> : null}
+      </section>
 
       <form onSubmit={submit} className="grid gap-3 rounded-xl border border-brand-line bg-white p-4 shadow-sm">
         <div>
