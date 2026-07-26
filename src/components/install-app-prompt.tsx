@@ -96,10 +96,10 @@ export function InstallAppPrompt() {
               <p className="flex items-center gap-2"><Check className="h-5 w-5 shrink-0 text-[#287a63]" /> Không mất phí cài đặt</p>
               <p className="flex items-center gap-2"><Check className="h-5 w-5 shrink-0 text-[#287a63]" /> Chạm biểu tượng để mở nhanh</p>
             </div>
-            {isIos ? <p className="mt-4 rounded-xl bg-[#f1f7f4] p-3 text-sm leading-6 text-neutral-700">iPhone không có nút cài tự động. Hãy xem hình và làm theo <strong>6 bước đơn giản</strong>.</p> : null}
+            {isIos ? <p className="mt-4 rounded-xl bg-[#f1f7f4] p-3 text-sm leading-6 text-neutral-700">iPhone không có nút cài tự động. Hãy xem hình và làm lần lượt theo hướng dẫn.</p> : null}
             <button type="button" onClick={install} className="mt-6 inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#287a63] px-5 text-base font-bold text-white shadow-lg">
               {isIos ? <Smartphone className="h-5 w-5" /> : <Download className="h-5 w-5" />}
-              {isIos ? "Xem 6 bước cài trên iPhone" : "Cài đặt ngay"}
+              {isIos ? "Xem cách cài trên iPhone" : "Cài đặt ngay"}
             </button>
             <button type="button" onClick={close} className="mt-2 h-12 w-full rounded-xl text-sm font-semibold text-neutral-500">Để sau</button>
           </>
@@ -111,7 +111,7 @@ export function InstallAppPrompt() {
                 <p className="mt-1 text-sm leading-6 text-neutral-600">Mỗi bước chỉ cần chạm vào chỗ có vòng màu cam.</p>
                 <img
                   src="/images/tutorials/install-iphone-pwa.png"
-                  alt="Sáu bước thêm Em Ry vào màn hình chính trên iPhone"
+                  alt="Cách thêm Em Ry vào màn hình chính trên iPhone"
                   className="mt-4 h-auto w-full rounded-2xl border border-neutral-200"
                 />
                 <ol className="mt-4 grid gap-2">

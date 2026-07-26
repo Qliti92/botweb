@@ -2166,9 +2166,9 @@ function InstallGuideCard() {
     <div className="w-full overflow-hidden rounded-2xl rounded-bl-md border border-[#d6e4de] bg-white shadow-sm">
       <div className="bg-[#f1f7f4] px-4 py-3">
         <h2 className="text-sm font-bold text-[#216653]">Cài Em Ry trên iPhone</h2>
-        <p className="mt-1 text-xs leading-5 text-neutral-600">Miễn phí, không tốn dung lượng. Làm lần lượt 6 bước, chạm vào vị trí có vòng màu cam.</p>
+        <p className="mt-1 text-xs leading-5 text-neutral-600">Miễn phí, không tốn dung lượng. Xem hình và chạm vào vị trí có vòng màu cam.</p>
       </div>
-      <img src="/images/tutorials/install-iphone-pwa.png" alt="Sáu bước thêm Em Ry vào màn hình chính iPhone" className="h-auto w-full border-y border-neutral-100" />
+      <img src="/images/tutorials/install-iphone-pwa.png" alt="Cách thêm Em Ry vào màn hình chính iPhone" className="h-auto w-full border-y border-neutral-100" />
       <ol className="grid gap-1.5 p-3">
         {steps.map((step, index) => (
           <li key={step} className="flex items-start gap-2 rounded-xl bg-neutral-50 px-2.5 py-2">
