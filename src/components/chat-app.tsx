@@ -221,6 +221,8 @@ export function ChatApp() {
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [clipboardSuggestion, setClipboardSuggestion] = useState<{ link: string; platform: string } | null>(null);
+  const [autoSubmitShoppingLinks, setAutoSubmitShoppingLinks] = useState(true);
+  const [linkProgress, setLinkProgress] = useState("");
   const [loading, setLoading] = useState(true);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [authEmail, setAuthEmail] = useState("");
@@ -263,6 +265,10 @@ export function ChatApp() {
 
   useEffect(() => {
     loadAppNotice();
+    fetch("/api/chat/config")
+      .then((response) => response.json())
+      .then((config) => setAutoSubmitShoppingLinks(config.autoSubmitShoppingLinks !== false))
+      .catch(() => {});
     const params = new URLSearchParams(window.location.search);
     const referralCode = params.get("ref") ?? params.get("referral_code");
     if (referralCode) {
@@ -709,7 +715,10 @@ export function ChatApp() {
       setError("Ry chỉ hỗ trợ link sản phẩm từ Shopee hoặc TikTok Shop. Link này chưa được gửi đi.");
       return;
     }
-    if (link.kind === "supported") window.localStorage.setItem("pending_cashback_link", link.url);
+    if (link.kind === "supported") {
+      window.localStorage.setItem("pending_cashback_link", link.url);
+      setLinkProgress("Đã nhận link · Đang kiểm tra sản phẩm và tạo link hoàn tiền…");
+    }
 
     const optimisticMessage: ChatMessage = {
       id: `optimistic-${Date.now()}`,
@@ -760,6 +769,7 @@ export function ChatApp() {
       setError(err instanceof Error ? `${err.message} Link vẫn được giữ lại để bạn thử lại.` : "Tin nhắn chưa gửi được. Link vẫn được giữ lại để bạn thử lại.");
     } finally {
       setSending(false);
+      setLinkProgress("");
     }
   }
 
@@ -791,6 +801,9 @@ export function ChatApp() {
         const shoppingLink = extractShoppingLink(text);
         setInput((current) => shoppingLink ?? `${current}${current && !current.endsWith(" ") ? " " : ""}${text}`.trimStart());
         setError("");
+        if (shoppingLink && autoSubmitShoppingLinks && session?.user && !sending) {
+          void sendMessage(shoppingLink);
+        }
       }
     } catch {
       setError("Trình duyệt chưa cho phép dán tự động. Bạn có thể dán bằng Ctrl+V.");
@@ -861,23 +874,23 @@ export function ChatApp() {
   }
 
   return (
-    <main className="chat-compact relative mx-auto flex h-dvh max-w-3xl flex-col overflow-hidden bg-[#eef2f7] shadow-soft md:my-6 md:h-[calc(100dvh-48px)] md:rounded-2xl">
-      <header className="safe-top relative flex min-h-[76px] items-center justify-between gap-3 overflow-hidden border-b border-emerald-950/15 bg-gradient-to-r from-[#236c58] to-[#287a63] px-4 py-3 text-white shadow-[0_4px_18px_rgba(24,79,62,0.18)]">
+    <main className="chat-compact relative mx-auto flex h-dvh max-w-3xl flex-col overflow-hidden bg-[#f4f6f8] shadow-soft md:my-6 md:h-[calc(100dvh-48px)] md:rounded-2xl">
+      <header className="safe-top relative flex min-h-[64px] items-center justify-between gap-3 overflow-hidden border-b border-emerald-950/10 bg-gradient-to-r from-[#236c58] to-[#287a63] px-3.5 py-2.5 text-white md:min-h-[72px] md:px-4 md:py-3">
         <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-12 h-28 w-28 rounded-full bg-white/10 blur-2xl" />
         <div className="relative flex min-w-0 items-center gap-3">
           <span className="relative shrink-0">
-            <img src="/api/site-assets/avatar" alt="Em Ry" className="h-12 w-12 rounded-2xl border border-white/25 bg-white object-cover shadow-sm" />
+            <img src="/api/site-assets/avatar" alt="Em Ry" className="h-10 w-10 rounded-xl border border-white/25 bg-white object-cover shadow-sm md:h-12 md:w-12 md:rounded-2xl" />
             <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-[3px] border-[#287a63] bg-emerald-300" />
           </span>
           <div className="min-w-0">
-            <h1 className="truncate text-[19px] font-bold leading-6 tracking-[-0.02em]">Em Ry</h1>
-            <p className="truncate text-[12px] font-medium leading-5 text-white/80">Trợ lý hoàn tiền · {session?.user ? "Sẵn sàng hỗ trợ" : "Đang hoạt động"}</p>
+            <h1 className="truncate text-base font-bold leading-5 tracking-[-0.02em] md:text-[19px] md:leading-6">Em Ry</h1>
+            <p className="truncate text-[11px] font-medium leading-4 text-white/80 md:text-[12px] md:leading-5">{session?.user ? accountLabel : "Trợ lý hoàn tiền · Đang hoạt động"}</p>
           </div>
         </div>
         <div className="relative flex items-center">
           <button
             onClick={() => setShowSideMenu(true)}
-            className="grid h-11 w-11 place-items-center rounded-xl border border-white/20 bg-white/10 text-white shadow-sm backdrop-blur transition hover:bg-white/20"
+            className="grid h-10 w-10 place-items-center rounded-xl border border-white/20 bg-white/10 text-white backdrop-blur transition hover:bg-white/20 md:h-11 md:w-11"
             title="Menu"
             aria-label="Mở menu"
           >
@@ -923,13 +936,7 @@ export function ChatApp() {
         onLogout={logout}
       />
 
-      <section className="flex-1 overflow-y-auto bg-[#eef2f7] px-2.5 py-3 sm:px-4">
-        {session?.user ? (
-          <div className="mb-3 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-xs text-brand-ink">
-            <span className="font-semibold">Đang đăng nhập:</span> {accountLabel}
-          </div>
-        ) : null}
-
+      <section className="chat-scroll flex-1 overflow-y-auto bg-[#f4f6f8] px-3 py-3 sm:px-4">
         {showNotificationBanner && unreadCount > 0 ? (
           <button
             onClick={() => sendMessage("/thongbao")}
@@ -1017,17 +1024,15 @@ export function ChatApp() {
       {publicPageLoading ? <div className="absolute inset-0 z-50 grid place-items-center bg-black/30"><div className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-xs font-medium text-brand-ink shadow-xl"><LoaderCircle className="h-5 w-5 animate-spin text-brand-red" />Đang tải nội dung...</div></div> : null}
       {publicPage ? <PublicPageModal page={publicPage} onClose={() => setPublicPage(null)} /> : null}
 
-      <form onSubmit={onSubmit} className="safe-bottom border-t border-black/5 bg-white pt-2 shadow-[0_-8px_24px_rgba(30,41,59,0.06)]">
+      <form onSubmit={onSubmit} className="safe-bottom border-t border-slate-200/80 bg-white/95 pt-2 backdrop-blur-xl">
         {clipboardSuggestion ? (
-          <div className="mx-3 mb-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 shadow-sm">
-            <div className="flex items-start gap-2">
+          <div className="mx-3 mb-2 rounded-xl border border-emerald-200 bg-emerald-50 p-2.5">
+            <div className="flex items-center gap-2">
               <Clipboard className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-emerald-800">Phát hiện link {clipboardSuggestion.platform}</p>
-                <p className="mt-0.5 truncate text-xs text-emerald-700/80">{clipboardSuggestion.link}</p>
+                <p className="text-xs font-semibold text-emerald-800">Link {clipboardSuggestion.platform} đã sẵn sàng</p>
+                <p className="truncate text-[11px] text-emerald-700/80">{clipboardSuggestion.link}</p>
               </div>
-            </div>
-            <div className="mt-2 flex gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -1037,9 +1042,9 @@ export function ChatApp() {
                   void sendMessage(link);
                 }}
                 disabled={sending}
-                className="flex-1 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+                className="shrink-0 rounded-lg bg-emerald-700 px-3 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
               >
-                Dùng ngay
+                Tạo link
               </button>
               <button
                 type="button"
@@ -1047,14 +1052,17 @@ export function ChatApp() {
                   dismissedClipboardRef.current = clipboardSuggestion.link;
                   setClipboardSuggestion(null);
                 }}
-                className="rounded-lg border border-emerald-300 bg-white px-4 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+                className="grid shrink-0 place-items-center rounded-lg text-emerald-800 hover:bg-emerald-100"
+                aria-label="Bỏ qua link"
               >
-                Hủy
+                <X className="h-4 w-4" />
               </button>
             </div>
           </div>
         ) : null}
-        {detectedLinkPlatform ? (
+        {linkProgress ? (
+          <div className="mx-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">{linkProgress}</div>
+        ) : detectedLinkPlatform ? (
           <p className="mx-3 mb-1 rounded-md bg-emerald-50 px-2 py-1 text-[11px] text-emerald-700">
             Ry đã nhận ra link {detectedLinkPlatform}. Bấm gửi để tạo link hoàn tiền.
           </p>
@@ -1065,7 +1073,7 @@ export function ChatApp() {
           </p>
         ) : null}
         <div className="no-scrollbar flex gap-2 overflow-x-auto px-3 pb-2">
-          {quickCommands.map((item) => {
+          {quickCommands.slice(0, 4).map((item) => {
             const Icon = item.icon;
             return (
               <button
@@ -1073,7 +1081,7 @@ export function ChatApp() {
                 type="button"
                 onClick={() => item.command === "__ticket__" ? setShowTicket(true) : item.command === "__withdraw__" ? setShowWithdrawal(true) : sendMessage(item.command)}
                 disabled={sending || !session}
-                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-red-100 bg-white px-2.5 text-xs font-semibold text-brand-ink shadow-sm hover:bg-red-50 disabled:opacity-50"
+                className="quick-command inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 text-xs font-medium text-slate-700 hover:border-emerald-200 hover:bg-emerald-50 disabled:opacity-50"
                 title={item.label}
               >
                 <Icon className="h-3.5 w-3.5 text-brand-red" />
@@ -1095,6 +1103,9 @@ export function ChatApp() {
                 event.preventDefault();
                 setInput(shoppingLink);
                 setError("");
+                if (autoSubmitShoppingLinks && session?.user && !sending) {
+                  window.setTimeout(() => void sendMessage(shoppingLink), 0);
+                }
               }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -1104,13 +1115,13 @@ export function ChatApp() {
               }}
               disabled={sending}
               placeholder={session?.user ? "Hỏi Ry hoặc gửi link sản phẩm..." : "Nhắn cho Ry điều bạn cần..."}
-              className="max-h-28 min-h-14 w-full min-w-0 resize-none rounded-2xl border border-slate-200 px-4 py-3 pr-12 text-base leading-6 outline-none focus:border-brand-red focus:ring-2 focus:ring-red-100 disabled:bg-neutral-50"
+              className="max-h-24 min-h-12 w-full min-w-0 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 pr-11 text-base leading-6 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100 disabled:bg-neutral-50"
             />
             <button type="button" onClick={pasteFromClipboard} disabled={sending} className="absolute right-1.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-brand-red hover:bg-red-50 disabled:opacity-50" title="Dán" aria-label="Dán">
               <Clipboard className="h-4 w-4" />
             </button>
           </div>
-          <button type="submit" disabled={sending || !input.trim() || Boolean(inputLinkError)} className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-brand-red text-white shadow-sm disabled:opacity-50" title="Gửi">
+          <button type="submit" disabled={sending || !input.trim() || Boolean(inputLinkError)} className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand-red text-white shadow-sm transition active:scale-95 disabled:opacity-40" title="Gửi">
             {sending ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           </button>
         </div>
@@ -1954,16 +1965,16 @@ function MessageBubble({ message, onSend }: { message: ChatMessage; onSend: (mes
   const loginError = !isUser ? parseLoginErrorCard(message.content) : null;
 
   return (
-    <div className={`mb-3 flex items-end gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`message-row mb-2.5 flex items-end gap-1.5 sm:mb-3 sm:gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser ? <BotAvatar /> : null}
-      <div className={isUser ? "flex min-w-0 max-w-[86%] justify-end overflow-hidden" : "min-w-0 w-[calc(100%-44px)] max-w-[calc(100%-44px)] overflow-hidden sm:w-full sm:max-w-lg"}>
+      <div className={isUser ? "flex min-w-0 max-w-[84%] justify-end overflow-hidden" : "min-w-0 w-[calc(100%-36px)] max-w-[calc(100%-36px)] overflow-hidden sm:w-full sm:max-w-lg"}>
         {cashback ? (
           <CashbackCard data={cashback} />
         ) : loginError ? (
           <LoginErrorCard data={loginError} onSend={onSend} />
         ) : (
           isUser ? (
-            <div className="chat-text whitespace-pre-line rounded-2xl rounded-br-md border border-sky-200 bg-sky-100 px-4 py-3 text-[15px] leading-6 text-brand-ink shadow-sm">{message.content}</div>
+            <div className="chat-text whitespace-pre-line rounded-2xl rounded-br-md bg-[#dff3eb] px-3.5 py-2.5 text-[15px] leading-[1.45rem] text-brand-ink">{message.content}</div>
           ) : (
             <BotCard content={message.content} onSend={onSend} />
           )
@@ -1988,7 +1999,7 @@ function FeedbackButtons({ messageId }: { messageId: string }) {
   }
 
   return (
-    <div className="mt-1 flex h-7 items-center justify-end pr-1">
+    <div className="message-feedback mt-0.5 flex h-7 items-center justify-end pr-1">
       {rating ? (
         <span className="inline-flex h-6 items-center rounded-full bg-slate-50 px-2 text-[10px] font-medium text-slate-400">
           Đã ghi nhận
@@ -2010,7 +2021,7 @@ function FeedbackButtons({ messageId }: { messageId: string }) {
 
 function BotAvatar() {
   return (
-    <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-black/5">
+    <span className="bot-avatar grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-black/5 sm:h-9 sm:w-9">
       <img src="/api/site-assets/avatar" alt="Em Ry - Trợ lý hoàn tiền" className="h-full w-full object-cover p-0.5" />
     </span>
   );
@@ -2895,7 +2906,7 @@ function BotCardLine({ line }: { line: string }) {
 }
 
 function CashbackCard({ data }: { data: CashbackCardData }) {
-  const platformLabel = data.platform === "tiktok" ? "Tiktok" : data.platform === "shopee" ? "Shoppe" : "sàn";
+  const platformLabel = data.platform === "tiktok" ? "TikTok Shop" : data.platform === "shopee" ? "Shopee" : "sàn";
   return (
     <div className="chat-text w-full min-w-0 overflow-hidden rounded-2xl rounded-bl-md border border-black/5 bg-white p-3 text-brand-ink shadow-sm">
       <div className="flex items-start gap-2.5">
@@ -2921,7 +2932,7 @@ function CashbackCard({ data }: { data: CashbackCardData }) {
         className="mt-2 flex h-8 w-full min-w-0 items-center justify-center gap-1.5 rounded-md bg-[#287a63] px-2.5 text-center text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#216653]"
       >
           <ExternalLink className="h-3 w-3 shrink-0" />
-          <span className="min-w-0 truncate">Quay lại {platformLabel} để mua hàng</span>
+          <span className="min-w-0 truncate">Nhấn quay lại {platformLabel} để mua hàng</span>
       </button>
       <div className="mt-2 break-words text-xs leading-5 text-neutral-500 [overflow-wrap:anywhere]">
         <strong className="block font-semibold text-neutral-700">Lưu ý:</strong>

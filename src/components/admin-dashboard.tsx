@@ -22,6 +22,9 @@ type SiteSettingsDto = {
   canonicalUrl: string; ogTitle: string; ogDescription: string; ogImageUrl: string; twitterTitle: string;
   twitterDescription: string; twitterImageUrl: string; robotsIndex: boolean; robotsFollow: boolean;
   organizationName: string; organizationEmail: string; organizationPhone: string;
+  googleAnalyticsId: string; googleTagManagerId: string; metaPixelId: string; googleSiteVerification: string;
+  guestChatRetentionDays: number; memberChatRetentionDays: number; inactiveSessionRetentionDays: number;
+  supportTicketRetentionDays: number; autoSubmitShoppingLinks: boolean; cashbackCacheSeconds: number;
 };
 type FeedbackDto = { id: string; messageId?: string | null; rating: string; preview: string; createdAt: string };
 
@@ -933,6 +936,34 @@ function SiteSettingsPanel({ settings, setSettings, setNotice }: { settings: Sit
         </div>
       </section>
 
+      <section className="rounded-xl border border-brand-line bg-white p-4">
+        <div className="mb-4">
+          <h2 className="font-semibold">Analytics & xác minh tìm kiếm</h2>
+          <p className="mt-1 text-xs leading-5 text-neutral-500">Chỉ nhập ID, không dán mã JavaScript. Để tránh ghi nhận trùng, nên dùng GA4 trực tiếp hoặc cấu hình GA4 bên trong Google Tag Manager.</p>
+        </div>
+        <div className="grid gap-x-4 sm:grid-cols-2">
+          <TextInput label="Google Analytics 4 (G-XXXXXXXXXX)" value={settings.googleAnalyticsId} onChange={(value) => setSettings({ ...settings, googleAnalyticsId: value.trim() })} />
+          <TextInput label="Google Tag Manager (GTM-XXXXXXX)" value={settings.googleTagManagerId} onChange={(value) => setSettings({ ...settings, googleTagManagerId: value.trim() })} />
+          <TextInput label="Meta Pixel ID" value={settings.metaPixelId} onChange={(value) => setSettings({ ...settings, metaPixelId: value.trim() })} />
+          <TextInput label="Google Search Console verification" value={settings.googleSiteVerification} onChange={(value) => setSettings({ ...settings, googleSiteVerification: value.trim() })} />
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-brand-line bg-white p-4">
+        <div className="mb-4">
+          <h2 className="font-semibold">Riêng tư & hiệu năng chat</h2>
+          <p className="mt-1 text-xs leading-5 text-neutral-500">Tác vụ <code>npm run db:cleanup</code> áp dụng các thời hạn này. Ticket chỉ bị xóa khi đã RESOLVED hoặc CLOSED.</p>
+        </div>
+        <div className="grid gap-x-4 sm:grid-cols-2 lg:grid-cols-3">
+          <NumberInput label="Lưu tin nhắn khách (ngày)" value={settings.guestChatRetentionDays} min={1} max={365} onChange={(value) => setSettings({ ...settings, guestChatRetentionDays: value })} />
+          <NumberInput label="Lưu tin nhắn thành viên (ngày)" value={settings.memberChatRetentionDays} min={1} max={730} onChange={(value) => setSettings({ ...settings, memberChatRetentionDays: value })} />
+          <NumberInput label="Xóa phiên không hoạt động (ngày)" value={settings.inactiveSessionRetentionDays} min={7} max={730} onChange={(value) => setSettings({ ...settings, inactiveSessionRetentionDays: value })} />
+          <NumberInput label="Lưu ticket đã đóng (ngày)" value={settings.supportTicketRetentionDays} min={30} max={1825} onChange={(value) => setSettings({ ...settings, supportTicketRetentionDays: value })} />
+          <NumberInput label="Cache link hoàn tiền (giây)" value={settings.cashbackCacheSeconds} min={0} max={3600} onChange={(value) => setSettings({ ...settings, cashbackCacheSeconds: value })} />
+        </div>
+        <Toggle checked={settings.autoSubmitShoppingLinks} label="Tự gửi khi người dùng dán link Shopee/TikTok hợp lệ" onChange={(value) => setSettings({ ...settings, autoSubmitShoppingLinks: value })} />
+      </section>
+
       <button disabled={saving} className="sticky bottom-3 flex h-11 w-fit items-center gap-2 rounded-lg bg-brand-red px-5 font-semibold text-white shadow-lg disabled:opacity-50"><Save className="h-4 w-4" />{saving ? "Đang lưu..." : "Lưu cài đặt"}</button>
     </form>
   );
@@ -967,6 +998,15 @@ function TextInput({ label, value, onChange }: { label: string; value: string; o
     <label className="mb-3 block text-sm">
       <span className="mb-1 block font-medium">{label}</span>
       <input value={value} onChange={(event) => onChange(event.target.value)} className="h-10 w-full rounded-md border border-brand-line px-3 outline-none focus:border-brand-red" />
+    </label>
+  );
+}
+
+function NumberInput({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
+  return (
+    <label className="mb-3 block text-sm">
+      <span className="mb-1 block font-medium">{label}</span>
+      <input type="number" value={value} min={min} max={max} onChange={(event) => onChange(Math.min(max, Math.max(min, Number(event.target.value) || min)))} className="h-10 w-full rounded-md border border-brand-line px-3 outline-none focus:border-brand-red" />
     </label>
   );
 }

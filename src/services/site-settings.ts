@@ -19,6 +19,16 @@ export type SiteSettings = {
   organizationName: string;
   organizationEmail: string;
   organizationPhone: string;
+  googleAnalyticsId: string;
+  googleTagManagerId: string;
+  metaPixelId: string;
+  googleSiteVerification: string;
+  guestChatRetentionDays: number;
+  memberChatRetentionDays: number;
+  inactiveSessionRetentionDays: number;
+  supportTicketRetentionDays: number;
+  autoSubmitShoppingLinks: boolean;
+  cashbackCacheSeconds: number;
 };
 
 export const defaultSiteSettings: SiteSettings = {
@@ -39,7 +49,17 @@ export const defaultSiteSettings: SiteSettings = {
   robotsFollow: true,
   organizationName: "Hoàn Tiền Mua Hàng",
   organizationEmail: "hotro@hoantienmuahang.vn",
-  organizationPhone: "+84375823061"
+  organizationPhone: "+84375823061",
+  googleAnalyticsId: "",
+  googleTagManagerId: "",
+  metaPixelId: "",
+  googleSiteVerification: "",
+  guestChatRetentionDays: 7,
+  memberChatRetentionDays: 30,
+  inactiveSessionRetentionDays: 90,
+  supportTicketRetentionDays: 180,
+  autoSubmitShoppingLinks: true,
+  cashbackCacheSeconds: 600
 };
 
 export async function getSiteSettings(): Promise<SiteSettings> {

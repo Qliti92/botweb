@@ -1,13 +1,16 @@
 import type { MetadataRoute } from "next";
+import { getSiteSettings } from "@/services/site-settings";
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const settings = await getSiteSettings();
+  const base = settings.canonicalUrl.replace(/\/+$/, "");
   return {
     rules: {
       userAgent: "*",
-      allow: "/",
-      disallow: ["/admin/", "/api/"]
+      allow: settings.robotsIndex ? "/" : undefined,
+      disallow: settings.robotsIndex ? ["/admin/", "/api/"] : "/",
     },
-    sitemap: "https://hoantienmuahang.vn/sitemap.xml",
-    host: "https://hoantienmuahang.vn"
+    sitemap: `${base}/sitemap.xml`,
+    host: base
   };
 }

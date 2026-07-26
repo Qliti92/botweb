@@ -45,6 +45,15 @@ select {
   padding-bottom: max(12px, env(safe-area-inset-bottom));
 }
 
+.safe-top {
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+
+.chat-scroll {
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
 .no-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -138,55 +147,30 @@ select {
 }
 
 @media (max-width: 640px) {
-  /*
-   * Comfortable mobile scale: 16–17px copy, 14px supporting text
-   * and at least 44px for touch targets.
-   */
   html {
-    font-size: 17px;
+    font-size: 16px;
   }
 
   body {
     font-size: 1rem;
-    line-height: 1.55;
-  }
-
-  .chat-compact .text-xs {
-    font-size: 0.875rem !important;
-    line-height: 1.35rem !important;
-  }
-
-  .chat-compact .text-sm {
-    font-size: 1rem !important;
-    line-height: 1.5rem !important;
-  }
-
-  .chat-compact [class~="text-[9px]"],
-  .chat-compact [class~="text-[10px]"] {
-    font-size: 0.75rem !important;
-    line-height: 1.1rem !important;
-  }
-
-  .chat-compact [class~="text-[11px]"] {
-    font-size: 0.8125rem !important;
-    line-height: 1.2rem !important;
+    line-height: 1.5;
   }
 
   button,
   [role="button"] {
-    min-height: 48px;
+    min-height: 44px;
   }
 
   input,
   textarea,
   select {
-    min-height: 46px;
+    min-height: 44px;
     font-size: 16px !important;
     line-height: 1.4;
   }
 
   .chat-compact button {
-    min-height: 48px;
+    min-height: 44px;
     max-height: none;
     font-size: 0.875rem;
     line-height: 1.25rem;
@@ -200,7 +184,27 @@ select {
   .chat-compact button[aria-label],
   .chat-compact button[title="Gửi"],
   .chat-compact button[title="Dán"] {
-    width: 48px;
+    width: 44px;
+  }
+
+  .chat-compact .quick-command {
+    min-height: 36px;
+    height: 36px;
+    font-size: 0.75rem;
+  }
+
+  .chat-compact .message-feedback button {
+    min-height: 28px;
+    height: 28px;
+    width: 32px;
+  }
+
+  .chat-compact .message-feedback button[aria-label] {
+    width: 32px;
+  }
+
+  .chat-compact .message-row {
+    font-size: 0.9375rem;
   }
 
   .landing-page {

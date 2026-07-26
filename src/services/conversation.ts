@@ -1190,7 +1190,7 @@ async function handleProductLink(sessionId: string, text: string, state: Session
   }
 
   const account = accountWithToken(state.account!);
-  const result = await createCashbackLink(link.url, account.token, account.tokenType, sessionId);
+  const result = await createCashbackLink(link.url, account.token, account.tokenType, sessionId, account.accountKey);
   if (!result.ok) {
     await saveBot(sessionId, result.error);
     return;

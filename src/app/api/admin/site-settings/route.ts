@@ -23,7 +23,17 @@ const schema = z.object({
   robotsFollow: z.boolean(),
   organizationName: z.string().trim().min(2).max(120),
   organizationEmail: z.string().email().max(200),
-  organizationPhone: z.string().trim().max(30)
+  organizationPhone: z.string().trim().max(30),
+  googleAnalyticsId: z.string().trim().max(30).refine((value) => !value || /^G-[A-Z0-9]+$/i.test(value), "GA4 Measurement ID phải có dạng G-XXXXXXXXXX."),
+  googleTagManagerId: z.string().trim().max(30).refine((value) => !value || /^GTM-[A-Z0-9]+$/i.test(value), "Google Tag Manager ID phải có dạng GTM-XXXXXXX."),
+  metaPixelId: z.string().trim().max(30).refine((value) => !value || /^\d{5,30}$/.test(value), "Meta Pixel ID chỉ được chứa chữ số."),
+  googleSiteVerification: z.string().trim().max(200).regex(/^[A-Za-z0-9_-]*$/, "Mã xác minh Google không hợp lệ."),
+  guestChatRetentionDays: z.number().int().min(1).max(365),
+  memberChatRetentionDays: z.number().int().min(1).max(730),
+  inactiveSessionRetentionDays: z.number().int().min(7).max(730),
+  supportTicketRetentionDays: z.number().int().min(30).max(1825),
+  autoSubmitShoppingLinks: z.boolean(),
+  cashbackCacheSeconds: z.number().int().min(0).max(3600)
 });
 
 export async function GET() {

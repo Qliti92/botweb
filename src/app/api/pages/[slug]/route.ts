@@ -1,27 +1,8 @@
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
+import { htmlToText } from "@/lib/html-to-text";
 
 const endpoint = "https://hoantienmuahang.vn/api/v1/openapi/pages";
-
-function htmlToText(value: unknown) {
-  return String(value ?? "")
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<\s*br\s*\/?>/gi, "\n")
-    .replace(/<\s*\/p\s*>/gi, "\n\n")
-    .replace(/<\s*\/li\s*>/gi, "\n")
-    .replace(/<\s*li[^>]*>/gi, "• ")
-    .replace(/<\s*\/h[1-6]\s*>/gi, "\n\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, "\"")
-    .replace(/&#039;|&apos;/gi, "'")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
 
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const ip = request.headers.get("x-forwarded-for") ?? "local";
