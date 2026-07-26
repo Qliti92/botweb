@@ -57,7 +57,7 @@ try {
     save("success", "complete", "Server đang chạy phiên bản mới nhất.", { beforeCommit, currentCommit: beforeCommit });
   } else {
     run("git", ["merge", "--ff-only", "origin/main"], "updating", "Đang cập nhật mã nguồn…");
-    run(process.platform === "win32" ? "npm.cmd" : "npm", ["ci"], "installing", "Đang cài đặt thư viện…");
+    run(process.platform === "win32" ? "npm.cmd" : "npm", ["ci", "--include=dev"], "installing", "Đang cài đặt đầy đủ thư viện để build…");
     run(process.platform === "win32" ? "npm.cmd" : "npm", ["run", "build"], "building", "Đang tạo bản chạy mới…");
     const currentCommit = run("git", ["rev-parse", "--short", "HEAD"], "restarting", "Build thành công. Đang khởi động lại website…");
     save("restarting", "restarting", "Đang khởi động lại website…", { beforeCommit, currentCommit });
