@@ -12,8 +12,7 @@ const dismissedKey = "install_prompt_dismissed_at";
 const dismissDuration = 3 * 24 * 60 * 60 * 1000;
 const iosSteps = [
   "Mở ứng dụng Safari trên iPhone.",
-  "Nhập qbot.vn rồi mở trang web.",
-  "Chạm nút menu ở thanh địa chỉ phía dưới.",
+  "Nhập qbot.vn rồi chạm nút menu phía dưới.",
   "Chạm Chia sẻ.",
   "Chạm Thêm vào Màn hình chính.",
   "Chạm Thêm. Sau đó mở Em Ry từ màn hình iPhone."
@@ -105,7 +104,7 @@ export function InstallAppPrompt() {
           </>
         ) : (
           <div className="mt-5">
-            <p className="text-base font-bold text-[#30343b]">{isIos ? "Làm lần lượt từ bước 1 đến bước 6" : "Cài đặt trên Android"}</p>
+            <p className="text-base font-bold text-[#30343b]">{isIos ? "Cài Em Ry trên iPhone" : "Cài Em Ry trên Android"}</p>
             {isIos ? (
               <>
                 <p className="mt-1 text-sm leading-6 text-neutral-600">Mỗi bước chỉ cần chạm vào chỗ có vòng màu cam.</p>
@@ -114,7 +113,7 @@ export function InstallAppPrompt() {
                   alt="Cách thêm Em Ry vào màn hình chính trên iPhone"
                   className="mt-4 h-auto w-full rounded-2xl border border-neutral-200"
                 />
-                <ol className="mt-4 grid gap-2">
+                <ol className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {iosSteps.map((step, index) => (
                     <li key={step} className="flex gap-3 rounded-xl bg-neutral-50 p-3">
                       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#287a63] text-sm font-bold text-white">{index + 1}</span>

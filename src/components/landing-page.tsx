@@ -8,14 +8,18 @@ import {
   CircleDollarSign,
   ClipboardPaste,
   Clock3,
+  Download,
   ExternalLink,
   HelpCircle,
   Link2,
   LogIn,
   PackageCheck,
+  PlusSquare,
   Send,
+  Share2,
   ShieldCheck,
   ShoppingBag,
+  Smartphone,
   UserPlus,
   WalletCards
 } from "lucide-react";
@@ -23,6 +27,11 @@ import {
 type LandingPageProps = {
   onLogin: () => void;
   onRegister: () => void;
+};
+
+type InstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
 
 const steps = [
@@ -80,6 +89,23 @@ const faqs = [
 
 export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
   const [linkGuideTab, setLinkGuideTab] = useState<"shopee" | "tiktok">("shopee");
+  const [installGuideTab, setInstallGuideTab] = useState<"iphone" | "android">("iphone");
+  const [installEvent, setInstallEvent] = useState<InstallPromptEvent | null>(null);
+
+  useEffect(() => {
+    const onInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallEvent(event as InstallPromptEvent);
+    };
+    window.addEventListener("beforeinstallprompt", onInstallPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", onInstallPrompt);
+  }, []);
+
+  async function installOnAndroid() {
+    if (!installEvent) return;
+    await installEvent.prompt();
+    await installEvent.userChoice;
+  }
 
   return (
     <main className="landing-page metal-theme min-h-dvh overflow-hidden bg-[#fafaf8] pb-20 text-[#30343b] sm:pb-0">
@@ -96,6 +122,7 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
           <nav className="hidden items-center gap-7 text-xs font-medium text-neutral-600 md:flex">
             <a href="#cach-hoat-dong" className="transition hover:text-[#287a63]">Cách hoạt động</a>
             <a href="#sao-chep-link" className="transition hover:text-[#287a63]">Cách lấy link</a>
+            <a href="#cai-ung-dung" className="transition hover:text-[#287a63]">Cài ứng dụng</a>
             <a href="#luu-y" className="transition hover:text-[#287a63]">Lưu ý</a>
             <a href="#cau-hoi" className="transition hover:text-[#287a63]">Câu hỏi thường gặp</a>
           </nav>
@@ -311,6 +338,51 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
                 <p className="pt-1 text-sm leading-6 text-neutral-700">{notice}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="cai-ung-dung" className="scroll-mt-20 border-y border-[#e7e9ed] bg-white py-14 sm:py-20">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <SectionHeading eyebrow="Mở nhanh như ứng dụng" title="Cài Em Ry trên điện thoại" description="Miễn phí, nhẹ và không cần tải từ App Store hay CH Play. Chọn loại điện thoại của bạn rồi làm theo." />
+
+          <div className="mx-auto mt-7 grid max-w-xl grid-cols-2 rounded-2xl bg-[#eceeed] p-1.5" role="tablist" aria-label="Chọn loại điện thoại">
+            <button type="button" role="tab" aria-selected={installGuideTab === "iphone"} onClick={() => setInstallGuideTab("iphone")} className={`min-h-12 rounded-xl px-3 text-sm font-bold transition ${installGuideTab === "iphone" ? "bg-[#287a63] text-white shadow-sm" : "text-neutral-600"}`}>
+              iPhone
+            </button>
+            <button type="button" role="tab" aria-selected={installGuideTab === "android"} onClick={() => setInstallGuideTab("android")} className={`min-h-12 rounded-xl px-3 text-sm font-bold transition ${installGuideTab === "android" ? "bg-[#287a63] text-white shadow-sm" : "text-neutral-600"}`}>
+              Android
+            </button>
+          </div>
+
+          <div className="mx-auto mt-6 max-w-4xl overflow-hidden rounded-3xl border border-[#d6e4de] bg-[#fafaf8] shadow-[0_14px_40px_rgba(48,52,59,.07)]">
+            {installGuideTab === "iphone" ? (
+              <div className="grid items-center lg:grid-cols-[1.05fr_.95fr]">
+                <div className="p-5 sm:p-7">
+                  <div className="flex items-center gap-3"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#eaf4f0] text-[#287a63]"><Smartphone className="h-6 w-6" /></span><div><p className="text-xs font-semibold uppercase tracking-wide text-[#287a63]">Trên iPhone</p><h3 className="text-xl font-bold">Thêm vào Màn hình chính</h3></div></div>
+                  <div className="mt-5 grid gap-3 text-sm leading-6 text-neutral-700">
+                    <p className="flex gap-3"><Share2 className="mt-0.5 h-5 w-5 shrink-0 text-[#287a63]" /><span>Mở <strong>Safari</strong>, truy cập <strong>qbot.vn</strong> rồi chọn <strong>Chia sẻ</strong>.</span></p>
+                    <p className="flex gap-3"><PlusSquare className="mt-0.5 h-5 w-5 shrink-0 text-[#287a63]" /><span>Chọn <strong>Thêm vào Màn hình chính</strong> → <strong>Thêm</strong>.</span></p>
+                  </div>
+                  <p className="mt-5 rounded-xl bg-[#f1f7f4] p-3 text-sm font-semibold leading-6 text-[#216653]">Xong! Chạm biểu tượng Em Ry trên màn hình để mở như ứng dụng.</p>
+                </div>
+                <img src="/images/tutorials/install-iphone-pwa.png" alt="Hướng dẫn cài Em Ry vào màn hình chính iPhone" className="h-auto w-full border-t border-[#dfe8e4] object-cover lg:border-l lg:border-t-0" />
+              </div>
+            ) : (
+              <div className="mx-auto max-w-2xl p-5 text-center sm:p-8">
+                <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#eaf4f0] text-[#287a63]"><Download className="h-7 w-7" /></span>
+                <h3 className="mt-4 text-xl font-bold">Cài Em Ry trên Android</h3>
+                <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-neutral-600">Mở trang bằng Chrome rồi bấm nút bên dưới. Nếu chưa thấy nút cài, mở menu <strong>⋮</strong> và chọn <strong>Thêm vào Màn hình chính</strong>.</p>
+                {installEvent ? (
+                  <button type="button" onClick={() => void installOnAndroid()} className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#287a63] px-6 text-base font-bold text-white sm:w-auto"><Download className="h-5 w-5" /> Cài ứng dụng ngay</button>
+                ) : (
+                  <div className="mt-6 grid gap-3 text-left sm:grid-cols-2">
+                    <p className="rounded-xl bg-white p-4 text-sm"><strong>1.</strong> Chạm menu <strong>⋮</strong> của Chrome.</p>
+                    <p className="rounded-xl bg-white p-4 text-sm"><strong>2.</strong> Chọn <strong>Thêm vào Màn hình chính</strong>.</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
