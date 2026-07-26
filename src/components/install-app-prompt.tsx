@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Download, PlusSquare, Share2, X } from "lucide-react";
+import { Check, Download, PlusSquare, Share2, Smartphone, X } from "lucide-react";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -10,6 +10,14 @@ type InstallPromptEvent = Event & {
 
 const dismissedKey = "install_prompt_dismissed_at";
 const dismissDuration = 3 * 24 * 60 * 60 * 1000;
+const iosSteps = [
+  "Mở ứng dụng Safari trên iPhone.",
+  "Nhập qbot.vn rồi mở trang web.",
+  "Chạm nút menu ở thanh địa chỉ phía dưới.",
+  "Chạm Chia sẻ.",
+  "Chạm Thêm vào Màn hình chính.",
+  "Chạm Thêm. Sau đó mở Em Ry từ màn hình iPhone."
+];
 
 function isStandalone() {
   return window.matchMedia("(display-mode: standalone)").matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
@@ -69,12 +77,12 @@ export function InstallAppPrompt() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-3 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="install-app-title">
-      <section className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl">
+      <section className="max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl">
         <div className="flex items-start gap-3">
           <img src="/api/site-assets/logo" alt="" className="h-14 w-14 shrink-0 rounded-2xl bg-white object-cover ring-1 ring-neutral-200" />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold uppercase tracking-wide text-[#287a63]">Em Ry trên điện thoại</p>
-            <h2 id="install-app-title" className="mt-1 text-lg font-bold leading-6 text-[#30343b]">Cài đặt ứng dụng để nhận hoàn tiền nhanh hơn</h2>
+            <h2 id="install-app-title" className="mt-1 text-lg font-bold leading-6 text-[#30343b]">{isIos ? "Đưa Em Ry ra màn hình iPhone" : "Cài đặt ứng dụng để nhận hoàn tiền nhanh hơn"}</h2>
           </div>
           <button type="button" onClick={close} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-neutral-100 text-neutral-600" aria-label="Đóng">
             <X className="h-5 w-5" />
@@ -85,29 +93,50 @@ export function InstallAppPrompt() {
           <>
             <div className="mt-5 grid gap-3 text-base text-neutral-700">
               <p className="flex items-center gap-2"><Check className="h-5 w-5 shrink-0 text-[#287a63]" /> Không tốn dung lượng</p>
-              <p className="flex items-center gap-2"><Check className="h-5 w-5 shrink-0 text-[#287a63]" /> Có thông báo đơn hàng</p>
-              <p className="flex items-center gap-2"><Check className="h-5 w-5 shrink-0 text-[#287a63]" /> Mở nhanh như ứng dụng</p>
+              <p className="flex items-center gap-2"><Check className="h-5 w-5 shrink-0 text-[#287a63]" /> Không mất phí cài đặt</p>
+              <p className="flex items-center gap-2"><Check className="h-5 w-5 shrink-0 text-[#287a63]" /> Chạm biểu tượng để mở nhanh</p>
             </div>
+            {isIos ? <p className="mt-4 rounded-xl bg-[#f1f7f4] p-3 text-sm leading-6 text-neutral-700">iPhone không có nút cài tự động. Hãy xem hình và làm theo <strong>6 bước đơn giản</strong>.</p> : null}
             <button type="button" onClick={install} className="mt-6 inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#287a63] px-5 text-base font-bold text-white shadow-lg">
-              <Download className="h-5 w-5" />
-              Cài đặt ngay
+              {isIos ? <Smartphone className="h-5 w-5" /> : <Download className="h-5 w-5" />}
+              {isIos ? "Xem 6 bước cài trên iPhone" : "Cài đặt ngay"}
             </button>
             <button type="button" onClick={close} className="mt-2 h-12 w-full rounded-xl text-sm font-semibold text-neutral-500">Để sau</button>
           </>
         ) : (
           <div className="mt-5">
-            <p className="text-sm font-semibold text-[#30343b]">{isIos ? "Cài đặt trên iPhone/iPad" : "Cài đặt trên Android"}</p>
-            <div className="mt-3 grid gap-3">
-              <div className="flex gap-3 rounded-xl bg-neutral-50 p-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-[#287a63] shadow-sm"><Share2 className="h-5 w-5" /></span>
-                <p className="text-sm leading-6 text-neutral-700">{isIos ? "Bấm nút Chia sẻ ở thanh công cụ Safari." : "Mở menu ⋮ của Chrome ở góc trên."}</p>
+            <p className="text-base font-bold text-[#30343b]">{isIos ? "Làm lần lượt từ bước 1 đến bước 6" : "Cài đặt trên Android"}</p>
+            {isIos ? (
+              <>
+                <p className="mt-1 text-sm leading-6 text-neutral-600">Mỗi bước chỉ cần chạm vào chỗ có vòng màu cam.</p>
+                <img
+                  src="/images/tutorials/install-iphone-pwa.png"
+                  alt="Sáu bước thêm Em Ry vào màn hình chính trên iPhone"
+                  className="mt-4 h-auto w-full rounded-2xl border border-neutral-200"
+                />
+                <ol className="mt-4 grid gap-2">
+                  {iosSteps.map((step, index) => (
+                    <li key={step} className="flex gap-3 rounded-xl bg-neutral-50 p-3">
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#287a63] text-sm font-bold text-white">{index + 1}</span>
+                      <p className="pt-1 text-sm leading-5 text-neutral-700">{step}</p>
+                    </li>
+                  ))}
+                </ol>
+                <p className="mt-4 rounded-xl border border-[#d6e4de] bg-[#f1f7f4] p-3 text-sm font-semibold leading-6 text-[#216653]">Cài xong, bạn chỉ cần chạm biểu tượng Em Ry trên màn hình iPhone để truy cập như ứng dụng bình thường.</p>
+              </>
+            ) : (
+              <div className="mt-3 grid gap-3">
+                <div className="flex gap-3 rounded-xl bg-neutral-50 p-3">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-[#287a63] shadow-sm"><Share2 className="h-5 w-5" /></span>
+                  <p className="text-sm leading-6 text-neutral-700">Mở menu ⋮ của Chrome ở góc trên.</p>
+                </div>
+                <div className="flex gap-3 rounded-xl bg-neutral-50 p-3">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-[#287a63] shadow-sm"><PlusSquare className="h-5 w-5" /></span>
+                  <p className="text-sm leading-6 text-neutral-700">Chọn <strong>Thêm vào Màn hình chính</strong>, sau đó bấm <strong>Thêm</strong>.</p>
+                </div>
               </div>
-              <div className="flex gap-3 rounded-xl bg-neutral-50 p-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-[#287a63] shadow-sm"><PlusSquare className="h-5 w-5" /></span>
-                <p className="text-sm leading-6 text-neutral-700">Chọn <strong>Thêm vào Màn hình chính</strong>, sau đó bấm <strong>Thêm</strong>.</p>
-              </div>
-            </div>
-            <button type="button" onClick={close} className="mt-5 h-12 w-full rounded-xl bg-[#287a63] text-sm font-bold text-white">Tôi đã hiểu</button>
+            )}
+            <button type="button" onClick={close} className="sticky bottom-0 mt-5 h-14 w-full rounded-xl bg-[#287a63] text-base font-bold text-white shadow-lg">{isIos ? "Đã hiểu, tôi sẽ làm theo" : "Tôi đã hiểu"}</button>
           </div>
         )}
       </section>
