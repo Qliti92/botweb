@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AlertCircle, BarChart3, Bell, BookOpen, Bot, Clock3, History, Image as ImageIcon, Link2, LoaderCircle, LogOut, Menu, MousePointerClick, Plus, RefreshCw, Save, Search, Send, Server, Settings, Trash2, X } from "lucide-react";
+import { AlertCircle, BarChart3, Bell, BookOpen, Bot, Check, ClipboardCopy, Clock3, History, Image as ImageIcon, Link2, LoaderCircle, LogOut, Menu, MousePointerClick, Plus, RefreshCw, Save, Search, Send, Server, Settings, Trash2, X } from "lucide-react";
 import type { ApiConfigDto, AppNoticeDto, FlowDto, KnowledgeEntryDto, UnrecognizedMessageDto } from "@/types/app";
 
 type ChatDto = {
@@ -1089,6 +1089,7 @@ function ChatsPanel({ chats, reload, setNotice }: { chats: ChatDto[]; reload: ()
 
 function SiteSettingsPanel({ settings, setSettings, setNotice }: { settings: SiteSettingsDto; setSettings: (value: SiteSettingsDto) => void; setNotice: (value: string) => void }) {
   const [saving, setSaving] = useState(false);
+  const [copiedDomain, setCopiedDomain] = useState("");
   const [referralStats, setReferralStats] = useState<Record<string, { visits: number; registrations: number; lastVisitAt?: string | null; lastRegistrationAt?: string | null }>>({});
 
   useEffect(() => {
@@ -1105,6 +1106,42 @@ function SiteSettingsPanel({ settings, setSettings, setNotice }: { settings: Sit
 
   function updateReferralDomain(index: number, patch: Partial<SiteSettingsDto["referralDomains"][number]>) {
     setSettings({ ...settings, referralDomains: settings.referralDomains.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item) });
+  }
+
+  async function copyDomainInstallCommand(domain: string) {
+    const normalized = domain.trim().toLowerCase().replace(/^www\./, "");
+    const command = `DOMAIN='${normalized}'
+sudo tee "/etc/nginx/sites-available/$DOMAIN" >/dev/null <<EOF
+server {
+    listen 80;
+    listen [::]:80;
+    server_name $DOMAIN;
+    client_max_body_size 10M;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host \\$host;
+        proxy_set_header X-Forwarded-Host \\$host;
+        proxy_set_header X-Forwarded-Proto \\$scheme;
+        proxy_set_header X-Forwarded-For \\$proxy_add_x_forwarded_for;
+        proxy_set_header X-Real-IP \\$remote_addr;
+        proxy_set_header Upgrade \\$http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+EOF
+sudo ln -sfn "/etc/nginx/sites-available/$DOMAIN" "/etc/nginx/sites-enabled/$DOMAIN"
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d "$DOMAIN" --redirect
+sudo nginx -t && sudo systemctl reload nginx`;
+    try {
+      await navigator.clipboard.writeText(command);
+      setCopiedDomain(normalized);
+      window.setTimeout(() => setCopiedDomain((current) => current === normalized ? "" : current), 2500);
+    } catch {
+      setNotice("Không thể sao chép tự động. Hãy mở Admin bằng HTTPS rồi thử lại.");
+    }
   }
 
   async function save(event: FormEvent) {
@@ -1166,6 +1203,30 @@ function SiteSettingsPanel({ settings, setSettings, setNotice }: { settings: Sit
                   <button type="button" onClick={() => setSettings({ ...settings, referralDomains: settings.referralDomains.filter((_, itemIndex) => itemIndex !== index) })} className="grid h-10 w-10 place-items-center rounded-lg border border-red-200 bg-white text-red-600" aria-label="Xóa domain"><Trash2 className="h-4 w-4" /></button>
                 </div>
                 {item.domain ? <div className="mt-2 flex flex-wrap gap-3 text-xs text-neutral-600"><span>Truy cập: <strong>{stats?.visits ?? 0}</strong></span><span>Đăng ký: <strong>{stats?.registrations ?? 0}</strong></span>{stats?.lastRegistrationAt ? <span>Đăng ký gần nhất: <strong>{relativeTime(stats.lastRegistrationAt)}</strong></span> : null}</div> : null}
+                {item.domain ? (
+                  <details className="mt-3 rounded-lg border border-brand-line bg-white p-3">
+                    <summary className="cursor-pointer text-sm font-semibold text-neutral-800">Hướng dẫn kết nối domain và cài SSL</summary>
+                    <div className="mt-3 grid gap-3 text-sm leading-6 text-neutral-700">
+                      <div className="rounded-lg bg-brand-soft p-3">
+                        <strong>1. Trỏ domain về server</strong>
+                        <p>Trong trang quản lý domain, tạo bản ghi <code>A</code>: Tên <code>@</code> → IP máy chủ đang chạy website. Chờ DNS cập nhật rồi mới làm bước 2.</p>
+                      </div>
+                      <div className="rounded-lg bg-brand-soft p-3">
+                        <strong>2. Cài Nginx và SSL miễn phí</strong>
+                        <p>SSH vào server, bấm sao chép rồi dán toàn bộ lệnh bên dưới. Lệnh sẽ kiểm tra Nginx trước khi áp dụng và dùng Certbot để cấp HTTPS.</p>
+                        <button type="button" onClick={() => void copyDomainInstallCommand(item.domain)} className="mt-2 inline-flex h-10 items-center gap-2 rounded-lg bg-neutral-900 px-3 text-xs font-semibold text-white">
+                          {copiedDomain === item.domain.replace(/^www\./, "") ? <Check className="h-4 w-4" /> : <ClipboardCopy className="h-4 w-4" />}
+                          {copiedDomain === item.domain.replace(/^www\./, "") ? "Đã sao chép lệnh" : "Sao chép lệnh cài đặt"}
+                        </button>
+                      </div>
+                      <div className="rounded-lg bg-brand-soft p-3">
+                        <strong>3. Kiểm tra và lưu</strong>
+                        <p>Mở <code>https://{item.domain}</code>. Nếu website hiện bình thường, nhập mã giới thiệu, bật domain và bấm <strong>Lưu cài đặt</strong>.</p>
+                      </div>
+                      <p className="text-xs text-amber-700">Lưu ý: server cần cài sẵn Nginx và Certbot. Không chạy lệnh khi domain chưa trỏ đúng IP server.</p>
+                    </div>
+                  </details>
+                ) : null}
               </div>
             );
           })}
