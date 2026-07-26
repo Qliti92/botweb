@@ -59,11 +59,14 @@ try {
     run("git", ["merge", "--ff-only", "origin/main"], "updating", "Đang cập nhật mã nguồn…");
     run(process.platform === "win32" ? "npm.cmd" : "npm", ["ci", "--include=dev"], "installing", "Đang cài đặt đầy đủ thư viện để build…");
     run(process.platform === "win32" ? "npm.cmd" : "npm", ["run", "build"], "building", "Đang tạo bản chạy mới…");
-    const currentCommit = run("git", ["rev-parse", "--short", "HEAD"], "restarting", "Build thành công. Đang khởi động lại website…");
-    save("restarting", "restarting", "Đang khởi động lại website…", { beforeCommit, currentCommit });
-    run("pm2", ["restart", pm2AppName, "--update-env"], "restarting", "Đang khởi động lại website…");
     run("pm2", ["save"], "saving", "Đang lưu cấu hình PM2…");
-    save("success", "complete", "Cập nhật thành công.", { beforeCommit, currentCommit });
+    const currentCommit = run("git", ["rev-parse", "--short", "HEAD"], "restarting", "Build thành công. Đang khởi động lại website…");
+    // PM2 can terminate this deploy worker together with the old web process.
+    // Persist the terminal state first so the admin page does not wait forever.
+    save("success", "complete", "Cập nhật thành công. Website đang chạy phiên bản mới.", { beforeCommit, currentCommit });
+    execFileSync("pm2", ["restart", pm2AppName, "--update-env"], {
+      cwd: appDir, encoding: "utf8", env: process.env, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 20 * 1024 * 1024
+    });
   }
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);

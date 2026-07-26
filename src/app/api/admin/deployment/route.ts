@@ -1,5 +1,5 @@
 import { execFile, spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
@@ -39,13 +39,31 @@ async function readStatus(): Promise<DeploymentStatus> {
   }
 }
 
+async function reconcileStatus(status: DeploymentStatus, commit: string) {
+  if (status.status !== "restarting" && status.status !== "running") return status;
+  if (!status.currentCommit || status.currentCommit !== commit || !status.updatedAt) return status;
+  if (Date.now() - new Date(status.updatedAt).getTime() < 15_000) return status;
+
+  const recovered: DeploymentStatus = {
+    ...status,
+    status: "success",
+    message: "Cập nhật thành công. Website đang chạy phiên bản mới.",
+    updatedAt: new Date().toISOString()
+  };
+  try {
+    await writeFile(statusFile, JSON.stringify(recovered, null, 2), "utf8");
+  } catch {}
+  return recovered;
+}
+
 export async function GET() {
   await requireAdmin();
+  const commit = await currentCommit();
   return NextResponse.json({
     enabled: process.env.ADMIN_DEPLOY_ENABLED === "true",
     platformSupported: process.platform !== "win32",
-    currentCommit: await currentCommit(),
-    deployment: await readStatus()
+    currentCommit: commit,
+    deployment: await reconcileStatus(await readStatus(), commit)
   });
 }
 
@@ -59,7 +77,7 @@ export async function POST(request: NextRequest) {
     if (process.platform === "win32") {
       return NextResponse.json({ error: "Chức năng này chỉ chạy trên server Linux." }, { status: 400 });
     }
-    const status = await readStatus();
+    const status = await reconcileStatus(await readStatus(), await currentCommit());
     const statusAge = status.updatedAt ? Date.now() - new Date(status.updatedAt).getTime() : Number.POSITIVE_INFINITY;
     if ((status.status === "running" || status.status === "restarting") && statusAge < 30 * 60 * 1000) {
       return NextResponse.json({ error: "Một bản cập nhật đang được thực hiện." }, { status: 409 });
