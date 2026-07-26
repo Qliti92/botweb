@@ -27,7 +27,9 @@ export type IntentResult = {
     | "THANKS"
     | "BOT_IDENTITY"
     | "MARK_NOTIFICATIONS_READ"
-    | "REVOKE_OTHER_SESSIONS";
+    | "REVOKE_OTHER_SESSIONS"
+    | "UPDATE_PROFILE"
+    | "CHANGE_PASSWORD";
   command: string;
   confidence: number;
   parameters?: {
@@ -165,6 +167,12 @@ export function detectIntent(input: string): IntentResult | null {
   if (hasAny(text, ["gioi thieu", "ma gioi thieu", "hoa hong f1", "hoa hong f2", "moi ban", "link moi ban"])) return { intent: "REFERRALS", command: "/gioithieu", confidence: 0.91 };
   if (hasAny(text, ["bien dong so du", "lich su vi", "cong tru tien"])) return { intent: "BALANCE_LOGS", command: "/biendongsodu", confidence: 0.92 };
   if (hasAny(text, ["nhat ky", "hoat dong tai khoan"])) return { intent: "ACTIVITY_LOGS", command: "/nhatky", confidence: 0.9 };
+  if (hasAny(text, ["doi mat khau", "thay mat khau", "cap nhat mat khau", "doi pass", "thay pass", "password moi"])) {
+    return { intent: "CHANGE_PASSWORD", command: "/doimatkhau", confidence: 0.98 };
+  }
+  if (hasAny(text, ["cap nhat thong tin", "sua thong tin", "doi thong tin", "them thong tin", "doi ten", "sua ten", "doi so dien thoai", "sua so dien thoai", "cap nhat ho so"])) {
+    return { intent: "UPDATE_PROFILE", command: "/capnhat", confidence: 0.97 };
+  }
   if (hasAny(text, ["bao mat", "xac thuc 2 lop", "2fa", "otp"])) return { intent: "SECURITY", command: "/baomat", confidence: 0.9 };
   if ((hasAny(text, ["thiet bi dang nhap", "phien dang nhap", "dang nhap o dau"]) || (text.includes("thiet bi") && text.includes("dang nhap"))) && !hasAny(text, ["thiet bi khac", "may khac", "phien khac"])) {
     return { intent: "SESSIONS", command: "/phien", confidence: 0.92 };

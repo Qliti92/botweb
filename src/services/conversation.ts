@@ -709,7 +709,7 @@ async function handleMemberCommand(sessionId: string, text: string, state: Sessi
     if (command === "/capnhat") {
       const payload = parseProfileCommand(text);
       if (!payload) {
-        await saveBot(sessionId, "Bạn nhập theo mẫu này giúp Ry nhé:\n/capnhat Họ tên|Số điện thoại\n\nVí dụ: /capnhat Nguyễn Văn An|0912345678");
+        await saveBot(sessionId, "PROFILE_FORM:{}");
         return;
       }
       await saveBot(sessionId, formatGenericSuccess(await updateProfile(account.token, account.tokenType, payload), "Đã cập nhật hồ sơ."));
@@ -719,7 +719,7 @@ async function handleMemberCommand(sessionId: string, text: string, state: Sessi
     if (command === "/doimatkhau") {
       const payload = parsePasswordCommand(text);
       if (!payload) {
-        await saveBot(sessionId, "Để bảo mật, bạn vui lòng đổi mật khẩu trong biểu mẫu tài khoản. Không gửi mật khẩu trong nội dung chat nhé.");
+        await saveBot(sessionId, "PASSWORD_FORM:{}");
         return;
       }
       await saveBot(sessionId, formatGenericSuccess(await changePassword(account.token, account.tokenType, payload), "Đã đổi mật khẩu."));
@@ -1510,7 +1510,7 @@ function parseProfileCommand(text: string) {
   const raw = text.replace(/^\/capnhat\s*/i, "");
   const [name, phone] = raw.split("|").map((item) => item.trim());
   if (!name && !phone) return null;
-  return { name, phone };
+  return { ...(name ? { name } : {}), ...(phone ? { phone } : {}) };
 }
 
 function parsePasswordCommand(text: string) {

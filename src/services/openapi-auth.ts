@@ -159,36 +159,25 @@ export async function registerWithOpenApi(input: {
   referralCode?: string;
   deviceName?: string;
 }) {
-  let data: Record<string, unknown>;
-  try {
-    data = await postAuth("/register", {
-      email: input.email,
-      password: input.password,
-      password_confirmation: input.passwordConfirmation,
-      name: input.name,
-      phone: input.phone,
-      referral_code: input.referralCode,
-      device_name: input.deviceName ?? "Webchat"
-    });
-  } catch (registrationError) {
-    // The upstream registration endpoint can create the account while still
-    // returning a generic failure response. Verify the result by attempting
-    // login before reporting registration as failed.
-    try {
-      return await loginWithOpenApi(input.email, input.password, input.deviceName ?? "Webchat");
-    } catch {
-      throw registrationError;
-    }
+  const data = await postAuth("/register", {
+    email: input.email,
+    password: input.password,
+    password_confirmation: input.passwordConfirmation,
+    name: input.name,
+    phone: input.phone,
+    referral_code: input.referralCode,
+    device_name: input.deviceName ?? "Webchat"
+  });
+  if (data.success !== true) {
+    throw new Error(String(data.message ?? "API chưa xác nhận đăng ký tài khoản thành công."));
   }
   const payload = asRecord(data.data);
   const hasToken = Boolean(payload.token ?? payload.access_token ?? data.token ?? data.access_token);
   const hasChallenge = Boolean(payload.challenge_token ?? data.challenge_token);
   const needsEmailVerification = Boolean(payload.email_verification_required ?? data.email_verification_required);
 
-  // Some registration responses create the account but do not return an access
-  // token. Complete the user journey by signing in with the new credentials.
   if (!hasToken && !hasChallenge && !needsEmailVerification) {
-    return loginWithOpenApi(input.email, input.password, input.deviceName ?? "Webchat");
+    throw new Error("API báo đăng ký thành công nhưng không trả access token hoặc yêu cầu xác minh email.");
   }
 
   return normalizeAuthResponse(data);

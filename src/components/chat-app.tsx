@@ -2036,6 +2036,8 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
     return <LoggedInWelcomeCard onSend={onSend} cleared={cleared} />;
   }
   if (content.startsWith("UNKNOWN_HELP:")) return <UnknownHelpCard onSend={onSend} />;
+  if (content.startsWith("PROFILE_FORM:")) return <ProfileUpdateCard onSend={onSend} />;
+  if (content.startsWith("PASSWORD_FORM:")) return <PasswordUpdateCard onSend={onSend} />;
   if (content.startsWith("INSTALL_GUIDE:")) return <InstallGuideCard />;
   if (content.startsWith("LINK_GUIDE:")) {
     let platform: "shopee" | "tiktok" = "shopee";
@@ -2109,6 +2111,42 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
           )}
       </div>
     </div>
+  );
+}
+
+function ProfileUpdateCard({ onSend }: { onSend: (message: string) => void }) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  return (
+    <form onSubmit={(event) => { event.preventDefault(); if (name.trim() || phone.trim()) onSend(`/capnhat ${name.trim()}|${phone.trim()}`); }} className="w-full rounded-2xl rounded-bl-md border border-[#d6e4de] bg-white p-4 shadow-sm">
+      <h2 className="flex items-center gap-2 text-sm font-bold text-[#216653]"><User className="h-4 w-4" /> Cập nhật thông tin</h2>
+      <p className="mt-1 text-xs leading-5 text-neutral-500">Bạn có thể sửa họ tên, số điện thoại hoặc cả hai.</p>
+      <div className="mt-3 grid gap-2">
+        <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Họ và tên mới" autoComplete="name" className="h-11 rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-[#287a63]" />
+        <input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Số điện thoại mới" inputMode="tel" autoComplete="tel" className="h-11 rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-[#287a63]" />
+        <button type="submit" disabled={!name.trim() && !phone.trim()} className="h-11 rounded-xl bg-[#287a63] text-sm font-bold text-white disabled:opacity-40">Lưu thông tin</button>
+      </div>
+    </form>
+  );
+}
+
+function PasswordUpdateCard({ onSend }: { onSend: (message: string) => void }) {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const valid = currentPassword.length > 0 && password.length >= 8 && password === confirmation;
+  return (
+    <form onSubmit={(event) => { event.preventDefault(); if (valid) onSend(`/doimatkhau ${currentPassword}|${password}|${confirmation}`); }} className="w-full rounded-2xl rounded-bl-md border border-[#d6e4de] bg-white p-4 shadow-sm">
+      <h2 className="flex items-center gap-2 text-sm font-bold text-[#216653]"><LockKeyhole className="h-4 w-4" /> Đổi mật khẩu</h2>
+      <p className="mt-1 text-xs leading-5 text-neutral-500">Thông tin mật khẩu được ẩn khỏi lịch sử trò chuyện.</p>
+      <div className="mt-3 grid gap-2">
+        <input value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} type="password" placeholder="Mật khẩu hiện tại" autoComplete="current-password" className="h-11 rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-[#287a63]" />
+        <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" minLength={8} placeholder="Mật khẩu mới, ít nhất 8 ký tự" autoComplete="new-password" className="h-11 rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-[#287a63]" />
+        <input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} type="password" minLength={8} placeholder="Nhập lại mật khẩu mới" autoComplete="new-password" className="h-11 rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-[#287a63]" />
+        {confirmation && password !== confirmation ? <p className="text-xs text-red-600">Hai mật khẩu mới chưa giống nhau.</p> : null}
+        <button type="submit" disabled={!valid} className="h-11 rounded-xl bg-[#287a63] text-sm font-bold text-white disabled:opacity-40">Đổi mật khẩu</button>
+      </div>
+    </form>
   );
 }
 

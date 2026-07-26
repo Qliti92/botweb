@@ -43,6 +43,10 @@ const cases: Array<[string, string, string]> = [
   ["Ry là ai?", "BOT_IDENTITY", "/ry-la-ai"],
   ["đọc tất cả thông báo", "MARK_NOTIFICATIONS_READ", "/doctatca"],
   ["đăng xuất thiết bị khác", "REVOKE_OTHER_SESSIONS", "/phien revoke-others"]
+  ,["đổi pass", "CHANGE_PASSWORD", "/doimatkhau"]
+  ,["thay mật khẩu", "CHANGE_PASSWORD", "/doimatkhau"]
+  ,["cập nhật thông tin", "UPDATE_PROFILE", "/capnhat"]
+  ,["đổi số điện thoại", "UPDATE_PROFILE", "/capnhat"]
 ];
 
 for (const [input, intent, command] of cases) {
