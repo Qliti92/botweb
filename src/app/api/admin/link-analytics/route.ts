@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-const actions = ["CASHBACK_LINK_CREATED", "CASHBACK_SHOP_CLICKED"];
 const vietnamOffsetMs = 7 * 60 * 60 * 1000;
 
 function vietnamBoundaries(now = new Date()) {
@@ -26,7 +25,7 @@ async function countSince(action: string, since?: Date) {
 export async function GET() {
   await requireAdmin();
   const boundaries = vietnamBoundaries();
-  const [totalCreated, totalClicked, todayCreated, todayClicked, weekCreated, weekClicked, monthCreated, monthClicked, logs] = await Promise.all([
+  const [totalCreated, totalClicked, todayCreated, todayClicked, weekCreated, weekClicked, monthCreated, monthClicked, createdLogs] = await Promise.all([
     countSince("CASHBACK_LINK_CREATED"),
     countSince("CASHBACK_SHOP_CLICKED"),
     countSince("CASHBACK_LINK_CREATED", boundaries.today),
@@ -36,19 +35,34 @@ export async function GET() {
     countSince("CASHBACK_LINK_CREATED", boundaries.month),
     countSince("CASHBACK_SHOP_CLICKED", boundaries.month),
     prisma.auditLog.findMany({
-      where: { action: { in: actions } },
+      where: { action: "CASHBACK_LINK_CREATED" },
       orderBy: { createdAt: "desc" },
       take: 200,
       select: { id: true, action: true, actorId: true, targetId: true, metadata: true, createdAt: true }
     })
   ]);
 
-  const events = logs.map((log) => {
+  const clicks = createdLogs.length ? await prisma.auditLog.findMany({
+    where: { action: "CASHBACK_SHOP_CLICKED", targetId: { in: createdLogs.map((log) => log.id) } },
+    orderBy: { createdAt: "desc" },
+    select: { targetId: true, createdAt: true }
+  }) : [];
+  const clicksByLink = new Map<string, { count: number; lastClickedAt: Date }>();
+  for (const click of clicks) {
+    if (!click.targetId) continue;
+    const current = clicksByLink.get(click.targetId);
+    clicksByLink.set(click.targetId, {
+      count: (current?.count ?? 0) + 1,
+      lastClickedAt: current?.lastClickedAt ?? click.createdAt
+    });
+  }
+
+  const events = createdLogs.map((log) => {
     let metadata: Record<string, unknown> = {};
     try { metadata = JSON.parse(log.metadata || "{}") as Record<string, unknown>; } catch {}
+    const clickStats = clicksByLink.get(log.id);
     return {
       id: log.id,
-      type: log.action === "CASHBACK_LINK_CREATED" ? "created" : "clicked",
       accountKey: log.actorId,
       userName: String(metadata.name || ""),
       email: String(metadata.email || ""),
@@ -59,7 +73,9 @@ export async function GET() {
       productName: String(metadata.productName || ""),
       productImage: String(metadata.productImage || ""),
       cashbackAmount: metadata.cashbackAmount ?? null,
-      createdAt: log.createdAt
+      createdAt: log.createdAt,
+      clickCount: clickStats?.count ?? 0,
+      lastClickedAt: clickStats?.lastClickedAt ?? null
     };
   });
 

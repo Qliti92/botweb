@@ -234,7 +234,6 @@ type LinkAnalyticsDto = {
   periods: Record<"total" | "today" | "week" | "month", { created: number; clicked: number }>;
   events: {
     id: string;
-    type: "created" | "clicked";
     accountKey?: string | null;
     userName: string;
     email: string;
@@ -246,6 +245,8 @@ type LinkAnalyticsDto = {
     productImage: string;
     cashbackAmount?: string | number | null;
     createdAt: string;
+    clickCount: number;
+    lastClickedAt?: string | null;
   }[];
 };
 
@@ -264,7 +265,6 @@ function relativeTime(value: string) {
 function LinkAnalyticsPanel() {
   const [data, setData] = useState<LinkAnalyticsDto | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "created" | "clicked">("all");
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [, refreshClock] = useState(0);
@@ -287,7 +287,6 @@ function LinkAnalyticsPanel() {
   }, []);
 
   const events = (data?.events ?? []).filter((event) => {
-    if (filter !== "all" && event.type !== filter) return false;
     const query = search.trim().toLowerCase();
     if (!query) return true;
     return [event.userName, event.email, event.phone, event.productName, event.sourceUrl, event.platform].some((value) => value.toLowerCase().includes(query));
@@ -326,12 +325,7 @@ function LinkAnalyticsPanel() {
       <section className="overflow-hidden rounded-xl border border-brand-line bg-white shadow-sm">
         <div className="border-b border-brand-line p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div><h3 className="font-semibold">Hoạt động gần đây</h3><p className="text-xs text-neutral-500">Hiển thị tối đa 200 hoạt động mới nhất.</p></div>
-            <div className="flex gap-1 rounded-lg bg-neutral-100 p-1">
-              {([{ value: "all", label: "Tất cả" }, { value: "created", label: "Lấy link" }, { value: "clicked", label: "Bấm sang sàn" }] as const).map((item) => (
-                <button key={item.value} type="button" onClick={() => setFilter(item.value)} className={`h-9 rounded-md px-3 text-xs font-semibold ${filter === item.value ? "bg-white text-brand-ink shadow-sm" : "text-neutral-500"}`}>{item.label}</button>
-              ))}
-            </div>
+            <div><h3 className="font-semibold">Các link đã tạo gần đây</h3><p className="text-xs text-neutral-500">Mỗi link chỉ hiện một lần, kèm tổng lượt bấm sang sàn.</p></div>
           </div>
           <label className="relative mt-3 block"><Search className="absolute left-3 top-3 h-4 w-4 text-neutral-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm theo tên, email, số điện thoại, sản phẩm hoặc link…" className="h-10 w-full rounded-lg border border-brand-line pl-9 pr-3 text-sm outline-none focus:border-brand-red" /></label>
         </div>
@@ -340,7 +334,7 @@ function LinkAnalyticsPanel() {
             <article key={event.id} className="grid gap-3 p-4 md:grid-cols-[minmax(190px,0.7fr)_minmax(260px,1.3fr)_auto] md:items-center">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${event.type === "created" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"}`}>{event.type === "created" ? <Link2 className="h-4 w-4" /> : <MousePointerClick className="h-4 w-4" />}</span>
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700"><Link2 className="h-4 w-4" /></span>
                   <div className="min-w-0"><p className="truncate text-sm font-semibold">{event.userName || event.email || event.phone || "Khách chưa rõ tên"}</p><p className="truncate text-xs text-neutral-500">{event.email || event.phone || event.accountKey || "Không có thông tin"}</p></div>
                 </div>
               </div>
@@ -348,11 +342,11 @@ function LinkAnalyticsPanel() {
                 {event.productImage ? <img src={event.productImage} alt="" className="h-12 w-12 shrink-0 rounded-lg border object-cover" /> : null}
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{event.productName || "Sản phẩm chưa có tên"}</p>
-                  <p className="mt-0.5 text-xs text-neutral-500"><span className="font-semibold capitalize">{event.platform === "tiktok" ? "TikTok Shop" : event.platform}</span> · {event.type === "created" ? "Đã lấy link hoàn tiền" : "Đã bấm quay lại sàn"}</p>
+                  <p className="mt-0.5 text-xs text-neutral-500"><span className="font-semibold capitalize">{event.platform === "tiktok" ? "TikTok Shop" : event.platform}</span> · <strong className="text-blue-700">{event.clickCount} lượt bấm sang sàn</strong></p>
                   {event.sourceUrl ? <a href={event.sourceUrl} target="_blank" rel="noreferrer" className="mt-1 block max-w-full truncate text-xs text-blue-600 hover:underline">{event.sourceUrl}</a> : null}
                 </div>
               </div>
-              <div className="text-left md:text-right"><strong className="block text-sm">{relativeTime(event.createdAt)}</strong><span className="text-xs text-neutral-500">{new Date(event.createdAt).toLocaleString("vi-VN")}</span></div>
+              <div className="text-left md:text-right"><strong className="block text-sm">Tạo {relativeTime(event.createdAt)}</strong><span className="block text-xs text-neutral-500">{new Date(event.createdAt).toLocaleString("vi-VN")}</span>{event.lastClickedAt ? <span className="mt-1 block text-xs font-medium text-blue-700">Bấm gần nhất {relativeTime(event.lastClickedAt)}</span> : null}</div>
             </article>
           ))}
           {!loading && !events.length ? <p className="p-8 text-center text-sm text-neutral-500">Chưa có hoạt động phù hợp.</p> : null}

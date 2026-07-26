@@ -3075,6 +3075,8 @@ function CashbackCard({ data }: { data: CashbackCardData }) {
         <strong className="block font-semibold text-neutral-700">Lưu ý:</strong>
         <span className="block">• Để giỏ hàng trống trước khi mở link.</span>
         <span className="block">• Bấm link 2 lần để tăng khả năng đơn được ghi nhận.</span>
+        <span className="block">• Đơn bị hủy hoặc hoàn trả sẽ không có tiền hoàn.</span>
+        <span className="block">• Đơn hàng có thể mất 1–24 giờ để hiển thị. Tiền hoàn được cộng sau khi đơn giao thành công và được xác nhận.</span>
       </div>
     </div>
   );
