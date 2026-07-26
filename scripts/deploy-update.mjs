@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { closeSync, mkdirSync, openSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 const appDir = resolve(process.env.DEPLOY_APP_DIR || process.cwd());
@@ -9,6 +9,41 @@ const pm2AppName = process.env.PM2_APP_NAME || "botweb";
 const logs = [];
 let lockFd;
 let ownsLock = false;
+
+function processIsAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function acquireLock() {
+  try {
+    lockFd = openSync(lockFile, "wx");
+    writeFileSync(lockFd, JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() }));
+    ownsLock = true;
+    return true;
+  } catch (error) {
+    if (!error || typeof error !== "object" || !("code" in error) || error.code !== "EEXIST") throw error;
+  }
+
+  let activePid = 0;
+  try {
+    activePid = Number(JSON.parse(readFileSync(lockFile, "utf8")).pid || 0);
+  } catch {}
+  if (processIsAlive(activePid)) return false;
+
+  // PM2 may terminate the previous worker during restart before its finally block
+  // removes the lock. A lock whose owner no longer exists is safe to replace.
+  try { unlinkSync(lockFile); } catch {}
+  lockFd = openSync(lockFile, "wx");
+  writeFileSync(lockFd, JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() }));
+  ownsLock = true;
+  return true;
+}
 
 function save(status, step, message, extra = {}) {
   mkdirSync(dirname(statusFile), { recursive: true });
@@ -28,12 +63,9 @@ function run(command, args, step, message) {
 
 try {
   mkdirSync(dirname(statusFile), { recursive: true });
-  try {
-    lockFd = openSync(lockFile, "wx");
-    ownsLock = true;
-  } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "EEXIST") process.exit(0);
-    throw error;
+  if (!acquireLock()) {
+    save("failed", "locked", "Một bản cập nhật khác đang chạy. Hãy chờ hoàn tất rồi kiểm tra lại.");
+    process.exit(1);
   }
   const beforeCommit = run("git", ["rev-parse", "--short", "HEAD"], "checking", "Đang kiểm tra phiên bản hiện tại…");
   const dirty = run("git", ["status", "--porcelain", "--untracked-files=all"], "checking", "Đang kiểm tra thư mục dự án…");

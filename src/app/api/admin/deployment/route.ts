@@ -1,5 +1,6 @@
 import { execFile, spawn } from "node:child_process";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { promisify } from "node:util";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
@@ -85,6 +86,18 @@ export async function POST(request: NextRequest) {
     if ((status.status === "running" || status.status === "restarting") && statusAge < 30 * 60 * 1000) {
       return NextResponse.json({ error: "Một bản cập nhật đang được thực hiện." }, { status: 409 });
     }
+
+    const commit = await currentCommit();
+    await mkdir(dirname(statusFile), { recursive: true });
+    await writeFile(statusFile, JSON.stringify({
+      status: "running",
+      step: "queued",
+      message: "Đã nhận yêu cầu. Đang bắt đầu cập nhật…",
+      logs: [],
+      updatedAt: new Date().toISOString(),
+      beforeCommit: commit,
+      currentCommit: commit
+    }, null, 2), "utf8");
 
     const child = spawn(process.execPath, [`${process.cwd()}/scripts/deploy-update.mjs`], {
       cwd: process.cwd(), detached: true, stdio: "ignore", env: { ...process.env, DEPLOY_APP_DIR: process.cwd() }
