@@ -2028,6 +2028,12 @@ function BotAvatar() {
 }
 
 function BotCard({ content, onSend }: { content: string; onSend: (message: string) => void }) {
+  if (content.startsWith("READY_WELCOME:")) {
+    let cleared = false;
+    try { cleared = Boolean((JSON.parse(content.slice("READY_WELCOME:".length)) as { cleared?: boolean }).cleared); } catch {}
+    return <LoggedInWelcomeCard onSend={onSend} cleared={cleared} />;
+  }
+  if (content.startsWith("UNKNOWN_HELP:")) return <UnknownHelpCard onSend={onSend} />;
   if (content.startsWith("INSTALL_GUIDE:")) return <InstallGuideCard />;
   if (content.startsWith("LINK_GUIDE:")) {
     let platform: "shopee" | "tiktok" = "shopee";
@@ -2099,6 +2105,49 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
             ))}
           </div>
           )}
+      </div>
+    </div>
+  );
+}
+
+function LoggedInWelcomeCard({ onSend, cleared }: { onSend: (message: string) => void; cleared: boolean }) {
+  return (
+    <div className="w-full overflow-hidden rounded-2xl rounded-bl-md border border-[#d6e4de] bg-white shadow-sm">
+      <div className="bg-[#f1f7f4] p-4">
+        <h2 className="text-sm font-bold text-[#216653]">{cleared ? "Cuộc trò chuyện đã được làm mới" : "Đăng nhập thành công 🎉"}</h2>
+        <p className="mt-1.5 text-xs leading-5 text-neutral-700">Bạn gửi link sản phẩm Shopee hoặc TikTok Shop cho Ry để tạo link hoàn tiền.</p>
+      </div>
+      <div className="grid gap-2 p-3">
+        <button type="button" onClick={() => onSend("/laylink")} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#287a63] px-3 text-sm font-bold text-white">
+          <Clipboard className="h-4 w-4" /> Xem cách lấy link sản phẩm
+        </button>
+        <button type="button" onClick={() => onSend("/huongdan")} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#d6e4de] bg-white px-3 text-sm font-semibold text-[#216653]">
+          <BookOpen className="h-4 w-4" /> Hướng dẫn sử dụng Ry
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function UnknownHelpCard({ onSend }: { onSend: (message: string) => void }) {
+  const actions = [
+    { label: "Hướng dẫn sử dụng", command: "/huongdan", icon: BookOpen },
+    { label: "Cách lấy link", command: "/laylink", icon: Clipboard },
+    { label: "Cài app", command: "/caidat", icon: Phone },
+    { label: "Gặp hỗ trợ", command: "/hotro", icon: Headphones }
+  ];
+  return (
+    <div className="w-full overflow-hidden rounded-2xl rounded-bl-md border border-amber-200 bg-white shadow-sm">
+      <div className="bg-amber-50 p-4">
+        <h2 className="flex items-center gap-2 text-sm font-bold text-amber-900"><AlertCircle className="h-4 w-4" /> Ry chưa hiểu câu này</h2>
+        <p className="mt-1.5 text-xs leading-5 text-amber-900">Bạn thử hỏi ngắn hơn, ví dụ: “lấy link”, “đơn hàng”, “số dư” hoặc chọn một mục bên dưới.</p>
+      </div>
+      <div className="grid grid-cols-2 gap-2 p-3">
+        {actions.map(({ label, command, icon: Icon }) => (
+          <button key={command} type="button" onClick={() => onSend(command)} className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-2 text-xs font-semibold text-brand-ink hover:bg-neutral-50">
+            <Icon className="h-4 w-4 shrink-0 text-[#287a63]" /> {label}
+          </button>
+        ))}
       </div>
     </div>
   );

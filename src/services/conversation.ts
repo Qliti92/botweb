@@ -85,7 +85,7 @@ type SessionState = {
 };
 
 const startMessage = "Chào bạn, em là Ry 👋\n\nEm sẽ giúp bạn tạo link hoàn tiền và kiểm tra tài khoản thật nhanh.\n\n• Đã có tài khoản: chọn Đăng nhập hoặc nhập 1\n• Chưa có tài khoản: chọn Đăng ký hoặc nhập 2";
-const readyMessage = "Đăng nhập thành công rồi ạ 🎉\n\nBạn gửi Ry link sản phẩm Shopee hoặc TikTok Shop nhé. Ry sẽ tạo link hoàn tiền giúp bạn.";
+const readyMessage = "READY_WELCOME:{}";
 const loginErrorPrefix = "LOGIN_ERROR:";
 
 const guideMessage = [
@@ -571,7 +571,7 @@ export async function handleUserMessage(sessionId: string, content: string) {
         return getSessionPayload(sessionId);
       }
       await recordUnrecognizedMessage(sessionId, content);
-      await saveBot(sessionId, "Ry chưa hiểu rõ ý bạn nên không muốn trả lời sai 😊\n\nBạn thử nói ngắn gọn hơn, chọn một chức năng trong menu hoặc nhập “gặp nhân viên” để được hỗ trợ nhé.");
+      await saveBot(sessionId, "UNKNOWN_HELP:{}");
     }
     return getSessionPayload(sessionId);
   }
@@ -633,7 +633,7 @@ export async function getNotificationSnapshot(sessionId: string) {
 async function clearCurrentChat(sessionId: string, state: SessionState) {
   await prisma.chatMessage.deleteMany({ where: { sessionId } });
   await updateSession(sessionId, state);
-  await saveBot(sessionId, state.account ? `Ry đã dọn cuộc trò chuyện cũ rồi ạ.\n\n${readyMessage}` : `Ry đã dọn cuộc trò chuyện cũ rồi ạ.\n\n${startMessage}`);
+  await saveBot(sessionId, state.account ? `READY_WELCOME:${JSON.stringify({ cleared: true })}` : `Ry đã dọn cuộc trò chuyện cũ rồi ạ.\n\n${startMessage}`);
 }
 
 async function handleMemberCommand(sessionId: string, text: string, state: SessionState) {

@@ -17,17 +17,50 @@ export function assertSameOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
   if (!origin) return;
 
-  const expected = new URL(request.url);
-  const actual = new URL(origin);
+  const firstHeaderValue = (value: string | null) => value?.split(",")[0]?.trim() ?? "";
+  const forwardedHost = firstHeaderValue(request.headers.get("x-forwarded-host"));
+  const host = firstHeaderValue(request.headers.get("host"));
+  const requestUrl = new URL(request.url);
+  let actual: URL;
+  try {
+    actual = new URL(origin);
+  } catch {
+    throw new Error("Nguon yeu cau khong hop le. Vui long tai lai trang admin.");
+  }
+
+  function normalizedHost(value: string) {
+    try {
+      const parsed = value.includes("://") ? new URL(value) : new URL(`https://${value}`);
+      const hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
+      const defaultPort = parsed.port === "80" || parsed.port === "443";
+      return `${hostname}${parsed.port && !defaultPort ? `:${parsed.port}` : ""}`;
+    } catch {
+      return "";
+    }
+  }
+
+  const allowedHosts = new Set<string>();
+  for (const candidate of [
+    forwardedHost,
+    host,
+    requestUrl.host,
+    process.env.NEXT_PUBLIC_APP_URL,
+    ...(process.env.ALLOWED_ORIGINS ?? "").split(",")
+  ]) {
+    const normalized = normalizedHost(candidate?.trim() ?? "");
+    if (normalized) allowedHosts.add(normalized);
+  }
+
+  const actualHost = normalizedHost(actual.origin);
   const localHosts = new Set(["localhost", "127.0.0.1", "::1"]);
   const isLocalAlias =
     process.env.NODE_ENV !== "production" &&
-    localHosts.has(expected.hostname) &&
+    localHosts.has(requestUrl.hostname) &&
     localHosts.has(actual.hostname) &&
-    expected.port === actual.port;
+    requestUrl.port === actual.port;
 
-  if (actual.origin !== expected.origin && !isLocalAlias) {
-    throw new Error("Nguon yeu cau khong hop le. Vui long mo admin cung dia chi voi server.");
+  if (!allowedHosts.has(actualHost) && !isLocalAlias) {
+    throw new Error("Nguon yeu cau khong hop le. Vui long tai lai trang admin tu dung ten mien.");
   }
 }
 
