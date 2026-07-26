@@ -2028,6 +2028,15 @@ function BotAvatar() {
 }
 
 function BotCard({ content, onSend }: { content: string; onSend: (message: string) => void }) {
+  if (content.startsWith("INSTALL_GUIDE:")) return <InstallGuideCard />;
+  if (content.startsWith("LINK_GUIDE:")) {
+    let platform: "shopee" | "tiktok" = "shopee";
+    try {
+      const value = String((JSON.parse(content.slice("LINK_GUIDE:".length)) as { platform?: string }).platform ?? "");
+      if (value === "tiktok") platform = "tiktok";
+    } catch {}
+    return <LinkGuideCard initialPlatform={platform} />;
+  }
   if (content.startsWith("STATIC_PAGE:")) {
     let slug = "";
     try { slug = String((JSON.parse(content.slice("STATIC_PAGE:".length)) as { slug?: string }).slug ?? ""); } catch {}
@@ -2090,6 +2099,69 @@ function BotCard({ content, onSend }: { content: string; onSend: (message: strin
             ))}
           </div>
           )}
+      </div>
+    </div>
+  );
+}
+
+function InstallGuideCard() {
+  const steps = [
+    "Mở Safari trên iPhone.",
+    "Nhập qbot.vn và mở trang.",
+    "Chạm nút menu ở thanh địa chỉ phía dưới.",
+    "Chạm Chia sẻ.",
+    "Chạm Thêm vào Màn hình chính.",
+    "Chạm Thêm, rồi mở Em Ry ngoài màn hình."
+  ];
+  return (
+    <div className="w-full overflow-hidden rounded-2xl rounded-bl-md border border-[#d6e4de] bg-white shadow-sm">
+      <div className="bg-[#f1f7f4] px-4 py-3">
+        <h2 className="text-sm font-bold text-[#216653]">Cài Em Ry trên iPhone</h2>
+        <p className="mt-1 text-xs leading-5 text-neutral-600">Miễn phí, không tốn dung lượng. Làm lần lượt 6 bước, chạm vào vị trí có vòng màu cam.</p>
+      </div>
+      <img src="/images/tutorials/install-iphone-pwa.png" alt="Sáu bước thêm Em Ry vào màn hình chính iPhone" className="h-auto w-full border-y border-neutral-100" />
+      <ol className="grid gap-1.5 p-3">
+        {steps.map((step, index) => (
+          <li key={step} className="flex items-start gap-2 rounded-xl bg-neutral-50 px-2.5 py-2">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#287a63] text-[11px] font-bold text-white">{index + 1}</span>
+            <span className="pt-0.5 text-xs leading-5 text-neutral-700">{step}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="mx-3 mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 text-xs font-semibold leading-5 text-emerald-800">Cài xong, lần sau chỉ cần chạm biểu tượng Em Ry để truy cập như ứng dụng.</p>
+    </div>
+  );
+}
+
+function LinkGuideCard({ initialPlatform }: { initialPlatform: "shopee" | "tiktok" }) {
+  const [platform, setPlatform] = useState<"shopee" | "tiktok">(initialPlatform);
+  const shopee = platform === "shopee";
+  return (
+    <div className="w-full overflow-hidden rounded-2xl rounded-bl-md border border-slate-200 bg-white shadow-sm">
+      <div className="p-3">
+        <h2 className="text-sm font-bold text-brand-ink">Cách lấy link sản phẩm</h2>
+        <p className="mt-1 text-xs leading-5 text-neutral-600">Chọn đúng ứng dụng bạn đang dùng:</p>
+        <div className="mt-3 grid grid-cols-2 rounded-xl bg-neutral-100 p-1" role="tablist" aria-label="Chọn ứng dụng cần hướng dẫn">
+          <button type="button" role="tab" aria-selected={shopee} onClick={() => setPlatform("shopee")} className={`min-h-10 rounded-lg text-xs font-bold ${shopee ? "bg-[#ee4d2d] text-white shadow-sm" : "text-neutral-600"}`}>Shopee</button>
+          <button type="button" role="tab" aria-selected={!shopee} onClick={() => setPlatform("tiktok")} className={`min-h-10 rounded-lg text-xs font-bold ${!shopee ? "bg-[#20242a] text-white shadow-sm" : "text-neutral-600"}`}>TikTok Shop</button>
+        </div>
+      </div>
+      <img
+        src={shopee ? "/images/tutorials/copy-link-shopee.png" : "/images/tutorials/copy-link-tiktok-shop.png"}
+        alt={shopee ? "Hai bước sao chép đường dẫn sản phẩm Shopee" : "Hai bước sao chép liên kết sản phẩm TikTok Shop"}
+        className="aspect-[3/2] h-auto w-full border-y border-neutral-100 object-cover"
+      />
+      <ol className="grid gap-2 p-3">
+        <li className="flex gap-2 rounded-xl bg-neutral-50 p-2.5"><span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold text-white ${shopee ? "bg-[#ee4d2d]" : "bg-[#16717c]"}`}>1</span><p className="text-xs leading-5 text-neutral-700">Mở sản phẩm muốn mua và chạm nút <strong>Chia sẻ</strong>.</p></li>
+        <li className="flex gap-2 rounded-xl bg-neutral-50 p-2.5"><span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold text-white ${shopee ? "bg-[#ee4d2d]" : "bg-[#16717c]"}`}>2</span><p className="text-xs leading-5 text-neutral-700">Chọn <strong>{shopee ? "Sao chép đường dẫn" : "Sao chép Liên kết"}</strong>, quay lại Ry rồi nhấn giữ ô tin nhắn và chọn <strong>Dán</strong>.</p></li>
+      </ol>
+      <div className="mx-3 mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+        <strong className="text-xs text-amber-900">Lưu ý</strong>
+        <ul className="mt-1.5 grid gap-1 text-[11px] leading-5 text-amber-900">
+          <li>1. Mua hàng bằng đúng link Ry gửi lại.</li>
+          <li>2. Đơn bị hủy hoặc hoàn trả sẽ không có tiền hoàn.</li>
+          <li>3. Đơn hàng có thể mất 1–24 giờ để hiển thị. Tiền hoàn được cộng sau khi đơn giao thành công và được xác nhận.</li>
+        </ul>
       </div>
     </div>
   );
@@ -2640,10 +2712,11 @@ function AuthChoiceCard({ onSend }: { onSend: (message: string) => void }) {
             Đăng ký
           </button>
         </div>
-        <div className="flex items-start gap-2 rounded-md bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-800 ring-1 ring-sky-100">
-          <ListChecks className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>Chọn Lệnh nhanh để thực hiện các thao tác nhanh như xem đơn hàng, số dư hoặc rút tiền.</span>
-        </div>
+        <button type="button" onClick={() => onSend("/laylink")} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#d6e4de] bg-[#f1f7f4] px-3 text-sm font-semibold text-[#216653]">
+          <Clipboard className="h-4 w-4" />
+          Xem cách lấy link sản phẩm
+        </button>
+        <p className="text-center text-xs leading-5 text-neutral-500">Chưa biết bắt đầu từ đâu? Bấm nút hướng dẫn phía trên.</p>
       </div>
     </div>
   );

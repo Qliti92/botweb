@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   Check,
   ChevronDown,
   CircleDollarSign,
   ClipboardPaste,
+  Clock3,
   ExternalLink,
   HelpCircle,
   Link2,
@@ -149,22 +150,41 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
         </div>
       </section>
 
-      <section id="cach-hoat-dong" className="scroll-mt-20 border-y border-[#e7e9ed] bg-white py-14 sm:py-20">
+      <section id="cach-hoat-dong" className="scroll-mt-20 border-y border-[#e7e9ed] bg-white py-10 sm:py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <SectionHeading eyebrow="Rất dễ sử dụng" title="Bạn chỉ cần làm 4 bước" description="Làm lần lượt từ bước 1 đến bước 4. Ry sẽ hướng dẫn bạn trong suốt quá trình." />
-          <div className="relative mt-10 grid gap-4 md:grid-cols-4">
+
+          <div className="relative mx-auto mt-7 max-w-md sm:hidden">
+            <span className="absolute bottom-8 left-[23px] top-8 w-0.5 bg-[#d6e4de]" aria-hidden="true" />
+            <ol className="relative grid gap-2">
+              {steps.map(({ icon: Icon, title, text }, index) => (
+                <li key={title} className="flex items-start gap-3 rounded-2xl bg-[#fafaf8] p-3">
+                  <span className="relative z-10 grid h-12 w-12 shrink-0 place-items-center rounded-full border-4 border-white bg-[#287a63] text-sm font-black text-white shadow-sm">{index + 1}</span>
+                  <div className="min-w-0 flex-1 pt-0.5">
+                    <div className="flex items-center gap-2">
+                      <Icon className="h-4 w-4 shrink-0 text-[#287a63]" />
+                      <h3 className="text-[15px] font-bold leading-5">{title}</h3>
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-[12px] leading-[1.15rem] text-neutral-600">{text}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <div className="relative mt-10 hidden gap-4 sm:grid sm:grid-cols-2 lg:grid-cols-4">
             {steps.map(({ icon: Icon, title, text }, index) => (
               <article key={title} className="relative rounded-2xl border border-[#dfe2e6] bg-[#fafaf8] p-5 shadow-sm">
                 <span className="absolute right-4 top-4 text-4xl font-black text-[#e1e9e6]">{index + 1}</span>
                 <span className="grid h-12 w-12 place-items-center rounded-xl bg-[#eaf4f0] text-[#287a63]"><Icon className="h-6 w-6" /></span>
                 <h3 className="mt-5 pr-6 text-base font-bold">{title}</h3>
                 <p className="mt-2 text-sm leading-6 text-neutral-600">{text}</p>
-                {index < steps.length - 1 ? <ArrowRight className="absolute -right-3 top-1/2 z-10 hidden h-6 w-6 rounded-full bg-white p-1 text-[#287a63] shadow md:block" /> : null}
+                {index < steps.length - 1 ? <ArrowRight className="absolute -right-3 top-1/2 z-10 hidden h-6 w-6 rounded-full bg-white p-1 text-[#287a63] shadow lg:block" /> : null}
               </article>
             ))}
           </div>
-          <div className="mt-8 text-center">
-            <button onClick={onRegister} className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-[#287a63] px-5 text-sm font-semibold text-white hover:bg-[#216653]">
+          <div className="mt-6 text-center sm:mt-8">
+            <button onClick={onRegister} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#287a63] px-5 text-sm font-semibold text-white hover:bg-[#216653] sm:w-auto">
               Thực hiện bước 1 ngay <ArrowRight className="h-4 w-4" />
             </button>
           </div>
@@ -240,18 +260,7 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
             )}
           </div>
 
-          <div className="mx-auto mt-7 max-w-3xl rounded-2xl border border-[#d6e4de] bg-[#f1f7f4] p-4 sm:flex sm:items-center sm:justify-between sm:gap-5">
-            <div className="flex gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-[#287a63]"><ClipboardPaste className="h-5 w-5" /></span>
-              <div>
-                <strong className="text-sm">Đã sao chép xong?</strong>
-                <p className="mt-1 text-xs leading-5 text-neutral-600">Quay lại trang này, mở Ry, nhấn giữ trong ô nhập tin nhắn và chọn <strong>Dán</strong>.</p>
-              </div>
-            </div>
-            <button onClick={onRegister} className="mt-4 inline-flex min-h-12 w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-[#287a63] px-5 text-sm font-bold text-white sm:mt-0 sm:w-auto">
-              Mở Ry để dán link <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
+          <PasteLinkDemo />
         </div>
       </section>
 
@@ -357,23 +366,104 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
 }
 
 function ChatPreview() {
+  const [previewStep, setPreviewStep] = useState(0);
+  const labels = ["Sao chép link", "Dán vào Ry", "Mua trên Shopee", "Xem số dư", "Xem đơn hàng"];
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setPreviewStep((previewStep + 1) % labels.length), previewStep === 2 ? 6000 : 4800);
+    return () => window.clearTimeout(timer);
+  }, [previewStep, labels.length]);
+
+  const inRy = previewStep !== 0;
+
   return (
     <div className="relative mx-auto w-full max-w-[440px]">
       <div className="absolute -inset-4 rounded-full bg-[#dce9e4]/60 blur-3xl sm:-inset-8" />
       <div className="relative overflow-hidden rounded-[24px] border border-[#d9dde3] bg-white p-2.5 shadow-[0_20px_55px_rgba(48,52,59,.13)] sm:p-3">
-        <div className="flex items-center gap-3 rounded-2xl bg-[#287a63] px-4 py-3 text-white">
-          <img src="/api/site-assets/avatar" alt="Em Ry" className="h-11 w-11 rounded-full bg-white object-cover" />
-          <div><strong className="block text-[15px]">Em Ry</strong><span className="text-[11px] text-white/75">Trợ lý hoàn tiền</span></div>
-          <span className="ml-auto hidden items-center gap-1.5 text-[10px] text-white/80 min-[370px]:flex"><span className="h-2 w-2 rounded-full bg-emerald-300" /> Trực tuyến</span>
+        <div className="mb-2 flex gap-1.5 px-1">
+          {labels.map((label, index) => (
+            <button key={label} type="button" onClick={() => setPreviewStep(index)} aria-label={label} className={`h-1.5 flex-1 overflow-hidden rounded-full ${index === previewStep ? "bg-[#287a63]" : index < previewStep ? "bg-[#9ec9b9]" : "bg-neutral-200"}`} />
+          ))}
         </div>
-        <div className="grid gap-3 bg-[#f4f6f7] px-3 py-5">
-          <div className="ml-auto max-w-[86%] rounded-2xl rounded-br-md bg-[#30343b] px-3.5 py-3 text-[13px] leading-5 text-white">Mình muốn mua sản phẩm này:<br />shopee.vn/san-pham...</div>
-          <div className="max-w-[92%] rounded-2xl rounded-bl-md border border-[#e4e6e9] bg-white p-3 shadow-sm">
-            <div className="flex items-center gap-2 text-[13px] font-semibold"><PackageCheck className="h-4 w-4 text-[#287a63]" /> Link mua hàng đã sẵn sàng</div>
-            <p className="mt-2 text-xs leading-5 text-neutral-600">Bạn mở link dưới đây và đặt hàng để hệ thống có thể ghi nhận tiền hoàn nhé.</p>
-            <div className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-[#287a63] px-3 py-3 text-[13px] font-semibold text-white">Mở link và mua hàng <ExternalLink className="h-4 w-4" /></div>
-          </div>
-          <div className="flex min-h-12 items-center gap-2 rounded-xl border border-[#e4e6e9] bg-white px-3 text-[12px] text-neutral-400"><span className="flex-1">Dán link sản phẩm vào đây...</span><Send className="h-5 w-5 text-[#287a63]" /></div>
+        <div className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-white transition-colors ${inRy ? "bg-[#287a63]" : "bg-[#ee4d2d]"}`}>
+          {inRy ? <img src="/api/site-assets/avatar" alt="Em Ry" className="h-11 w-11 rounded-full bg-white object-cover" /> : <span className="grid h-11 w-11 place-items-center rounded-xl bg-white text-lg font-black text-[#ee4d2d]">S</span>}
+          <div><strong className="block text-[15px]">{inRy ? "Em Ry" : "Shopee"}</strong><span className="text-[11px] text-white/80">{labels[previewStep]} · Bước {previewStep + 1}/5</span></div>
+          <span className="ml-auto flex items-center gap-1.5 text-[10px] text-white/80"><span className="h-2 w-2 animate-pulse rounded-full bg-white" /> Tự chạy</span>
+        </div>
+
+        <div className="min-h-[390px] bg-[#f4f6f7] p-3">
+          {previewStep === 0 ? (
+            <div className="overflow-hidden rounded-2xl border border-[#efd9cf] bg-white shadow-sm">
+              <img src="/images/tutorials/copy-link-shopee.png" alt="Nút Chia sẻ và Sao chép đường dẫn đúng vị trí trên Shopee" className="aspect-[3/2] h-auto w-full object-cover" />
+              <div className="flex items-center gap-3 bg-[#fff8f4] p-3">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#ee4d2d] text-xs font-bold text-white">1</span>
+                <p className="text-xs leading-5 text-neutral-700">Bấm đúng nút <strong>Chia sẻ</strong> ở phía trên, sau đó chọn <strong>Sao chép đường dẫn</strong>.</p>
+              </div>
+            </div>
+          ) : null}
+
+          {previewStep === 1 ? (
+            <div className="space-y-3 pt-3">
+              <div className="max-w-[84%] rounded-2xl rounded-bl-md border border-neutral-200 bg-white p-3 text-xs leading-5 text-neutral-700 shadow-sm">Dán link sản phẩm vào ô bên dưới rồi bấm Gửi nhé.</div>
+              <div className="ml-auto max-w-[88%] rounded-2xl rounded-br-md bg-[#dff3eb] p-3 text-xs leading-5 text-brand-ink">https://s.shopee.vn/vi-du-san-pham</div>
+              <div className="mt-24 flex min-h-12 items-center gap-2 rounded-xl border-2 border-[#9ec9b9] bg-white px-3 text-xs text-brand-ink shadow-sm"><span className="min-w-0 flex-1 truncate">https://s.shopee.vn/vi-du...</span><Send className="h-5 w-5 animate-pulse text-[#287a63]" /></div>
+            </div>
+          ) : null}
+
+          {previewStep === 2 ? (
+            <div className="space-y-3 pt-2">
+              <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-[#dff3eb] p-3 text-xs">https://s.shopee.vn/vi-du-san-pham</div>
+              <div className="overflow-hidden rounded-2xl rounded-bl-md border border-emerald-200 bg-white shadow-sm">
+                <div className="flex gap-3 p-3">
+                  <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-[#fff3ed] text-[#ee4d2d]"><ShoppingBag className="h-7 w-7" /></span>
+                  <div><div className="flex items-center gap-2 text-xs font-bold"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Link hoàn tiền đã sẵn sàng</div><p className="mt-1 text-[11px] leading-4 text-neutral-600">Sản phẩm bạn muốn mua trên Shopee</p><strong className="mt-1 block text-[11px] text-[#287a63]">Hoàn dự kiến: đang cập nhật</strong></div>
+                </div>
+                <button type="button" className="mx-3 mb-3 flex min-h-12 w-[calc(100%-1.5rem)] items-center justify-center gap-2 rounded-xl bg-[#287a63] text-xs font-bold text-white"><ExternalLink className="h-4 w-4" /> Quay lại Shopee để mua hàng</button>
+                <p className="border-t border-neutral-100 px-3 py-2 text-[10px] leading-4 text-neutral-500">Mua bằng đúng link Ry tạo để đơn được ghi nhận.</p>
+              </div>
+            </div>
+          ) : null}
+
+          {previewStep === 3 ? (
+            <div className="pt-4">
+              <div className="rounded-2xl bg-gradient-to-br from-[#287a63] to-[#216653] p-5 text-white shadow-lg">
+                <span className="text-xs text-white/70">Số dư có thể rút</span>
+                <strong className="mt-2 block text-3xl">125.000đ</strong>
+                <div className="mt-5 grid grid-cols-2 gap-2 text-center text-[11px]"><span className="rounded-xl bg-white/10 p-2.5">Đang chờ<br /><strong className="text-sm">42.500đ</strong></span><span className="rounded-xl bg-white/10 p-2.5">Đã nhận<br /><strong className="text-sm">125.000đ</strong></span></div>
+              </div>
+              <div className="mt-4 flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-4"><WalletCards className="h-8 w-8 text-[#287a63]" /><div><strong className="text-sm">Kiểm tra số dư</strong><p className="mt-1 text-xs text-neutral-500">Chỉ cần nhắn “số dư” cho Ry.</p></div></div>
+            </div>
+          ) : null}
+
+          {previewStep === 4 ? (
+            <div className="space-y-2.5 pt-2">
+              <div className="flex items-center gap-2 text-sm font-bold"><PackageCheck className="h-5 w-5 text-[#287a63]" /> Đơn hàng 10 ngày gần nhất</div>
+              {[
+                { number: "1", title: "Hộp đựng bút chì và đồ dùng học tập", date: "Đang cập nhật", status: "Đang xét duyệt", dot: "bg-amber-400", amount: "9.583đ", imageTone: "bg-[#fff3ed] text-[#ee4d2d]" },
+                { number: "2", title: "Sản phẩm mua trên Shopee", date: "26/07/2026", status: "Thành công", dot: "bg-emerald-500", amount: "17.500đ", imageTone: "bg-[#f1f7f4] text-[#287a63]" }
+              ].map((order) => (
+                <article key={order.number} className="overflow-hidden rounded-xl border border-[#d9dde3] bg-white shadow-[0_5px_16px_rgba(48,52,59,.055)]">
+                  <div className="p-2.5">
+                    <div className="flex items-start gap-2.5">
+                      <div className="relative shrink-0">
+                        <span className={`flex h-14 w-14 items-center justify-center rounded-lg ${order.imageTone}`}><ShoppingBag className="h-6 w-6" /></span>
+                        <span className="absolute -left-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#30343b] px-1 text-[9px] font-semibold text-white shadow-sm">{order.number}</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-2 break-words text-[11px] font-normal leading-4 text-brand-ink">{order.title}</p>
+                        <p className="mt-1 inline-flex items-center gap-1 text-[10px] text-neutral-500"><Clock3 className="h-3 w-3" /> Đối soát: {order.date}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex min-w-0 items-center justify-between gap-2 border-t border-[#e7e9ed] bg-[#fafaf8] px-2.5 py-2 text-[11px]">
+                    <span className="inline-flex shrink-0 items-center gap-1.5 font-medium text-neutral-600"><span className={`h-1.5 w-1.5 rounded-full ${order.dot}`} />{order.status}</span>
+                    <span className="min-w-0 text-right"><span className="text-neutral-500">Hoàn dự kiến </span><strong className="font-semibold text-brand-red">{order.amount}</strong></span>
+                  </div>
+                </article>
+              ))}
+              <div className="inline-flex h-8 w-full items-center justify-center rounded-md border border-[#cfe1da] bg-[#f1f7f4] px-2.5 text-[11px] font-semibold text-brand-red">Kiểm tra toàn bộ đơn hàng</div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -393,4 +483,80 @@ function SectionHeading({ eyebrow, title, description }: { eyebrow: string; titl
 function StepBadge({ value, tone }: { value: string; tone: "orange" | "cyan" }) {
   const color = tone === "orange" ? "bg-[#ee4d2d]" : "bg-[#16717c]";
   return <span className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold text-white ${color}`}>{value}</span>;
+}
+
+function PasteLinkDemo() {
+  const [demoStep, setDemoStep] = useState<0 | 1 | 2 | 3>(0);
+  const demoLink = "https://s.shopee.vn/vi-du-san-pham";
+
+  useEffect(() => {
+    const delays = [1300, 1500, 1700, 4200] as const;
+    const timer = window.setTimeout(() => setDemoStep((demoStep + 1) % 4 as 0 | 1 | 2 | 3), delays[demoStep]);
+    return () => window.clearTimeout(timer);
+  }, [demoStep]);
+
+  return (
+    <div className="mx-auto mt-8 max-w-4xl overflow-hidden rounded-3xl border border-[#d6e4de] bg-white shadow-[0_16px_44px_rgba(48,52,59,.08)]">
+      <div className="border-b border-[#dfe8e4] bg-[#f1f7f4] p-5 text-center sm:p-6">
+        <span className="text-[10px] font-semibold uppercase tracking-[.14em] text-[#287a63]">Bước tiếp theo</span>
+        <h3 className="mt-2 text-xl font-bold sm:text-2xl">Dán link vào chat Em Ry như thế nào?</h3>
+        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-neutral-600">Mô phỏng sẽ tự chạy: link xuất hiện trong chat, Ry xử lý và gửi lại link mua hàng.</p>
+      </div>
+
+      <div className="bg-[#eef2f3] p-3 sm:p-6">
+          <div className="mx-auto max-w-lg overflow-hidden rounded-[24px] border border-[#d9dde3] bg-white shadow-[0_14px_35px_rgba(48,52,59,.12)]">
+            <div className="flex items-center gap-3 bg-[#287a63] px-4 py-3 text-white">
+              <img src="/api/site-assets/avatar" alt="Em Ry" className="h-10 w-10 rounded-full bg-white object-cover" />
+              <div><strong className="block text-sm">Em Ry</strong><span className="text-[10px] text-white/75">Trực tuyến · Sẵn sàng nhận link</span></div>
+            </div>
+
+            <div className="min-h-[310px] space-y-3 bg-[#f4f6f7] p-3">
+              <div className="max-w-[88%] rounded-2xl rounded-bl-md border border-[#e4e6e9] bg-white px-3.5 py-2.5 text-xs leading-5 text-neutral-700 shadow-sm">
+                Bạn dán link sản phẩm vào ô bên dưới rồi nhấn Gửi nhé.
+              </div>
+
+              {demoStep >= 2 ? <div className="ml-auto max-w-[88%] animate-[fadeIn_.35s_ease-out] break-all rounded-2xl rounded-br-md bg-[#dff3eb] px-3.5 py-2.5 text-xs leading-5 text-brand-ink">{demoLink}</div> : null}
+
+              {demoStep === 2 ? (
+                <div className="flex max-w-[72%] items-center gap-2 rounded-2xl rounded-bl-md border border-[#e4e6e9] bg-white px-3 py-2.5 text-xs text-neutral-500 shadow-sm">
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-[#287a63]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-[#287a63] [animation-delay:150ms]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-[#287a63] [animation-delay:300ms]" />
+                  <span>Ry đang tạo link...</span>
+                </div>
+              ) : null}
+
+              {demoStep === 3 ? (
+                <div className="max-w-[96%] animate-[fadeIn_.4s_ease-out] overflow-hidden rounded-2xl rounded-bl-md border border-emerald-200 bg-white shadow-sm">
+                  <div className="flex gap-3 p-3">
+                    <img src="/images/tutorials/copy-link-shopee.png" alt="" className="h-14 w-14 shrink-0 rounded-xl border border-neutral-100 object-cover" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 text-xs font-bold text-[#287a63]"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Link hoàn tiền đã sẵn sàng</div>
+                      <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-neutral-600">Sản phẩm bạn vừa gửi cho Ry</p>
+                      <strong className="mt-1 block text-[11px] text-[#287a63]">Hoàn dự kiến: đang cập nhật</strong>
+                    </div>
+                  </div>
+                  <div className="mx-3 mb-3 grid min-h-11 w-[calc(100%-1.5rem)] place-items-center rounded-xl bg-[#287a63] px-3 text-xs font-bold text-white">Nhấn quay lại Shopee để mua hàng</div>
+                  <div className="border-t border-neutral-100 px-3 py-2 text-[10px] leading-4 text-neutral-500">Để giỏ hàng trống trước khi mở link và mua bằng đúng link Ry tạo.</div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="border-t border-[#e4e6e9] bg-white p-3">
+              <div className="flex items-center gap-2">
+                <div className={`flex min-h-12 min-w-0 flex-1 items-center rounded-xl border px-3 text-xs transition ${demoStep === 1 ? "border-[#9ec9b9] bg-[#f1f7f4] text-brand-ink" : "border-[#d9dde3] text-neutral-400"}`}>
+                  <span className="min-w-0 truncate">{demoStep === 1 ? demoLink : "Hỏi Ry hoặc gửi link sản phẩm..."}</span>
+                </div>
+                <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl transition ${demoStep === 1 ? "scale-105 bg-[#287a63] text-white shadow-lg" : "bg-[#b9d6cc] text-white"}`}>
+                  {demoStep === 0 ? <ClipboardPaste className="h-5 w-5" /> : <Send className="h-5 w-5" />}
+                </span>
+              </div>
+              <div className="mt-2">
+                <p className="text-[10px] font-medium text-[#287a63]">{demoStep === 0 ? "Đang sao chép link..." : demoStep === 1 ? "Đã dán link — chuẩn bị gửi" : demoStep === 2 ? "Đã gửi cho Ry" : "Ry đã tạo link xong"}</p>
+              </div>
+            </div>
+          </div>
+      </div>
+    </div>
+  );
 }

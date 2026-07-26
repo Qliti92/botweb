@@ -14,6 +14,8 @@ export type IntentResult = {
     | "SECURITY"
     | "SESSIONS"
     | "GUIDE"
+    | "INSTALL_GUIDE"
+    | "LINK_GUIDE"
     | "SUPPORT"
     | "ORDER_DISPUTE"
     | "STATIC_PAGE"
@@ -51,7 +53,8 @@ export function normalizeVietnamese(value: string) {
     .replace(/\bso duu\b/g, "so du")
     .replace(/\brut tienn\b/g, "rut tien")
     .replace(/\btik tok\b/g, "tiktok")
-    .replace(/\bshoppe\b/g, "shopee");
+    .replace(/\bshoppe\b/g, "shopee")
+    .replace(/\bshope\b/g, "shopee");
 }
 
 function hasAny(text: string, phrases: string[]) {
@@ -105,6 +108,26 @@ export function detectIntent(input: string): IntentResult | null {
   }
   if (hasAny(text, ["gioi thieu ve he thong", "gioi thieu website", "ve chung toi", "thong tin cong ty"])) {
     return { intent: "BOT_IDENTITY", command: "/ry-la-ai", confidence: 0.97 };
+  }
+  if (hasAny(text, [
+    "cai ung dung", "cai app", "cai ry", "cai em ry", "cai iphone", "cai ios", "cai tren iphone",
+    "tai ung dung", "tai app", "tai ry", "dua ra man hinh", "dua em ry ra man hinh",
+    "them vao man hinh chinh", "them ra man hinh", "cai tren iphone", "cai tren ios",
+    "mo nhu ung dung", "tao bieu tuong", "pwa"
+  ]) || ["cai", "cai dat", "tai app iphone"].includes(text)) {
+    return { intent: "INSTALL_GUIDE", command: "/caidat", confidence: 0.98 };
+  }
+  if (hasAny(text, [
+    "lay link", "cach lay link", "link shopee", "link tiktok", "sao chep link", "copy link", "sao chep lien ket", "sao chep duong dan",
+    "link san pham o dau", "gui link the nao", "lay duong dan", "lay lien ket"
+  ]) || ["link", "lay link shopee", "lay link tiktok"].includes(text)) {
+    const platform = text.includes("shopee") ? "shopee" : text.includes("tiktok") ? "tiktok" : undefined;
+    return {
+      intent: "LINK_GUIDE",
+      command: `/laylink${platform ? ` ${platform}` : ""}`,
+      confidence: 0.98,
+      parameters: { platform }
+    };
   }
   if (hasAny(text, ["huong dan", "cach su dung", "dung nhu the nao"])) return { intent: "GUIDE", command: "/huongdan", confidence: 0.95 };
   if (hasAny(text, ["tra soat", "khieu nai don", "kiem tra lai don", "don chua ghi nhan", "khong thay don", "mat don", "sai tien hoan", "tien hoan bi sai", "don cho qua lau", "don bi tu choi"])) {

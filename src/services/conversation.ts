@@ -89,21 +89,20 @@ const readyMessage = "Đăng nhập thành công rồi ạ 🎉\n\nBạn gửi R
 const loginErrorPrefix = "LOGIN_ERROR:";
 
 const guideMessage = [
-  "Ry có thể giúp gì cho bạn?",
-  "STEP:1|Gửi link sản phẩm|Sao chép link Shopee hoặc TikTok Shop rồi quay lại đây. Ry sẽ nhận ra link và gợi ý dùng ngay.",
-  "STEP:2|Tạo link hoàn tiền|Ry kiểm tra sản phẩm và tạo link mua hàng có hoàn tiền cho bạn.",
-  "STEP:3|Mua hàng như bình thường|Bấm Mua ngay, đặt hàng trên Shopee hoặc TikTok Shop và không thay đổi sang link khác.",
-  "STEP:4|Theo dõi trong chat|Hỏi Ry để xem đơn hàng, tiền hoàn, số dư ví hoặc yêu cầu hỗ trợ.",
+  "Ry hướng dẫn bạn trong 3 bước",
+  "STEP:1|Lấy link sản phẩm|Mở sản phẩm trên Shopee hoặc TikTok Shop, bấm Chia sẻ rồi chọn Sao chép link.",
+  "STEP:2|Gửi link cho Ry|Quay lại đây, dán link vào ô tin nhắn và bấm nút Gửi.",
+  "STEP:3|Mua bằng link Ry gửi|Chờ Ry tạo link mới, sau đó bấm nút quay lại Shopee hoặc TikTok Shop để mua hàng.",
   "",
-  "Bạn không cần nhớ câu lệnh. Hãy chọn một câu bên dưới hoặc nhắn Ry như đang nói chuyện:",
-  "SUGGEST:Ví của tôi còn bao nhiêu?|/taikhoan",
-  "SUGGEST:Xem các đơn đang chờ|xem các đơn đang chờ",
-  "SUGGEST:Tôi muốn rút tiền|__withdraw__",
-  "SUGGEST:Kiểm tra thiết bị đăng nhập|/phien",
-  "SUGGEST:Tôi chưa thấy đơn hoàn tiền|__ticket__",
-  "SUGGEST:Xem biến động ví|/biendongsodu",
+  "Chọn nội dung bạn cần:",
+  "SUGGEST:Cách lấy link|/laylink",
+  "SUGGEST:Cài app trên iPhone|/caidat",
+  "SUGGEST:Xem đơn hàng|/donhang",
+  "SUGGEST:Xem số dư|/taikhoan",
+  "SUGGEST:Rút tiền|__withdraw__",
+  "SUGGEST:Đơn chưa được ghi nhận|__ticket__",
   "",
-  "TIP:Để đơn dễ được ghi nhận, hãy mở link Ry tạo trước khi đặt hàng và hạn chế thêm sản phẩm từ link khác vào cùng đơn."
+  "TIP:Hãy mua hàng bằng đúng link Ry gửi lại. Nếu mua bằng link cũ, đơn có thể không được ghi nhận."
 ].join("\n");
 
 const supportMessage = [
@@ -155,6 +154,14 @@ function isClearChatCommand(value: string) {
 
 function isGuideCommand(value: string) {
   return ["/huongdan", "/hướngdẫn", "/huong-dan", "/help"].includes(normalize(value));
+}
+
+function isInstallGuideCommand(value: string) {
+  return ["/caidat", "/cai-dat", "/install", "/pwa"].includes(normalize(value));
+}
+
+function isLinkGuideCommand(value: string) {
+  return normalize(value).startsWith("/laylink");
 }
 
 function isSupportCommand(value: string) {
@@ -449,6 +456,17 @@ export async function handleUserMessage(sessionId: string, content: string) {
 
   if (isGuideCommand(text)) {
     await saveBot(sessionId, guideMessage);
+    return getSessionPayload(sessionId);
+  }
+
+  if (isInstallGuideCommand(text)) {
+    await saveBot(sessionId, "INSTALL_GUIDE:{}");
+    return getSessionPayload(sessionId);
+  }
+
+  if (isLinkGuideCommand(text)) {
+    const platform = normalize(text).includes("tiktok") ? "tiktok" : normalize(text).includes("shopee") ? "shopee" : "shopee";
+    await saveBot(sessionId, `LINK_GUIDE:${JSON.stringify({ platform })}`);
     return getSessionPayload(sessionId);
   }
 
