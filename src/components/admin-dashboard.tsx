@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AlertCircle, Bell, BookOpen, Bot, Clock3, History, Image as ImageIcon, LoaderCircle, LogOut, Plus, RefreshCw, Save, Search, Send, Server, Settings, Trash2 } from "lucide-react";
+import { AlertCircle, BarChart3, Bell, BookOpen, Bot, Clock3, History, Image as ImageIcon, Link2, LoaderCircle, LogOut, Menu, MousePointerClick, Plus, RefreshCw, Save, Search, Send, Server, Settings, Trash2, X } from "lucide-react";
 import type { ApiConfigDto, AppNoticeDto, FlowDto, KnowledgeEntryDto, UnrecognizedMessageDto } from "@/types/app";
 
 type ChatDto = {
@@ -80,7 +80,8 @@ const blankIntent: Omit<IntentDto, "id"> = {
 };
 
 export function AdminDashboard() {
-  const [tab, setTab] = useState<"overview" | "tickets" | "intents" | "flows" | "apis" | "knowledge" | "unrecognized" | "feedback" | "notices" | "push" | "chats" | "settings" | "deployment">("overview");
+  const [tab, setTab] = useState<"overview" | "analytics" | "tickets" | "intents" | "flows" | "apis" | "knowledge" | "unrecognized" | "feedback" | "notices" | "push" | "chats" | "settings" | "deployment">("overview");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [flows, setFlows] = useState<FlowDto[]>([]);
   const [apis, setApis] = useState<ApiConfigDto[]>([]);
   const [notices, setNotices] = useState<AppNoticeDto[]>([]);
@@ -155,51 +156,63 @@ export function AdminDashboard() {
   const tabs = useMemo(
     () =>
       [
-        { id: "overview", label: "Tổng quan", icon: History },
-        { id: "tickets", label: "Hỗ trợ", icon: AlertCircle },
-        { id: "intents", label: "Intent", icon: Bot },
-        { id: "flows", label: "Kịch bản", icon: Bot },
-        { id: "apis", label: "API", icon: Server },
-        { id: "knowledge", label: "Kiến thức", icon: BookOpen },
-        { id: "unrecognized", label: "Chưa hiểu", icon: AlertCircle },
-        { id: "feedback", label: "Đánh giá", icon: Bot },
-        { id: "notices", label: "Thông báo", icon: Bell },
-        { id: "push", label: "Push theo lịch", icon: Clock3 },
-        { id: "chats", label: "Lịch sử", icon: History }
-        ,{ id: "settings", label: "Thương hiệu & SEO", icon: Settings },
-        { id: "deployment", label: "Cập nhật", icon: RefreshCw }
+        { id: "overview", label: "Tổng quan", icon: History, group: "Theo dõi" },
+        { id: "analytics", label: "Lượt lấy link & mua hàng", icon: BarChart3, group: "Theo dõi" },
+        { id: "chats", label: "Lịch sử trò chuyện", icon: History, group: "Theo dõi" },
+        { id: "tickets", label: "Yêu cầu hỗ trợ", icon: AlertCircle, group: "Người dùng" },
+        { id: "feedback", label: "Đánh giá", icon: Bot, group: "Người dùng" },
+        { id: "unrecognized", label: "Câu Ry chưa hiểu", icon: AlertCircle, group: "Người dùng" },
+        { id: "knowledge", label: "Kiến thức", icon: BookOpen, group: "Nội dung chatbot" },
+        { id: "intents", label: "Ý định", icon: Bot, group: "Nội dung chatbot" },
+        { id: "flows", label: "Kịch bản", icon: Bot, group: "Nội dung chatbot" },
+        { id: "apis", label: "Kết nối API", icon: Server, group: "Hệ thống" },
+        { id: "notices", label: "Thông báo trong app", icon: Bell, group: "Gửi thông báo" },
+        { id: "push", label: "Push theo lịch", icon: Clock3, group: "Gửi thông báo" },
+        { id: "settings", label: "Thương hiệu & SEO", icon: Settings, group: "Hệ thống" },
+        { id: "deployment", label: "Cập nhật phiên bản", icon: RefreshCw, group: "Hệ thống" }
       ] as const,
     []
   );
 
   return (
-    <main className="min-h-dvh bg-white text-brand-ink">
-      <header className="sticky top-0 z-10 border-b border-brand-line bg-brand-dark text-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <div>
-            <h1 className="text-base font-semibold">AI Chatbot Admin</h1>
-            <p className="text-xs text-white/65">Quản lý kịch bản, API và lịch sử chat</p>
-          </div>
-          <button onClick={logout} className="grid h-10 w-10 place-items-center rounded-md border border-white/20" title="Đăng xuất">
-            <LogOut className="h-5 w-5" />
-          </button>
-        </div>
-        <nav className="no-scrollbar mx-auto flex max-w-6xl gap-1 overflow-x-auto px-2 pb-2">
-          {tabs.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button key={item.id} onClick={() => setTab(item.id)} className={`flex h-11 shrink-0 items-center justify-center gap-1 rounded-md px-3 text-xs font-medium ${tab === item.id ? "bg-brand-red text-white" : "bg-white/8 text-white/80"}`}>
-                <Icon className="h-4 w-4" />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+    <main className="min-h-dvh bg-neutral-50 text-brand-ink lg:pl-72">
+      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-brand-line bg-brand-dark px-4 text-white lg:hidden">
+        <div><h1 className="font-semibold">Em Ry Admin</h1><p className="text-xs text-white/65">{tabs.find((item) => item.id === tab)?.label}</p></div>
+        <button type="button" onClick={() => setSidebarOpen(true)} className="grid h-11 w-11 place-items-center rounded-lg border border-white/20" aria-label="Mở menu"><Menu className="h-5 w-5" /></button>
       </header>
 
-      <section className="mx-auto max-w-6xl px-4 py-5">
+      {sidebarOpen ? <button type="button" aria-label="Đóng menu" onClick={() => setSidebarOpen(false)} className="fixed inset-0 z-40 bg-black/40 lg:hidden" /> : null}
+      <aside className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-brand-dark text-white shadow-xl transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className="flex h-20 items-center justify-between border-b border-white/10 px-5">
+          <div><h1 className="text-lg font-bold">Em Ry Admin</h1><p className="text-xs text-white/60">Quản trị hệ thống</p></div>
+          <button type="button" onClick={() => setSidebarOpen(false)} className="grid h-10 w-10 place-items-center rounded-lg border border-white/15 lg:hidden" aria-label="Đóng menu"><X className="h-5 w-5" /></button>
+        </div>
+        <nav className="no-scrollbar flex-1 overflow-y-auto p-3">
+          {Array.from(new Set(tabs.map((item) => item.group))).map((group) => (
+            <div key={group} className="mb-4">
+              <p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-white/40">{group}</p>
+              <div className="grid gap-1">
+                {tabs.filter((item) => item.group === group).map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button key={item.id} type="button" onClick={() => { setTab(item.id); setSidebarOpen(false); }} className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium ${tab === item.id ? "bg-brand-red text-white shadow-sm" : "text-white/75 hover:bg-white/10 hover:text-white"}`}>
+                      <Icon className="h-4 w-4 shrink-0" /><span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+        <div className="border-t border-white/10 p-3">
+          <button onClick={logout} className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-white/75 hover:bg-white/10 hover:text-white"><LogOut className="h-4 w-4" />Đăng xuất</button>
+        </div>
+      </aside>
+
+      <section className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
         {notice ? <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{notice}</p> : null}
         {tab === "overview" ? <OverviewPanel metrics={metrics} /> : null}
+        {tab === "analytics" ? <LinkAnalyticsPanel /> : null}
         {tab === "tickets" ? <TicketsPanel tickets={tickets} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "intents" ? <IntentsPanel intents={intents} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "flows" ? <FlowsPanel flows={flows} apis={apis} reload={loadAll} setNotice={setNotice} /> : null}
@@ -214,6 +227,139 @@ export function AdminDashboard() {
         {tab === "deployment" ? <DeploymentPanel /> : null}
       </section>
     </main>
+  );
+}
+
+type LinkAnalyticsDto = {
+  periods: Record<"total" | "today" | "week" | "month", { created: number; clicked: number }>;
+  events: {
+    id: string;
+    type: "created" | "clicked";
+    accountKey?: string | null;
+    userName: string;
+    email: string;
+    phone: string;
+    platform: string;
+    sourceUrl: string;
+    affiliateUrl: string;
+    productName: string;
+    productImage: string;
+    cashbackAmount?: string | number | null;
+    createdAt: string;
+  }[];
+};
+
+function relativeTime(value: string) {
+  const seconds = Math.round((new Date(value).getTime() - Date.now()) / 1000);
+  const formatter = new Intl.RelativeTimeFormat("vi", { numeric: "auto" });
+  if (Math.abs(seconds) < 60) return formatter.format(seconds, "second");
+  const minutes = Math.round(seconds / 60);
+  if (Math.abs(minutes) < 60) return formatter.format(minutes, "minute");
+  const hours = Math.round(minutes / 60);
+  if (Math.abs(hours) < 24) return formatter.format(hours, "hour");
+  const days = Math.round(hours / 24);
+  return formatter.format(days, "day");
+}
+
+function LinkAnalyticsPanel() {
+  const [data, setData] = useState<LinkAnalyticsDto | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"all" | "created" | "clicked">("all");
+  const [search, setSearch] = useState("");
+  const [error, setError] = useState("");
+  const [, refreshClock] = useState(0);
+
+  async function load() {
+    try {
+      setData(await fetchJson("/api/admin/link-analytics") as LinkAnalyticsDto);
+      setError("");
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Không thể tải thống kê.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    const timer = window.setInterval(() => refreshClock((value) => value + 1), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const events = (data?.events ?? []).filter((event) => {
+    if (filter !== "all" && event.type !== filter) return false;
+    const query = search.trim().toLowerCase();
+    if (!query) return true;
+    return [event.userName, event.email, event.phone, event.productName, event.sourceUrl, event.platform].some((value) => value.toLowerCase().includes(query));
+  });
+  const periodCards = [
+    { key: "today", label: "Hôm nay" },
+    { key: "week", label: "Tuần này" },
+    { key: "month", label: "Tháng này" },
+    { key: "total", label: "Tổng cộng" }
+  ] as const;
+
+  return (
+    <div className="grid gap-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div><h2 className="text-xl font-bold">Lượt lấy link & chuyển sang sàn</h2><p className="mt-1 text-sm text-neutral-500">Theo dõi người dùng tạo link hoàn tiền và bấm quay lại Shopee/TikTok Shop.</p></div>
+        <button type="button" onClick={() => void load()} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-lg border border-brand-line bg-white px-3 text-sm font-semibold disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Làm mới</button>
+      </div>
+      {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {periodCards.map(({ key, label }) => {
+          const values = data?.periods[key] ?? { created: 0, clicked: 0 };
+          const rate = values.created ? Math.round(values.clicked / values.created * 100) : 0;
+          return (
+            <article key={key} className="rounded-xl border border-brand-line bg-white p-4 shadow-sm">
+              <p className="text-sm font-semibold text-neutral-600">{label}</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="rounded-lg bg-emerald-50 p-2.5"><Link2 className="h-4 w-4 text-emerald-700" /><strong className="mt-1 block text-2xl text-emerald-800">{values.created}</strong><span className="text-[11px] text-emerald-700">Lượt lấy link</span></div>
+                <div className="rounded-lg bg-blue-50 p-2.5"><MousePointerClick className="h-4 w-4 text-blue-700" /><strong className="mt-1 block text-2xl text-blue-800">{values.clicked}</strong><span className="text-[11px] text-blue-700">Bấm sang sàn</span></div>
+              </div>
+              <p className="mt-2 text-xs text-neutral-500">Tỷ lệ bấm: <strong className="text-brand-ink">{rate}%</strong></p>
+            </article>
+          );
+        })}
+      </div>
+
+      <section className="overflow-hidden rounded-xl border border-brand-line bg-white shadow-sm">
+        <div className="border-b border-brand-line p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div><h3 className="font-semibold">Hoạt động gần đây</h3><p className="text-xs text-neutral-500">Hiển thị tối đa 200 hoạt động mới nhất.</p></div>
+            <div className="flex gap-1 rounded-lg bg-neutral-100 p-1">
+              {([{ value: "all", label: "Tất cả" }, { value: "created", label: "Lấy link" }, { value: "clicked", label: "Bấm sang sàn" }] as const).map((item) => (
+                <button key={item.value} type="button" onClick={() => setFilter(item.value)} className={`h-9 rounded-md px-3 text-xs font-semibold ${filter === item.value ? "bg-white text-brand-ink shadow-sm" : "text-neutral-500"}`}>{item.label}</button>
+              ))}
+            </div>
+          </div>
+          <label className="relative mt-3 block"><Search className="absolute left-3 top-3 h-4 w-4 text-neutral-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm theo tên, email, số điện thoại, sản phẩm hoặc link…" className="h-10 w-full rounded-lg border border-brand-line pl-9 pr-3 text-sm outline-none focus:border-brand-red" /></label>
+        </div>
+        <div className="divide-y divide-brand-line">
+          {events.map((event) => (
+            <article key={event.id} className="grid gap-3 p-4 md:grid-cols-[minmax(190px,0.7fr)_minmax(260px,1.3fr)_auto] md:items-center">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${event.type === "created" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"}`}>{event.type === "created" ? <Link2 className="h-4 w-4" /> : <MousePointerClick className="h-4 w-4" />}</span>
+                  <div className="min-w-0"><p className="truncate text-sm font-semibold">{event.userName || event.email || event.phone || "Khách chưa rõ tên"}</p><p className="truncate text-xs text-neutral-500">{event.email || event.phone || event.accountKey || "Không có thông tin"}</p></div>
+                </div>
+              </div>
+              <div className="flex min-w-0 items-center gap-3">
+                {event.productImage ? <img src={event.productImage} alt="" className="h-12 w-12 shrink-0 rounded-lg border object-cover" /> : null}
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{event.productName || "Sản phẩm chưa có tên"}</p>
+                  <p className="mt-0.5 text-xs text-neutral-500"><span className="font-semibold capitalize">{event.platform === "tiktok" ? "TikTok Shop" : event.platform}</span> · {event.type === "created" ? "Đã lấy link hoàn tiền" : "Đã bấm quay lại sàn"}</p>
+                  {event.sourceUrl ? <a href={event.sourceUrl} target="_blank" rel="noreferrer" className="mt-1 block max-w-full truncate text-xs text-blue-600 hover:underline">{event.sourceUrl}</a> : null}
+                </div>
+              </div>
+              <div className="text-left md:text-right"><strong className="block text-sm">{relativeTime(event.createdAt)}</strong><span className="text-xs text-neutral-500">{new Date(event.createdAt).toLocaleString("vi-VN")}</span></div>
+            </article>
+          ))}
+          {!loading && !events.length ? <p className="p-8 text-center text-sm text-neutral-500">Chưa có hoạt động phù hợp.</p> : null}
+          {loading ? <p className="p-8 text-center text-sm text-neutral-500">Đang tải thống kê…</p> : null}
+        </div>
+      </section>
+    </div>
   );
 }
 

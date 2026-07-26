@@ -47,6 +47,8 @@ type CashbackCardData = {
   affiliateUrl: string;
   cashbackAmount?: string;
   transId?: string;
+  trackingId?: string;
+  sessionId?: string;
 };
 
 type LoginErrorData = {
@@ -3029,6 +3031,19 @@ function BotCardLine({ line }: { line: string }) {
 
 function CashbackCard({ data }: { data: CashbackCardData }) {
   const platformLabel = data.platform === "tiktok" ? "TikTok Shop" : data.platform === "shopee" ? "Shopee" : "sàn";
+  async function openShop() {
+    if (data.trackingId && data.sessionId) {
+      try {
+        await fetch(`/api/chat/link-events/${encodeURIComponent(data.trackingId)}/click`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ sessionId: data.sessionId }),
+          keepalive: true
+        });
+      } catch {}
+    }
+    window.location.replace(data.affiliateUrl);
+  }
   return (
     <div className="chat-text w-full min-w-0 overflow-hidden rounded-2xl rounded-bl-md border border-black/5 bg-white p-3 text-brand-ink shadow-sm">
       <div className="flex items-start gap-2.5">
@@ -3050,7 +3065,7 @@ function CashbackCard({ data }: { data: CashbackCardData }) {
       </div>
       <button
         type="button"
-        onClick={() => window.location.replace(data.affiliateUrl)}
+        onClick={openShop}
         className="mt-2 flex h-8 w-full min-w-0 items-center justify-center gap-1.5 rounded-md bg-[#287a63] px-2.5 text-center text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#216653]"
       >
           <ExternalLink className="h-3 w-3 shrink-0" />

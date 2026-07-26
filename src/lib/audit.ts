@@ -13,7 +13,7 @@ type AuditInput = {
 
 export async function writeAuditLog(input: AuditInput) {
   try {
-    await prisma.auditLog.create({
+    return await prisma.auditLog.create({
       data: {
         actorType: input.actorType,
         actorId: input.actorId,
@@ -26,5 +26,6 @@ export async function writeAuditLog(input: AuditInput) {
     });
   } catch (error) {
     console.error("Không thể ghi audit log", error);
+    return null;
   }
 }

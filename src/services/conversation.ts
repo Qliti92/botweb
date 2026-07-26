@@ -1203,7 +1203,8 @@ async function handleProductLink(sessionId: string, text: string, state: Session
 
   const cached = state.recentCashback;
   if (cached && cached.sourceUrl === link.url && Date.now() - cached.createdAt < 60_000) {
-    await saveBot(sessionId, formatCashbackResult(cached.result, link.url));
+    const tracking = await recordLinkCreated(sessionId, state, link.url, cached.result);
+    await saveBot(sessionId, formatCashbackResult(cached.result, link.url, tracking?.id, sessionId));
     return;
   }
 
@@ -1216,17 +1217,43 @@ async function handleProductLink(sessionId: string, text: string, state: Session
 
   state.recentCashback = { sourceUrl: link.url, result: result.data, createdAt: Date.now() };
   await updateSession(sessionId, state);
-  await saveBot(sessionId, formatCashbackResult(result.data, link.url));
+  const tracking = await recordLinkCreated(sessionId, state, link.url, result.data);
+  await saveBot(sessionId, formatCashbackResult(result.data, link.url, tracking?.id, sessionId));
 }
 
-function formatCashbackResult(data: CashbackLinkResult, sourceUrl = "") {
+async function recordLinkCreated(sessionId: string, state: SessionState, sourceUrl: string, data: CashbackLinkResult) {
+  const account = state.account;
+  return writeAuditLog({
+    actorType: "USER",
+    actorId: account?.accountKey,
+    action: "CASHBACK_LINK_CREATED",
+    targetType: "CashbackLink",
+    targetId: data.transId ? String(data.transId) : undefined,
+    metadata: {
+      sessionId,
+      email: account?.email,
+      name: account?.name,
+      phone: account?.phone,
+      platform: detectShoppingPlatform(sourceUrl || data.affiliateUrl),
+      sourceUrl,
+      affiliateUrl: data.affiliateUrl,
+      productName: data.productName,
+      productImage: data.productImage,
+      cashbackAmount: data.cashbackAmount
+    }
+  });
+}
+
+function formatCashbackResult(data: CashbackLinkResult, sourceUrl = "", trackingId?: string, sessionId?: string) {
   return `CASHBACK_RESULT:${JSON.stringify({
     productName: data.productName ?? "Sản phẩm Shopee/TikTok Shop",
     affiliateUrl: data.affiliateUrl,
     cashbackAmount: data.cashbackAmount !== undefined && data.cashbackAmount !== null && data.cashbackAmount !== "" ? `${formatMoney(data.cashbackAmount)} VND` : "Đang cập nhật",
     productImage: data.productImage,
     platform: detectShoppingPlatform(sourceUrl || data.affiliateUrl),
-    transId: data.transId
+    transId: data.transId,
+    trackingId,
+    sessionId
   })}`;
 }
 
