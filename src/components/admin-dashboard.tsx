@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, BarChart3, Bell, BookOpen, Bot, Check, ClipboardCopy, Clock3, History, Image as ImageIcon, Link2, LoaderCircle, LogOut, Menu, MousePointerClick, Plus, RefreshCw, Save, Search, Send, Server, Settings, Trash2, X } from "lucide-react";
 import type { ApiConfigDto, AppNoticeDto, FlowDto, KnowledgeEntryDto, UnrecognizedMessageDto } from "@/types/app";
 
@@ -375,6 +375,7 @@ function DeploymentPanel() {
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
+  const updateStarted = useRef(false);
   const active = data?.deployment.status === "running" || data?.deployment.status === "restarting";
 
   async function load() {
@@ -396,9 +397,18 @@ function DeploymentPanel() {
     return () => window.clearInterval(timer);
   }, [active]);
 
+  useEffect(() => {
+    if (!updateStarted.current || data?.deployment.status !== "success") return;
+    updateStarted.current = false;
+    const url = new URL(window.location.href);
+    url.searchParams.set("updated", Date.now().toString());
+    window.location.replace(url.toString());
+  }, [data?.deployment.status]);
+
   async function update() {
     if (!window.confirm("Cập nhật website lên phiên bản mới nhất từ GitHub? Website có thể gián đoạn vài giây khi khởi động lại.")) return;
     setStarting(true);
+    updateStarted.current = true;
     setError("");
     try {
       await fetchJson("/api/admin/deployment", { method: "POST", body: "{}" });

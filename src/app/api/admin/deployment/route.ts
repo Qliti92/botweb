@@ -41,8 +41,11 @@ async function readStatus(): Promise<DeploymentStatus> {
 
 async function reconcileStatus(status: DeploymentStatus, commit: string) {
   if (status.status !== "restarting" && status.status !== "running") return status;
-  if (!status.currentCommit || status.currentCommit !== commit || !status.updatedAt) return status;
-  if (Date.now() - new Date(status.updatedAt).getTime() < 15_000) return status;
+  if (!status.updatedAt) return status;
+  const statusTime = new Date(status.updatedAt).getTime();
+  const processStartedAt = Date.now() - process.uptime() * 1000;
+  const codeWasUpdated = status.currentCommit === commit || Boolean(status.beforeCommit && status.beforeCommit !== commit);
+  if (!codeWasUpdated || processStartedAt < statusTime - 2_000) return status;
 
   const recovered: DeploymentStatus = {
     ...status,

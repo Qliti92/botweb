@@ -61,9 +61,7 @@ try {
     run(process.platform === "win32" ? "npm.cmd" : "npm", ["run", "build"], "building", "Đang tạo bản chạy mới…");
     run("pm2", ["save"], "saving", "Đang lưu cấu hình PM2…");
     const currentCommit = run("git", ["rev-parse", "--short", "HEAD"], "restarting", "Build thành công. Đang khởi động lại website…");
-    // PM2 can terminate this deploy worker together with the old web process.
-    // Persist the terminal state first so the admin page does not wait forever.
-    save("success", "complete", "Cập nhật thành công. Website đang chạy phiên bản mới.", { beforeCommit, currentCommit });
+    save("restarting", "restarting", "Đang khởi động lại website…", { beforeCommit, currentCommit });
     execFileSync("pm2", ["restart", pm2AppName, "--update-env"], {
       cwd: appDir, encoding: "utf8", env: process.env, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 20 * 1024 * 1024
     });
