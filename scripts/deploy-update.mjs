@@ -36,8 +36,20 @@ try {
     throw error;
   }
   const beforeCommit = run("git", ["rev-parse", "--short", "HEAD"], "checking", "Đang kiểm tra phiên bản hiện tại…");
-  const dirty = run("git", ["status", "--porcelain"], "checking", "Đang kiểm tra thư mục dự án…");
-  if (dirty) throw new Error("Server có file mã nguồn đang thay đổi. Hãy xử lý các file này trước khi cập nhật.");
+  const dirty = run("git", ["status", "--porcelain", "--untracked-files=all"], "checking", "Đang kiểm tra thư mục dự án…");
+  const changedFiles = dirty ? dirty.split(/\r?\n/).filter(Boolean) : [];
+  const safeServerFiles = new Set([".env.production", "package-lock.json"]);
+  const unsafeChanges = changedFiles.filter((line) => {
+    const path = line.slice(3).trim().replace(/^"|"$/g, "");
+    return !safeServerFiles.has(path);
+  });
+  if (unsafeChanges.length) {
+    logs.push(...unsafeChanges);
+    throw new Error(`Server có file mã nguồn đang thay đổi: ${unsafeChanges.map((line) => line.slice(3).trim()).join(", ")}`);
+  }
+  if (changedFiles.some((line) => line.slice(3).trim().replace(/^"|"$/g, "") === "package-lock.json")) {
+    run("git", ["restore", "--source=HEAD", "--worktree", "--", "package-lock.json"], "cleaning", "Đang làm sạch package-lock.json trên server…");
+  }
 
   run("git", ["fetch", "origin", "main"], "downloading", "Đang tải thông tin phiên bản mới…");
   const remoteCommit = run("git", ["rev-parse", "--short", "origin/main"], "checking", "Đã tìm thấy phiên bản trên GitHub.");
