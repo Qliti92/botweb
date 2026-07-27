@@ -1248,7 +1248,7 @@ sudo nginx -t && sudo systemctl reload nginx`;
   return (
     <form onSubmit={save} className="grid gap-5">
       <section className="rounded-xl border border-brand-line bg-white p-4">
-        <div className="mb-4 flex items-center gap-2"><ImageIcon className="h-5 w-5 text-brand-red" /><div><h2 className="font-semibold">Logo & avatar Em Ry</h2><p className="text-xs text-neutral-500">PNG, JPG hoặc WEBP, tối đa 2MB.</p></div></div>
+        <div className="mb-4 flex items-center gap-2"><ImageIcon className="h-5 w-5 text-brand-red" /><div><h2 className="font-semibold">Logo & avatar Em Ry</h2><p className="text-xs text-neutral-500">PNG, JPG hoặc WEBP, tối đa 5MB.</p></div></div>
         <TextInput label="Tên website / ứng dụng" value={settings.siteName} onChange={(value) => setSettings({ ...settings, siteName: value })} />
         <div className="grid gap-4 sm:grid-cols-2">
           <ImageSetting label="Logo website" value={settings.logoUrl} onChange={(value) => setSettings({ ...settings, logoUrl: value })} onUpload={(file) => upload("logo", file)} />

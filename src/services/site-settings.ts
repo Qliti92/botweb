@@ -39,7 +39,7 @@ export const defaultSiteSettings: SiteSettings = {
   seoTitle: "Em Ry | Trợ lý hoàn tiền Shopee & TikTok Shop",
   seoDescription: "Tạo link hoàn tiền Shopee và TikTok Shop nhanh chóng. Theo dõi đơn hàng, số dư ví, rút tiền và hoa hồng giới thiệu ngay trong chat.",
   seoKeywords: "hoàn tiền mua hàng, hoàn tiền Shopee, hoàn tiền TikTok Shop, tạo link hoàn tiền, cashback Shopee",
-  canonicalUrl: "https://hoantienmuahang.vn",
+  canonicalUrl: "https://qbot.vn",
   ogTitle: "Em Ry | Trợ lý hoàn tiền Shopee & TikTok Shop",
   ogDescription: "Tạo link hoàn tiền, theo dõi đơn hàng và quản lý ví ngay trong chat.",
   ogImageUrl: "/logo.png",
@@ -68,7 +68,17 @@ export async function getSiteSettings(): Promise<SiteSettings> {
   const stored = await prisma.siteSetting.findUnique({ where: { id: "site" } });
   if (!stored) return defaultSiteSettings;
   try {
-    return { ...defaultSiteSettings, ...JSON.parse(stored.data) };
+    const settings = { ...defaultSiteSettings, ...JSON.parse(stored.data) } as SiteSettings;
+    const legacyCanonicalHosts = new Set(["hoantienmuahang.vn", "chat.hoantienmuahang.vn", "tranquan.vn", "www.tranquan.vn"]);
+    try {
+      const configuredHost = new URL(settings.canonicalUrl).hostname.toLowerCase();
+      if (legacyCanonicalHosts.has(configuredHost) && process.env.NEXT_PUBLIC_APP_URL) {
+        settings.canonicalUrl = new URL(process.env.NEXT_PUBLIC_APP_URL).origin;
+      }
+    } catch {
+      settings.canonicalUrl = defaultSiteSettings.canonicalUrl;
+    }
+    return settings;
   } catch {
     return defaultSiteSettings;
   }

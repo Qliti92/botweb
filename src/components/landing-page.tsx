@@ -421,6 +421,9 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 sm:flex-row">
           <div className="flex items-center gap-2 font-semibold text-[#30343b]"><img src="/api/site-assets/logo" alt="" className="h-7 w-7 rounded-full" /> Hoàn Tiền Mua Hàng</div>
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+            <a href="/hoan-tien-shopee" className="hover:text-[#287a63]">Hoàn tiền Shopee</a>
+            <a href="/hoan-tien-tiktok-shop" className="hover:text-[#287a63]">Hoàn tiền TikTok Shop</a>
+            <a href="/kien-thuc" className="hover:text-[#287a63]">Kiến thức</a>
             <a href="/thong-tin/dieu-khoan-dich-vu" className="hover:text-[#287a63]">Điều khoản dịch vụ</a>
             <a href="/thong-tin/chinh-sach-bao-mat" className="hover:text-[#287a63]">Chính sách bảo mật</a>
             <span>Hỗ trợ: 0375 823 061</span>

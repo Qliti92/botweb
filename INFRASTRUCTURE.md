@@ -32,7 +32,7 @@ Set `NEXT_PUBLIC_WEB_PUSH_VAPID_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY`, `WEB_PUSH_SU
 Initialize the new tables with `npm run db:init` for the SQLite deployment. Then call the protected scheduler once per minute:
 
 ```text
-GET https://tranquan.vn/api/cron/push
+GET https://qbot.vn/api/cron/push
 Authorization: Bearer <CRON_SECRET>
 ```
 

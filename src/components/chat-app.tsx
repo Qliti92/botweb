@@ -111,6 +111,15 @@ function extractShoppingLink(value: string) {
   return links.find((link) => detectLinkPlatform(link))?.replace(/[),.;!?]+$/, "") ?? null;
 }
 
+function isShopeeVideoLink(value: string) {
+  try {
+    const url = new URL(value);
+    return /(^|\.)shopee\.vn$/i.test(url.hostname) && /\/(?:video|m\/video)(?:\/|$)/i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
 function normalizeStatus(value: string) {
   const status = value.trim().toLowerCase();
   if (["approved", "success", "completed", "paid", "done", "đã duyệt", "thành công", "hoàn tất"].some((item) => status.includes(item))) {
@@ -717,6 +726,10 @@ export function ChatApp() {
       setError("Ry chỉ hỗ trợ link sản phẩm từ Shopee hoặc TikTok Shop. Link này chưa được gửi đi.");
       return;
     }
+    if (link.kind === "supported" && isShopeeVideoLink(link.url)) {
+      setError("Link Shopee Video chưa phải link sản phẩm. Bạn mở sản phẩm trong video, chọn Chia sẻ rồi sao chép link sản phẩm gửi lại nhé.");
+      return;
+    }
     if (link.kind === "supported") {
       window.localStorage.setItem("pending_cashback_link", link.url);
       setLinkProgress("Đã nhận link · Đang kiểm tra sản phẩm và tạo link hoàn tiền…");
@@ -816,7 +829,9 @@ export function ChatApp() {
   const detectedLinkPlatform =
     inputLinkClassification.kind === "supported" ? shoppingPlatformLabel(inputLinkClassification.platform) : null;
   const inputLinkError =
-    inputLinkClassification.kind === "unsupported"
+    inputLinkClassification.kind === "supported" && isShopeeVideoLink(inputLinkClassification.url)
+      ? "Đây là link Shopee Video. Bạn hãy mở sản phẩm trong video và sao chép link sản phẩm."
+      : inputLinkClassification.kind === "unsupported"
       ? "Link này không thuộc Shopee hoặc TikTok Shop nên Ry sẽ không gửi yêu cầu."
       : inputLinkClassification.kind === "invalid-url"
         ? "Link chưa đúng định dạng. Bạn hãy kiểm tra lại trước khi gửi."
@@ -3107,7 +3122,7 @@ function CashbackCard({ data }: { data: CashbackCardData }) {
         className="mt-2 flex h-8 w-full min-w-0 items-center justify-center gap-1.5 rounded-md bg-[#287a63] px-2.5 text-center text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#216653]"
       >
           <ExternalLink className="h-3 w-3 shrink-0" />
-          <span className="min-w-0 truncate">Nhấn quay lại {platformLabel} để mua hàng</span>
+          <span className="min-w-0 truncate">Nhấn để quay lại {platformLabel} mua hàng</span>
       </button>
       <div className="mt-2 break-words text-xs leading-5 text-neutral-500 [overflow-wrap:anywhere]">
         <strong className="block font-semibold text-neutral-700">Lưu ý:</strong>
