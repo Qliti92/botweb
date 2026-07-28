@@ -4,6 +4,7 @@ import { completeChatSessionEmailVerification, completeChatSessionTwoFactor, for
 import { rateLimit } from "@/lib/rate-limit";
 import { requireMatchingChatSession, setChatSessionCookie } from "@/lib/chat-session";
 import { resolveReferralDomain } from "@/services/referral-domain";
+import { writeAuditLog } from "@/lib/audit";
 
 const authSchema = z.discriminatedUnion("mode", [
   z.object({
@@ -56,6 +57,17 @@ export async function POST(request: NextRequest) {
         referralCode: fixedReferral?.referralCode ?? body.referralCode,
         referralDomain: fixedReferral?.domain
       });
+      const visitorId = request.cookies.get("qbot_vid")?.value;
+      if (visitorId) {
+        await writeAuditLog({
+          actorType: "USER",
+          actorId: visitorId,
+          action: "WEB_REGISTRATION_COMPLETED",
+          targetType: "ChatSession",
+          targetId: session.id,
+          metadata: { path: "/", email: body.email }
+        });
+      }
       return setChatSessionCookie(NextResponse.json(session), session.id);
     }
     if (body.mode === "2fa") {

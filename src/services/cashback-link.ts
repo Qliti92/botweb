@@ -9,6 +9,7 @@ const cashbackEndpoint = "https://hoantienmuahang.vn/api/v1/openapi/cashback/lin
 export type CashbackLinkResult = {
   transId?: string;
   affiliateUrl: string;
+  productPrice?: number | string;
   cashbackAmount?: number | string;
   productName?: string;
   productImage?: string;
@@ -115,6 +116,7 @@ async function requestCashbackLink(url: string, token: string, tokenType: string
       data: {
         transId: data.trans_id ? String(data.trans_id) : undefined,
         affiliateUrl,
+        productPrice: (data.product_price ?? data.productPrice ?? data.price ?? data.sale_price ?? data.salePrice) as number | string | undefined,
         cashbackAmount: data.cashback_amount as number | string | undefined,
         productName: String(data.product_name ?? data.productName ?? data.title ?? data.name ?? "") || undefined,
         productImage: String(data.image ?? data.product_image ?? data.productImage ?? data.image_url ?? data.imageUrl ?? data.thumbnail ?? "") || undefined

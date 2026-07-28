@@ -153,6 +153,26 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
               Đăng ký miễn phí, gửi link sản phẩm cho Ry và mua hàng qua link được tạo. Bạn có thể theo dõi đơn và tiền hoàn ngay trong tài khoản.
             </p>
 
+            <div className="mx-auto mt-5 max-w-xl text-left lg:mx-0" aria-label="Nền tảng được hỗ trợ">
+              <p className="text-xs font-bold uppercase tracking-[.12em] text-neutral-500">Nền tảng đang hỗ trợ</p>
+              <div className="mt-2 grid max-w-md grid-cols-2 gap-2.5">
+                <a href="/hoan-tien-shopee" className="flex min-h-12 items-center gap-2.5 rounded-xl border border-[#f1d4ca] bg-[#fff8f4] px-3 transition hover:-translate-y-0.5 hover:border-[#ee4d2d] hover:shadow-sm">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#ee4d2d] text-xs font-black text-white">S</span>
+                  <span>
+                    <strong className="block text-[13px] text-[#ee4d2d]">Shopee</strong>
+                    <span className="text-[10px] text-neutral-500">Link sản phẩm</span>
+                  </span>
+                </a>
+                <a href="/hoan-tien-tiktok-shop" className="flex min-h-12 items-center gap-2.5 rounded-xl border border-[#d7e3e4] bg-[#f6fbfb] px-3 transition hover:-translate-y-0.5 hover:border-[#20242a] hover:shadow-sm">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#20242a] text-xs font-black text-white">T</span>
+                  <span>
+                    <strong className="block text-[13px] text-[#20242a]">TikTok Shop</strong>
+                    <span className="text-[10px] text-neutral-500">Link sản phẩm</span>
+                  </span>
+                </a>
+              </div>
+            </div>
+
             <div className="mx-auto mt-5 max-w-xl rounded-2xl border border-[#d6e4de] bg-white/80 p-4 text-left lg:mx-0">
               <strong className="flex items-center gap-2 text-sm text-[#287a63]"><ShieldCheck className="h-4 w-4" /> Tại sao cần đăng ký tài khoản?</strong>
               <p className="mt-2 text-sm leading-6 text-neutral-600">Để hệ thống biết đơn hàng và tiền hoàn thuộc về bạn, lưu lịch sử giao dịch và hỗ trợ bạn rút tiền an toàn. <strong className="text-[#30343b]">Đăng ký hoàn toàn miễn phí.</strong></p>

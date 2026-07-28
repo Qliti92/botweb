@@ -9,3 +9,4 @@ prisma/dev.db
 *.tsbuildinfo
 /*.jpg
 /public/uploads/
+/output/

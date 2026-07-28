@@ -72,6 +72,7 @@ export async function GET() {
       affiliateUrl: String(metadata.affiliateUrl || ""),
       productName: String(metadata.productName || ""),
       productImage: String(metadata.productImage || ""),
+      productPrice: metadata.productPrice ?? null,
       cashbackAmount: metadata.cashbackAmount ?? null,
       createdAt: log.createdAt,
       clickCount: clickStats?.count ?? 0,

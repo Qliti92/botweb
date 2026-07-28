@@ -1259,6 +1259,7 @@ async function recordLinkCreated(sessionId: string, state: SessionState, sourceU
       affiliateUrl: data.affiliateUrl,
       productName: data.productName,
       productImage: data.productImage,
+      productPrice: data.productPrice,
       cashbackAmount: data.cashbackAmount
     }
   });
@@ -1268,6 +1269,7 @@ function formatCashbackResult(data: CashbackLinkResult, sourceUrl = "", tracking
   return `CASHBACK_RESULT:${JSON.stringify({
     productName: data.productName ?? "Sản phẩm Shopee/TikTok Shop",
     affiliateUrl: data.affiliateUrl,
+    productPrice: data.productPrice !== undefined && data.productPrice !== null && data.productPrice !== "" ? `${formatMoney(data.productPrice)} VND` : "Đang cập nhật",
     cashbackAmount: data.cashbackAmount !== undefined && data.cashbackAmount !== null && data.cashbackAmount !== "" ? `${formatMoney(data.cashbackAmount)} VND` : "Đang cập nhật",
     productImage: data.productImage,
     platform: detectShoppingPlatform(sourceUrl || data.affiliateUrl),

@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, BarChart3, Bell, BookOpen, Bot, Check, ClipboardCopy, Clock3, History, Image as ImageIcon, Link2, LoaderCircle, LogOut, Menu, MousePointerClick, Plus, RefreshCw, Save, Search, Send, Server, Settings, Trash2, X } from "lucide-react";
+import { AlertCircle, BarChart3, Bell, BookOpen, Bot, Check, ClipboardCopy, Clock3, ExternalLink, History, Image as ImageIcon, Link2, LoaderCircle, LogOut, Menu, MousePointerClick, Plus, RefreshCw, Save, Search, Send, Server, Settings, ShoppingBag, Trash2, X } from "lucide-react";
 import type { ApiConfigDto, AppNoticeDto, FlowDto, KnowledgeEntryDto, UnrecognizedMessageDto } from "@/types/app";
 
 type ChatDto = {
@@ -81,7 +81,7 @@ const blankIntent: Omit<IntentDto, "id"> = {
 };
 
 export function AdminDashboard() {
-  const [tab, setTab] = useState<"overview" | "analytics" | "tickets" | "intents" | "flows" | "apis" | "knowledge" | "unrecognized" | "feedback" | "notices" | "push" | "chats" | "settings" | "deployment">("overview");
+  const [tab, setTab] = useState<"overview" | "analytics" | "pageAnalytics" | "tickets" | "intents" | "flows" | "apis" | "knowledge" | "unrecognized" | "feedback" | "notices" | "push" | "chats" | "settings" | "deployment">("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [flows, setFlows] = useState<FlowDto[]>([]);
   const [apis, setApis] = useState<ApiConfigDto[]>([]);
@@ -159,6 +159,7 @@ export function AdminDashboard() {
       [
         { id: "overview", label: "Tổng quan", icon: History, group: "Theo dõi" },
         { id: "analytics", label: "Lượt lấy link & mua hàng", icon: BarChart3, group: "Theo dõi" },
+        { id: "pageAnalytics", label: "Truy cập website", icon: BarChart3, group: "Theo dõi" },
         { id: "chats", label: "Lịch sử trò chuyện", icon: History, group: "Theo dõi" },
         { id: "tickets", label: "Yêu cầu hỗ trợ", icon: AlertCircle, group: "Người dùng" },
         { id: "feedback", label: "Đánh giá", icon: Bot, group: "Người dùng" },
@@ -214,6 +215,7 @@ export function AdminDashboard() {
         {notice ? <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{notice}</p> : null}
         {tab === "overview" ? <OverviewPanel metrics={metrics} /> : null}
         {tab === "analytics" ? <LinkAnalyticsPanel /> : null}
+        {tab === "pageAnalytics" ? <PageAnalyticsPanel /> : null}
         {tab === "tickets" ? <TicketsPanel tickets={tickets} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "intents" ? <IntentsPanel intents={intents} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "flows" ? <FlowsPanel flows={flows} apis={apis} reload={loadAll} setNotice={setNotice} /> : null}
@@ -244,6 +246,7 @@ type LinkAnalyticsDto = {
     affiliateUrl: string;
     productName: string;
     productImage: string;
+    productPrice?: string | number | null;
     cashbackAmount?: string | number | null;
     createdAt: string;
     clickCount: number;
@@ -261,6 +264,19 @@ function relativeTime(value: string) {
   if (Math.abs(hours) < 24) return formatter.format(hours, "hour");
   const days = Math.round(hours / 24);
   return formatter.format(days, "day");
+}
+
+function formatAdminMoney(value?: string | number | null) {
+  if (value === undefined || value === null || value === "") return "Đang cập nhật";
+  if (typeof value === "number") return `${new Intl.NumberFormat("vi-VN").format(value)}đ`;
+  const text = String(value).trim();
+  const normalized = /^\d{1,3}(\.\d{3})+$/.test(text)
+    ? text.replace(/\./g, "")
+    : /^\d{1,3}(,\d{3})+$/.test(text)
+      ? text.replace(/,/g, "")
+      : text;
+  const amount = Number(normalized);
+  return Number.isFinite(amount) ? `${new Intl.NumberFormat("vi-VN").format(amount)}đ` : text;
 }
 
 function LinkAnalyticsPanel() {
@@ -326,34 +342,170 @@ function LinkAnalyticsPanel() {
       <section className="overflow-hidden rounded-xl border border-brand-line bg-white shadow-sm">
         <div className="border-b border-brand-line p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div><h3 className="font-semibold">Các link đã tạo gần đây</h3><p className="text-xs text-neutral-500">Mỗi link chỉ hiện một lần, kèm tổng lượt bấm sang sàn.</p></div>
+            <div><h3 className="font-semibold">Các link đã tạo gần đây</h3><p className="text-xs text-neutral-500">Mỗi link chỉ hiện một lần, kèm giá sản phẩm, hoa hồng dự kiến và tổng lượt bấm sang sàn.</p></div>
           </div>
           <label className="relative mt-3 block"><Search className="absolute left-3 top-3 h-4 w-4 text-neutral-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm theo tên, email, số điện thoại, sản phẩm hoặc link…" className="h-10 w-full rounded-lg border border-brand-line pl-9 pr-3 text-sm outline-none focus:border-brand-red" /></label>
         </div>
-        <div className="divide-y divide-brand-line">
-          {events.map((event) => (
-            <article key={event.id} className="grid gap-3 p-4 md:grid-cols-[minmax(190px,0.7fr)_minmax(260px,1.3fr)_auto] md:items-center">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700"><Link2 className="h-4 w-4" /></span>
-                  <div className="min-w-0"><p className="truncate text-sm font-semibold">{event.userName || event.email || event.phone || "Khách chưa rõ tên"}</p><p className="truncate text-xs text-neutral-500">{event.email || event.phone || event.accountKey || "Không có thông tin"}</p></div>
-                </div>
-              </div>
-              <div className="flex min-w-0 items-center gap-3">
-                {event.productImage ? <img src={event.productImage} alt="" className="h-12 w-12 shrink-0 rounded-lg border object-cover" /> : null}
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{event.productName || "Sản phẩm chưa có tên"}</p>
-                  <p className="mt-0.5 text-xs text-neutral-500"><span className="font-semibold capitalize">{event.platform === "tiktok" ? "TikTok Shop" : event.platform}</span> · <strong className="text-blue-700">{event.clickCount} lượt bấm sang sàn</strong></p>
-                  {event.sourceUrl ? <a href={event.sourceUrl} target="_blank" rel="noreferrer" className="mt-1 block max-w-full truncate text-xs text-blue-600 hover:underline">{event.sourceUrl}</a> : null}
-                </div>
-              </div>
-              <div className="text-left md:text-right"><strong className="block text-sm">Tạo {relativeTime(event.createdAt)}</strong><span className="block text-xs text-neutral-500">{new Date(event.createdAt).toLocaleString("vi-VN")}</span>{event.lastClickedAt ? <span className="mt-1 block text-xs font-medium text-blue-700">Bấm gần nhất {relativeTime(event.lastClickedAt)}</span> : null}</div>
-            </article>
-          ))}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1180px] table-fixed text-left">
+            <thead className="border-b border-brand-line bg-neutral-50/80 text-xs font-semibold text-neutral-500">
+              <tr>
+                <th className="w-[70px] px-4 py-3">ID</th>
+                <th className="w-[210px] px-4 py-3">Thành viên</th>
+                <th className="w-[130px] px-4 py-3">Nền tảng</th>
+                <th className="w-[110px] px-4 py-3 text-center">Lượt click link</th>
+                <th className="w-[280px] px-4 py-3">Sản phẩm</th>
+                <th className="w-[170px] px-4 py-3 text-right">Giá / HH dự kiến</th>
+                <th className="w-[110px] px-4 py-3 text-center">Affiliate Link</th>
+                <th className="w-[170px] px-4 py-3 text-right">Thời gian click</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-brand-line">
+              {events.map((event, index) => (
+                <tr key={event.id} className="align-middle transition hover:bg-neutral-50/70">
+                  <td className="px-4 py-3 text-xs font-semibold text-neutral-500">#{events.length - index}</td>
+                  <td className="px-4 py-3">
+                    <p className="truncate text-sm font-semibold">{event.userName || event.email || event.phone || "Khách chưa rõ tên"}</p>
+                    <p className="mt-0.5 truncate text-[11px] text-neutral-400">{event.email || event.phone || event.accountKey || "Không có thông tin"}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex min-w-[94px] justify-center rounded-full px-3 py-1.5 text-xs font-bold text-white ${event.platform === "tiktok" ? "bg-[#20242a]" : "bg-[#ee4d2d]"}`}>
+                      {event.platform === "tiktok" ? "TikTok Shop" : "Shopee"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <strong className="text-sm text-blue-700">{event.clickCount}</strong>
+                    <span className="ml-1 text-[11px] text-neutral-400">lượt</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      {event.productImage ? <img src={event.productImage} alt="" className="h-11 w-11 shrink-0 rounded-lg border object-cover" /> : <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-neutral-100 text-neutral-400"><ShoppingBag className="h-4 w-4" /></span>}
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">{event.productName || "Sản phẩm chưa có tên"}</p>
+                        {event.sourceUrl ? <a href={event.sourceUrl} target="_blank" rel="noreferrer" className="mt-0.5 block truncate text-[11px] text-neutral-400 hover:text-blue-600 hover:underline">Xem link sản phẩm</a> : null}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <span className="block text-xs font-medium text-neutral-500">{formatAdminMoney(event.productPrice)}</span>
+                    <strong className="mt-1 block text-sm text-emerald-700">{event.cashbackAmount !== undefined && event.cashbackAmount !== null && event.cashbackAmount !== "" ? `+${formatAdminMoney(event.cashbackAmount)}` : "Đang cập nhật"}</strong>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {event.affiliateUrl ? <a href={event.affiliateUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-semibold text-blue-700 hover:underline">Mở link <ExternalLink className="h-3.5 w-3.5" /></a> : <span className="text-xs text-neutral-400">Chưa có</span>}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <span className="block text-xs font-medium text-neutral-600">{new Date(event.lastClickedAt || event.createdAt).toLocaleString("vi-VN")}</span>
+                    <span className="mt-0.5 block text-[11px] text-neutral-400">{event.lastClickedAt ? relativeTime(event.lastClickedAt) : "Chưa có lượt click"}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
           {!loading && !events.length ? <p className="p-8 text-center text-sm text-neutral-500">Chưa có hoạt động phù hợp.</p> : null}
           {loading ? <p className="p-8 text-center text-sm text-neutral-500">Đang tải thống kê…</p> : null}
         </div>
       </section>
+    </div>
+  );
+}
+
+type PageAnalyticsDto = {
+  pages: {
+    path: string;
+    visits: number;
+    uniqueVisitors: number;
+    averageDurationSeconds: number;
+    interactionRate: number;
+    registrations: number;
+    registrationRate: number;
+    sources: { name: string; count: number }[];
+  }[];
+};
+
+function formatDuration(seconds: number) {
+  if (seconds < 60) return `${seconds} giây`;
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return remainder ? `${minutes} phút ${remainder} giây` : `${minutes} phút`;
+}
+
+function PageAnalyticsPanel() {
+  const [data, setData] = useState<PageAnalyticsDto | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  async function load() {
+    setLoading(true);
+    try {
+      setData(await fetchJson("/api/admin/page-analytics") as PageAnalyticsDto);
+      setError("");
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Không thể tải thống kê truy cập.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void load(); }, []);
+
+  const pages = data?.pages ?? [];
+  const totals = pages.reduce((result, page) => ({
+    visits: result.visits + page.visits,
+    visitors: result.visitors + page.uniqueVisitors,
+    registrations: result.registrations + page.registrations
+  }), { visits: 0, visitors: 0, registrations: 0 });
+
+  return (
+    <div className="grid gap-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div><h2 className="text-xl font-bold">Thống kê truy cập website</h2><p className="mt-1 text-sm text-neutral-500">Trang được xem nhiều, nguồn truy cập, thời gian ở lại, tương tác và đăng ký thành công.</p></div>
+        <button type="button" onClick={() => void load()} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-lg border border-brand-line bg-white px-3 text-sm font-semibold disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Làm mới</button>
+      </div>
+      {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <article className="rounded-xl border border-brand-line bg-white p-4"><span className="text-xs text-neutral-500">Tổng lượt truy cập</span><strong className="mt-1 block text-2xl">{totals.visits}</strong></article>
+        <article className="rounded-xl border border-brand-line bg-white p-4"><span className="text-xs text-neutral-500">Người truy cập</span><strong className="mt-1 block text-2xl">{totals.visitors}</strong></article>
+        <article className="rounded-xl border border-brand-line bg-white p-4"><span className="text-xs text-neutral-500">Đăng ký thành công</span><strong className="mt-1 block text-2xl text-emerald-700">{totals.registrations}</strong></article>
+      </div>
+      <section className="overflow-hidden rounded-xl border border-brand-line bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1050px] text-left">
+            <thead className="border-b border-brand-line bg-neutral-50 text-xs font-semibold text-neutral-500">
+              <tr>
+                <th className="px-4 py-3">Trang</th>
+                <th className="px-4 py-3 text-center">Lượt truy cập</th>
+                <th className="px-4 py-3 text-center">Người truy cập</th>
+                <th className="px-4 py-3">Nguồn truy cập</th>
+                <th className="px-4 py-3 text-center">Ở lại trung bình</th>
+                <th className="px-4 py-3 text-center">Có tương tác</th>
+                <th className="px-4 py-3 text-center">Đăng ký thành công</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-brand-line">
+              {pages.map((page) => (
+                <tr key={page.path} className="hover:bg-neutral-50/70">
+                  <td className="px-4 py-3"><a href={page.path} target="_blank" rel="noreferrer" className="font-semibold text-blue-700 hover:underline">{page.path}</a></td>
+                  <td className="px-4 py-3 text-center font-semibold">{page.visits}</td>
+                  <td className="px-4 py-3 text-center">{page.uniqueVisitors}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex max-w-[260px] flex-wrap gap-1.5">
+                      {page.sources.slice(0, 4).map((source) => <span key={source.name} className="rounded-full bg-neutral-100 px-2 py-1 text-[11px] text-neutral-600">{source.name}: <strong>{source.count}</strong></span>)}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-center">{formatDuration(page.averageDurationSeconds)}</td>
+                  <td className="px-4 py-3 text-center"><strong className={page.interactionRate > 0 ? "text-blue-700" : "text-neutral-400"}>{page.interactionRate}%</strong></td>
+                  <td className="px-4 py-3 text-center">
+                    <strong className={page.registrations > 0 ? "text-emerald-700" : "text-neutral-400"}>{page.registrations > 0 ? `${page.registrations} (${page.registrationRate}%)` : "Chưa có"}</strong>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!loading && !pages.length ? <p className="p-8 text-center text-sm text-neutral-500">Chưa có dữ liệu. Lượt truy cập mới sẽ bắt đầu được ghi nhận từ bây giờ.</p> : null}
+          {loading ? <p className="p-8 text-center text-sm text-neutral-500">Đang tải thống kê…</p> : null}
+        </div>
+      </section>
+      <p className="text-xs leading-5 text-neutral-500">“Có tương tác” được ghi nhận khi khách nhấp, nhập nội dung, cuộn trang hoặc dùng bàn phím. Thời gian ở lại được cập nhật định kỳ trong lúc trang đang mở.</p>
     </div>
   );
 }
