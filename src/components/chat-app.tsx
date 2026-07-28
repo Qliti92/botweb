@@ -272,6 +272,7 @@ export function ChatApp() {
   const [publicPageLoading, setPublicPageLoading] = useState(false);
   const previousUnreadRef = useRef(0);
   const dismissedClipboardRef = useRef("");
+  const pendingLinkSubmittedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -285,6 +286,9 @@ export function ChatApp() {
     if (referralCode) {
       setAuthReferralCode(referralCode);
       setAuthMode("register");
+      setShowAuth(true);
+    } else if (params.get("auth") === "login") {
+      setAuthMode("login");
       setShowAuth(true);
     }
     const existing = window.localStorage.getItem("chat_session_id");
@@ -355,6 +359,16 @@ export function ChatApp() {
     setShowNotificationBanner(false);
     previousUnreadRef.current = 0;
   }, [session?.id, session?.user]);
+
+  useEffect(() => {
+    if (!session?.user || sending || pendingLinkSubmittedRef.current) return;
+    const pendingLink = window.localStorage.getItem("pending_cashback_link");
+    const classified = classifyShoppingLink(pendingLink ?? "");
+    if (classified.kind !== "supported") return;
+    pendingLinkSubmittedRef.current = true;
+    setInput(classified.url);
+    window.setTimeout(() => void sendMessage(classified.url), 0);
+  }, [session?.id, session?.user, sending]);
 
   useEffect(() => {
     if (!session?.user) {
@@ -838,6 +852,18 @@ export function ChatApp() {
         : null;
 
   if (!session?.user) {
+    if (loading && !showAuth) {
+      return (
+        <ChatLoadingScreen
+          onRetry={() => {
+            const existing = window.localStorage.getItem("chat_session_id");
+            if (existing) void restoreSession(existing);
+            else setLoading(false);
+          }}
+        />
+      );
+    }
+
     if (!showAuth) {
       return (
         <LandingPage
@@ -1479,6 +1505,37 @@ function AppNoticeBanner({ notice, secondsLeft }: { notice: AppNoticeDto | null;
         </div>
       </div>
     </div>
+  );
+}
+
+function ChatLoadingScreen({ onRetry }: { onRetry: () => void }) {
+  const [showRetry, setShowRetry] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowRetry(true), 8_000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  return (
+    <main className="grid min-h-dvh place-items-center bg-[#f4f6f8] px-5 text-[#30343b]">
+      <div className="w-full max-w-sm rounded-3xl border border-[#d6e4de] bg-white p-7 text-center shadow-[0_20px_60px_rgba(48,52,59,.10)]">
+        <span className="relative mx-auto block h-16 w-16">
+          <img src="/api/site-assets/avatar" alt="Em Ry" className="h-16 w-16 rounded-2xl border border-[#d6e4de] bg-white object-cover" />
+          <span className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-full border-2 border-white bg-[#287a63] text-white"><LoaderCircle className="h-4 w-4 animate-spin" /></span>
+        </span>
+        <h1 className="mt-5 text-lg font-bold">Đang tải cuộc trò chuyện…</h1>
+        <p className="mt-2 text-sm leading-6 text-neutral-500">Em Ry đang khôi phục tài khoản và các tin nhắn gần nhất của bạn.</p>
+        <div className="mx-auto mt-5 h-1.5 max-w-52 overflow-hidden rounded-full bg-[#e6efeb]">
+          <span className="block h-full w-2/3 animate-pulse rounded-full bg-[#287a63]" />
+        </div>
+        {showRetry ? (
+          <div className="mt-5">
+            <p className="text-xs leading-5 text-amber-700">Kết nối đang chậm hơn bình thường.</p>
+            <button type="button" onClick={onRetry} className="mt-2 h-11 rounded-xl border border-[#287a63] px-5 text-sm font-bold text-[#287a63] hover:bg-[#f1f7f4]">Thử tải lại</button>
+          </div>
+        ) : null}
+      </div>
+    </main>
   );
 }
 
