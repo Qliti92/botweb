@@ -8,8 +8,22 @@ const schema = z.object({
   stage: z.enum(["STARTED", "STEP_2", "ABANDONED", "FAILED"]),
   path: z.string().trim().max(300).default("/"),
   step: z.number().int().min(1).max(2).optional(),
-  errorCategory: z.enum(["EMAIL_EXISTS", "INVALID_INPUT", "REFERRAL", "NETWORK", "SERVER", "OTHER"]).optional()
+  errorCategory: z.enum(["EMAIL_EXISTS", "INVALID_INPUT", "REFERRAL", "NETWORK", "RATE_LIMIT", "SERVER", "OTHER"]).optional(),
+  errorCode: z.string().trim().max(80).optional(),
+  errorMessage: z.string().trim().max(500).optional(),
+  httpStatus: z.number().int().min(0).max(599).optional(),
+  context: z.enum(["MAIN_REGISTER", "LINK_REGISTER"]).optional(),
+  attemptId: z.string().trim().max(80).optional()
 });
+
+function sanitizeErrorMessage(value?: string) {
+  if (!value) return undefined;
+  return value
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+    .replace(/(?:\+?84|0)\d{8,10}/g, "[số điện thoại]")
+    .replace(/\b\d{6}\b/g, "[mã]")
+    .slice(0, 240);
+}
 
 function deviceFromUserAgent(value: string) {
   if (/iphone|ipad|ipod/i.test(value)) return "iPhone/iPad";
@@ -44,7 +58,12 @@ export async function POST(request: NextRequest) {
         step: body.step,
         source: String(visitMetadata.source || "Trực tiếp"),
         device: deviceFromUserAgent(request.headers.get("user-agent") || ""),
-        errorCategory: body.errorCategory
+        errorCategory: body.errorCategory,
+        errorCode: body.errorCode,
+        errorMessage: sanitizeErrorMessage(body.errorMessage),
+        httpStatus: body.httpStatus,
+        context: body.context,
+        attemptId: body.attemptId
       }
     });
   } catch {

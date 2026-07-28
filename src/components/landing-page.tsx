@@ -8,18 +8,14 @@ import {
   CircleDollarSign,
   ClipboardPaste,
   Clock3,
-  Download,
   ExternalLink,
   HelpCircle,
   Link2,
   LogIn,
   PackageCheck,
-  PlusSquare,
   Send,
-  Share2,
   ShieldCheck,
   ShoppingBag,
-  Smartphone,
   UserPlus,
   WalletCards
 } from "lucide-react";
@@ -28,11 +24,6 @@ import { classifyShoppingLink } from "@/lib/shopping-link";
 type LandingPageProps = {
   onLogin: () => void;
   onRegister: () => void;
-};
-
-type InstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
 
 const steps = [
@@ -90,26 +81,9 @@ const faqs = [
 
 export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
   const [linkGuideTab, setLinkGuideTab] = useState<"shopee" | "tiktok">("shopee");
-  const [installGuideTab, setInstallGuideTab] = useState<"iphone" | "android">("iphone");
-  const [installEvent, setInstallEvent] = useState<InstallPromptEvent | null>(null);
   const [productLink, setProductLink] = useState("");
   const [productLinkError, setProductLinkError] = useState("");
   const [showSample, setShowSample] = useState(false);
-
-  useEffect(() => {
-    const onInstallPrompt = (event: Event) => {
-      event.preventDefault();
-      setInstallEvent(event as InstallPromptEvent);
-    };
-    window.addEventListener("beforeinstallprompt", onInstallPrompt);
-    return () => window.removeEventListener("beforeinstallprompt", onInstallPrompt);
-  }, []);
-
-  async function installOnAndroid() {
-    if (!installEvent) return;
-    await installEvent.prompt();
-    await installEvent.userChoice;
-  }
 
   function startWithProductLink(event: FormEvent) {
     event.preventDefault();
@@ -316,7 +290,7 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
                   <div className="flex items-center gap-3">
                     <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#ee4d2d] text-lg font-black text-white">S</span>
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[.1em] text-[#d84c1f]">Trên ứng dụng Shopee</p>
+                      <p className="text-xs font-semibold uppercase tracking-[.1em] text-[#a93616]">Trên ứng dụng Shopee</p>
                       <h3 className="mt-1 text-xl font-bold">Sao chép link trong 2 bước</h3>
                     </div>
                   </div>
@@ -325,7 +299,7 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
                     <li className="flex gap-3"><StepBadge value="2" tone="orange" /><span>Trong bảng hiện ra, chạm <strong>Sao chép đường dẫn</strong>.</span></li>
                   </ol>
                 </div>
-                <img src="/images/tutorials/copy-link-shopee.png" alt="Minh họa hai bước sao chép đường dẫn sản phẩm trên ứng dụng Shopee" className="aspect-[3/2] h-auto w-full object-cover" />
+                <img src="/images/tutorials/copy-link-shopee.webp" alt="Minh họa hai bước sao chép đường dẫn sản phẩm trên ứng dụng Shopee" className="aspect-[3/2] h-auto w-full object-cover" />
               </article>
             ) : (
               <article className="overflow-hidden rounded-3xl border border-[#d5e5e8] bg-white shadow-[0_14px_40px_rgba(48,52,59,.07)]">
@@ -342,7 +316,7 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
                     <li className="flex gap-3"><StepBadge value="2" tone="cyan" /><span>Trong bảng chia sẻ, chạm <strong>Sao chép Liên kết</strong>.</span></li>
                   </ol>
                 </div>
-                <img src="/images/tutorials/copy-link-tiktok-shop.png" alt="Minh họa hai bước sao chép liên kết sản phẩm trên ứng dụng TikTok Shop" className="aspect-[3/2] h-auto w-full object-cover" />
+                <img src="/images/tutorials/copy-link-tiktok-shop.webp" alt="Minh họa hai bước sao chép liên kết sản phẩm trên ứng dụng TikTok Shop" className="aspect-[3/2] h-auto w-full object-cover" />
               </article>
             )}
           </div>
@@ -372,7 +346,7 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
               <ArrowRight className="h-5 w-5 text-neutral-300" />
               <div><p className="text-xs text-neutral-500">Bạn nhận</p><strong className="mt-1 block text-xl text-[#287a63]">17.500đ</strong></div>
             </div>
-            <p className="rounded-xl bg-[#f6f7f8] px-4 py-3 text-xs leading-5 text-neutral-500">25.000đ × 70% = 17.500đ. Đây là ví dụ minh họa; số thực tế phụ thuộc hoa hồng, thuế và đối soát của từng đơn.</p>
+            <p className="rounded-xl bg-[#f6f7f8] px-4 py-3 text-xs leading-5 text-neutral-600">25.000đ × 70% = 17.500đ. Đây là ví dụ minh họa; số thực tế phụ thuộc hoa hồng, thuế và đối soát của từng đơn.</p>
           </div>
         </div>
       </section>
@@ -387,51 +361,6 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
                 <p className="pt-1 text-sm leading-6 text-neutral-700">{notice}</p>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="cai-ung-dung" className="hidden">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6">
-          <SectionHeading eyebrow="Mở nhanh như ứng dụng" title="Cài Em Ry trên điện thoại" description="Miễn phí, nhẹ và không cần tải từ App Store hay CH Play. Chọn loại điện thoại của bạn rồi làm theo." />
-
-          <div className="mx-auto mt-7 grid max-w-xl grid-cols-2 rounded-2xl bg-[#eceeed] p-1.5" role="tablist" aria-label="Chọn loại điện thoại">
-            <button type="button" role="tab" aria-selected={installGuideTab === "iphone"} onClick={() => setInstallGuideTab("iphone")} className={`min-h-12 rounded-xl px-3 text-sm font-bold transition ${installGuideTab === "iphone" ? "bg-[#287a63] text-white shadow-sm" : "text-neutral-600"}`}>
-              iPhone
-            </button>
-            <button type="button" role="tab" aria-selected={installGuideTab === "android"} onClick={() => setInstallGuideTab("android")} className={`min-h-12 rounded-xl px-3 text-sm font-bold transition ${installGuideTab === "android" ? "bg-[#287a63] text-white shadow-sm" : "text-neutral-600"}`}>
-              Android
-            </button>
-          </div>
-
-          <div className="mx-auto mt-6 max-w-4xl overflow-hidden rounded-3xl border border-[#d6e4de] bg-[#fafaf8] shadow-[0_14px_40px_rgba(48,52,59,.07)]">
-            {installGuideTab === "iphone" ? (
-              <div className="grid items-center lg:grid-cols-[1.05fr_.95fr]">
-                <div className="p-5 sm:p-7">
-                  <div className="flex items-center gap-3"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#eaf4f0] text-[#287a63]"><Smartphone className="h-6 w-6" /></span><div><p className="text-xs font-semibold uppercase tracking-wide text-[#287a63]">Trên iPhone</p><h3 className="text-xl font-bold">Thêm vào Màn hình chính</h3></div></div>
-                  <div className="mt-5 grid gap-3 text-sm leading-6 text-neutral-700">
-                    <p className="flex gap-3"><Share2 className="mt-0.5 h-5 w-5 shrink-0 text-[#287a63]" /><span>Mở <strong>Safari</strong>, truy cập <strong>qbot.vn</strong> rồi chọn <strong>Chia sẻ</strong>.</span></p>
-                    <p className="flex gap-3"><PlusSquare className="mt-0.5 h-5 w-5 shrink-0 text-[#287a63]" /><span>Chọn <strong>Thêm vào Màn hình chính</strong> → <strong>Thêm</strong>.</span></p>
-                  </div>
-                  <p className="mt-5 rounded-xl bg-[#f1f7f4] p-3 text-sm font-semibold leading-6 text-[#216653]">Xong! Chạm biểu tượng Em Ry trên màn hình để mở như ứng dụng.</p>
-                </div>
-                <img src="/images/tutorials/install-iphone-pwa.png" alt="Hướng dẫn cài Em Ry vào màn hình chính iPhone" className="h-auto w-full border-t border-[#dfe8e4] object-cover lg:border-l lg:border-t-0" />
-              </div>
-            ) : (
-              <div className="mx-auto max-w-2xl p-5 text-center sm:p-8">
-                <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#eaf4f0] text-[#287a63]"><Download className="h-7 w-7" /></span>
-                <h3 className="mt-4 text-xl font-bold">Cài Em Ry trên Android</h3>
-                <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-neutral-600">Mở trang bằng Chrome rồi bấm nút bên dưới. Nếu chưa thấy nút cài, mở menu <strong>⋮</strong> và chọn <strong>Thêm vào Màn hình chính</strong>.</p>
-                {installEvent ? (
-                  <button type="button" onClick={() => void installOnAndroid()} className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#287a63] px-6 text-base font-bold text-white sm:w-auto"><Download className="h-5 w-5" /> Cài ứng dụng ngay</button>
-                ) : (
-                  <div className="mt-6 grid gap-3 text-left sm:grid-cols-2">
-                    <p className="rounded-xl bg-white p-4 text-sm"><strong>1.</strong> Chạm menu <strong>⋮</strong> của Chrome.</p>
-                    <p className="rounded-xl bg-white p-4 text-sm"><strong>2.</strong> Chọn <strong>Thêm vào Màn hình chính</strong>.</p>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </section>
@@ -568,7 +497,7 @@ function ChatPreview() {
         <div className="min-h-[390px] bg-[#f4f6f7] p-3">
           {previewStep === 0 ? (
             <div className="overflow-hidden rounded-2xl border border-[#efd9cf] bg-white shadow-sm">
-              <img src="/images/tutorials/copy-link-shopee.png" alt="Nút Chia sẻ và Sao chép đường dẫn đúng vị trí trên Shopee" className="aspect-[3/2] h-auto w-full object-cover" />
+              <img src="/images/tutorials/copy-link-shopee.webp" alt="Nút Chia sẻ và Sao chép đường dẫn đúng vị trí trên Shopee" className="aspect-[3/2] h-auto w-full object-cover" />
               <div className="flex items-center gap-3 bg-[#fff8f4] p-3">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#ee4d2d] text-xs font-bold text-white">1</span>
                 <p className="text-xs leading-5 text-neutral-700">Bấm đúng nút <strong>Chia sẻ</strong> ở phía trên, sau đó chọn <strong>Sao chép đường dẫn</strong>.</p>
@@ -681,7 +610,7 @@ function PasteLinkDemo() {
           <div className="mx-auto max-w-lg overflow-hidden rounded-[24px] border border-[#d9dde3] bg-white shadow-[0_14px_35px_rgba(48,52,59,.12)]">
             <div className="flex items-center gap-3 bg-[#287a63] px-4 py-3 text-white">
               <img src="/api/site-assets/avatar" alt="Em Ry" className="h-10 w-10 rounded-full bg-white object-cover" />
-              <div><strong className="block text-sm">Em Ry</strong><span className="text-[10px] text-white/75">Trực tuyến · Sẵn sàng nhận link</span></div>
+              <div><strong className="block text-sm">Em Ry</strong><span className="text-[10px] text-white/90">Trực tuyến · Sẵn sàng nhận link</span></div>
             </div>
 
             <div className="min-h-[310px] space-y-3 bg-[#f4f6f7] p-3">
@@ -703,7 +632,7 @@ function PasteLinkDemo() {
               {demoStep === 3 ? (
                 <div className="max-w-[96%] animate-[fadeIn_.4s_ease-out] overflow-hidden rounded-2xl rounded-bl-md border border-emerald-200 bg-white shadow-sm">
                   <div className="flex gap-3 p-3">
-                    <img src="/images/tutorials/copy-link-shopee.png" alt="" className="h-14 w-14 shrink-0 rounded-xl border border-neutral-100 object-cover" />
+                    <img src="/images/tutorials/copy-link-shopee.webp" alt="" className="h-14 w-14 shrink-0 rounded-xl border border-neutral-100 object-cover" />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 text-xs font-bold text-[#287a63]"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Link hoàn tiền đã sẵn sàng</div>
                       <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-neutral-600">Sản phẩm bạn vừa gửi cho Ry</p>
@@ -718,10 +647,10 @@ function PasteLinkDemo() {
 
             <div className="border-t border-[#e4e6e9] bg-white p-3">
               <div className="flex items-center gap-2">
-                <div className={`flex min-h-12 min-w-0 flex-1 items-center rounded-xl border px-3 text-xs transition ${demoStep === 1 ? "border-[#9ec9b9] bg-[#f1f7f4] text-brand-ink" : "border-[#d9dde3] text-neutral-400"}`}>
+                <div className={`flex min-h-12 min-w-0 flex-1 items-center rounded-xl border px-3 text-xs transition ${demoStep === 1 ? "border-[#9ec9b9] bg-[#f1f7f4] text-brand-ink" : "border-[#d9dde3] text-neutral-600"}`}>
                   <span className="min-w-0 truncate">{demoStep === 1 ? demoLink : "Hỏi Ry hoặc gửi link sản phẩm..."}</span>
                 </div>
-                <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl transition ${demoStep === 1 ? "scale-105 bg-[#287a63] text-white shadow-lg" : "bg-[#b9d6cc] text-white"}`}>
+                <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl transition ${demoStep === 1 ? "scale-105 bg-[#287a63] text-white shadow-lg" : "bg-[#658f80] text-white"}`}>
                   {demoStep === 0 ? <ClipboardPaste className="h-5 w-5" /> : <Send className="h-5 w-5" />}
                 </span>
               </div>

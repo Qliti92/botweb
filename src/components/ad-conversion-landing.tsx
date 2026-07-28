@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ArrowRight, Check, ClipboardPaste, ExternalLink, HelpCircle, Link2, LoaderCircle, LockKeyhole, ShieldCheck, ShoppingBag, Sparkles, X } from "lucide-react";
 import { classifyShoppingLink } from "@/lib/shopping-link";
+import { registrationErrorCategory, registrationErrorCode } from "@/lib/registration-errors";
 
 type Platform = "all" | "shopee" | "tiktok-shop";
 
@@ -44,7 +45,20 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  function trackRegistration(stage: "STARTED" | "STEP_2" | "ABANDONED" | "FAILED", errorCategory?: string) {
+  function registrationAttemptId() {
+    const existing = sessionStorage.getItem("registration_attempt_id");
+    if (existing) return existing;
+    const next = crypto.randomUUID();
+    sessionStorage.setItem("registration_attempt_id", next);
+    return next;
+  }
+
+  function trackRegistration(stage: "STARTED" | "STEP_2" | "ABANDONED" | "FAILED", details?: {
+    errorCategory?: string;
+    errorCode?: string;
+    errorMessage?: string;
+    httpStatus?: number;
+  }) {
     void fetch("/api/analytics/registration", {
       method: "POST",
       keepalive: stage === "ABANDONED",
@@ -53,7 +67,9 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
         stage,
         step: stage === "STARTED" ? 1 : 2,
         path: window.location.pathname,
-        errorCategory
+        ...details,
+        context: "LINK_REGISTER",
+        attemptId: registrationAttemptId()
       })
     }).catch(() => {});
   }
@@ -115,8 +131,10 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
 
   async function register(event: FormEvent) {
     event.preventDefault();
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setError("Bạn kiểm tra lại địa chỉ email.");
     if (password.length < 8) return setError("Mật khẩu cần có ít nhất 8 ký tự.");
     if (password !== confirmation) return setError("Hai mật khẩu chưa giống nhau.");
+    if (loading) return;
     setLoading(true);
     setError("");
     trackRegistration("STEP_2");
@@ -129,11 +147,17 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
           email: email.trim().toLowerCase(),
           password,
           passwordConfirmation: confirmation,
-          registrationPath: window.location.pathname
+          registrationPath: window.location.pathname,
+          registrationContext: "LINK_REGISTER",
+          registrationAttemptId: registrationAttemptId()
         })
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Chưa thể đăng ký.");
+      if (!response.ok) {
+        const authError = new Error(data.error || "Chưa thể đăng ký.");
+        Object.assign(authError, { httpStatus: response.status });
+        throw authError;
+      }
       if (data.user) {
         localStorage.setItem("chat_session_id", data.id);
         setSuccess(true);
@@ -143,14 +167,14 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
       window.location.href = "/";
     } catch (registerError) {
       const message = registerError instanceof Error ? registerError.message : "Chưa thể đăng ký.";
-      const normalized = message.toLocaleLowerCase("vi");
-      const category =
-        normalized.includes("email") && (normalized.includes("tồn tại") || normalized.includes("đã được")) ? "EMAIL_EXISTS" :
-        normalized.includes("mật khẩu") || normalized.includes("không hợp lệ") ? "INVALID_INPUT" :
-        normalized.includes("mạng") || normalized.includes("fetch") ? "NETWORK" :
-        normalized.includes("server") || normalized.includes("máy chủ") || normalized.includes("api") ? "SERVER" :
-        "OTHER";
-      trackRegistration("FAILED", category);
+      const httpStatus = Number((registerError as Error & { httpStatus?: number })?.httpStatus || 0) || undefined;
+      const category = registrationErrorCategory(message, httpStatus);
+      trackRegistration("FAILED", {
+        errorCategory: category,
+        errorCode: registrationErrorCode(category, httpStatus),
+        errorMessage: message,
+        httpStatus
+      });
       setError(message);
     } finally {
       setLoading(false);
@@ -324,7 +348,7 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
                   <li><strong>2.</strong> Chạm <strong>Chia sẻ</strong>.</li>
                   <li><strong>3.</strong> Chọn <strong>Sao chép đường dẫn</strong>.</li>
                 </ol>
-                <img src="/images/tutorials/copy-link-shopee.png" alt="Vị trí nút Chia sẻ và Sao chép đường dẫn trên Shopee" className="mt-3 aspect-[3/2] w-full rounded-xl border border-[#f1d4ca] bg-white object-cover" />
+                <img src="/images/tutorials/copy-link-shopee.webp" alt="Vị trí nút Chia sẻ và Sao chép đường dẫn trên Shopee" className="mt-3 aspect-[3/2] w-full rounded-xl border border-[#f1d4ca] bg-white object-cover" />
               </article>
               <article className="rounded-2xl border border-[#d7e3e4] bg-[#f6fbfb] p-4">
                 <span className="inline-flex rounded-full bg-[#20242a] px-3 py-1 text-xs font-bold text-white">TikTok Shop</span>
@@ -333,7 +357,7 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
                   <li><strong>2.</strong> Chạm <strong>Chia sẻ</strong>.</li>
                   <li><strong>3.</strong> Chọn <strong>Sao chép liên kết</strong>.</li>
                 </ol>
-                <img src="/images/tutorials/copy-link-tiktok-shop.png" alt="Vị trí nút Chia sẻ và Sao chép liên kết trên TikTok Shop" className="mt-3 aspect-[3/2] w-full rounded-xl border border-[#d7e3e4] bg-white object-cover" />
+                <img src="/images/tutorials/copy-link-tiktok-shop.webp" alt="Vị trí nút Chia sẻ và Sao chép liên kết trên TikTok Shop" className="mt-3 aspect-[3/2] w-full rounded-xl border border-[#d7e3e4] bg-white object-cover" />
               </article>
             </div>
             <button type="button" onClick={() => setShowGuide(false)} className="mt-4 h-12 w-full rounded-xl bg-[#287a63] text-sm font-bold text-white">Tôi đã sao chép link</button>

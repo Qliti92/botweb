@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     }),
     prisma.auditLog.findMany({
       where: {
-        action: { in: ["WEB_REGISTRATION_STARTED", "WEB_REGISTRATION_STEP_2", "WEB_REGISTRATION_ABANDONED", "WEB_REGISTRATION_FAILED"] },
+        action: { in: ["WEB_REGISTRATION_STARTED", "WEB_REGISTRATION_STEP_2", "WEB_REGISTRATION_COMPLETED", "WEB_REGISTRATION_ABANDONED", "WEB_REGISTRATION_FAILED"] },
         createdAt: dateFilter
       },
       orderBy: { createdAt: "desc" },
@@ -75,6 +75,24 @@ export async function GET(request: NextRequest) {
   const startedEvents = funnelEvents.filter((item) => item.action === "WEB_REGISTRATION_STARTED");
   const abandonedEvents = funnelEvents.filter((item) => item.action === "WEB_REGISTRATION_ABANDONED" && !completedVisitors.has(item.actorId));
   const failedEvents = funnelEvents.filter((item) => item.action === "WEB_REGISTRATION_FAILED");
+  const recentRegistrationEvents = funnelEvents.slice(0, 100).map((item) => {
+    const metadata = parseMetadata(item.metadata);
+    return {
+      visitor: item.actorId ? `…${item.actorId.slice(-8)}` : "Không xác định",
+      stage: item.action.replace("WEB_REGISTRATION_", ""),
+      createdAt: item.createdAt.toISOString(),
+      step: Number(metadata.step || 0) || undefined,
+      source: String(metadata.source || "Trực tiếp"),
+      device: String(metadata.device || "Không xác định"),
+      path: String(metadata.path || "/"),
+      context: String(metadata.context || "MAIN_REGISTER"),
+      errorCategory: metadata.errorCategory ? String(metadata.errorCategory) : undefined,
+      errorCode: metadata.errorCode ? String(metadata.errorCode) : undefined,
+      errorMessage: metadata.errorMessage ? String(metadata.errorMessage) : undefined,
+      httpStatus: Number(metadata.httpStatus || 0) || undefined,
+      attemptId: metadata.attemptId ? String(metadata.attemptId) : undefined
+    };
+  });
   const sources = countBy(startedEvents, "source").map((source) => {
     const actors = new Set(startedEvents.filter((item) => String(parseMetadata(item.metadata).source || "Không xác định") === source.name).map((item) => item.actorId));
     const completed = Array.from(actors).filter((actorId) => completedVisitors.has(actorId)).length;
@@ -129,11 +147,13 @@ export async function GET(request: NextRequest) {
       completed: completedVisitors.size,
       abandoned: abandonedWithoutCompletion,
       failed: failedVisitors.size,
+      failedAttempts: failedEvents.length,
       completionRate: startedVisitors.size ? Math.round(completedVisitors.size / startedVisitors.size * 100) : 0,
       abandonedByStep: countBy(abandonedEvents, "step"),
       failureReasons: countBy(failedEvents, "errorCategory"),
       sources,
-      devices: countBy(startedEvents, "device")
+      devices: countBy(startedEvents, "device"),
+      recentEvents: recentRegistrationEvents
     },
     pages: Array.from(pages.values())
       .map((page) => ({

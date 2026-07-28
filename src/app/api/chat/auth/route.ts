@@ -5,6 +5,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { requireMatchingChatSession, setChatSessionCookie } from "@/lib/chat-session";
 import { resolveReferralDomain } from "@/services/referral-domain";
 import { writeAuditLog } from "@/lib/audit";
+import { prisma } from "@/lib/prisma";
 
 const authSchema = z.discriminatedUnion("mode", [
   z.object({
@@ -20,7 +21,9 @@ const authSchema = z.discriminatedUnion("mode", [
     name: z.string().trim().optional(),
     phone: z.string().trim().optional(),
     referralCode: z.string().trim().optional(),
-    registrationPath: z.string().trim().max(300).optional()
+    registrationPath: z.string().trim().max(300).optional(),
+    registrationContext: z.enum(["MAIN_REGISTER", "LINK_REGISTER"]).optional(),
+    registrationAttemptId: z.string().trim().max(80).optional()
   }),
   z.object({
     mode: z.literal("forgot"),
@@ -60,13 +63,27 @@ export async function POST(request: NextRequest) {
       });
       const visitorId = request.cookies.get("qbot_vid")?.value;
       if (visitorId) {
+        const latestVisit = await prisma.auditLog.findFirst({
+          where: { actorId: visitorId, action: "PAGE_VISIT" },
+          orderBy: { createdAt: "desc" },
+          select: { metadata: true }
+        });
+        let visitMetadata: Record<string, unknown> = {};
+        try { visitMetadata = JSON.parse(latestVisit?.metadata || "{}") as Record<string, unknown>; } catch {}
+        const userAgent = request.headers.get("user-agent") || "";
         await writeAuditLog({
           actorType: "USER",
           actorId: visitorId,
           action: "WEB_REGISTRATION_COMPLETED",
           targetType: "ChatSession",
           targetId: session.id,
-          metadata: { path: body.registrationPath || "/" }
+          metadata: {
+            path: body.registrationPath || "/",
+            source: String(visitMetadata.source || "Trực tiếp"),
+            device: /iphone|ipad|ipod/i.test(userAgent) ? "iPhone/iPad" : /android/i.test(userAgent) ? "Android" : "Máy tính",
+            context: body.registrationContext || "MAIN_REGISTER",
+            attemptId: body.registrationAttemptId
+          }
         });
       }
       return setChatSessionCookie(NextResponse.json(session), session.id);

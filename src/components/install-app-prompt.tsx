@@ -109,7 +109,7 @@ export function InstallAppPrompt() {
               <>
                 <p className="mt-1 text-sm leading-6 text-neutral-600">Mỗi bước chỉ cần chạm vào chỗ có vòng màu cam.</p>
                 <img
-                  src="/images/tutorials/install-iphone-pwa.png"
+                  src="/images/tutorials/install-iphone-pwa.webp"
                   alt="Cách thêm Em Ry vào màn hình chính trên iPhone"
                   className="mt-4 h-auto w-full rounded-2xl border border-neutral-200"
                 />

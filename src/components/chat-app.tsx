@@ -39,6 +39,7 @@ import {
 import type { AppNoticeDto, ChatHistoryItem, ChatMessage, ChatSessionPayload } from "@/types/app";
 import { LandingPage } from "@/components/landing-page";
 import { classifyShoppingLink, shoppingPlatformLabel } from "@/lib/shopping-link";
+import { registrationErrorCategory, registrationErrorCode } from "@/lib/registration-errors";
 
 type CashbackCardData = {
   productName?: string;
@@ -225,16 +226,6 @@ function isActivityTitle(title: string) {
 function isAuthStartMessage(content: string) {
   const normalized = content.toLowerCase();
   return normalized.includes("có tài khoản chọn 1") && normalized.includes("chưa có tài khoản chọn 2");
-}
-
-function registrationErrorCategory(message: string) {
-  const value = message.toLocaleLowerCase("vi");
-  if (value.includes("email") && (value.includes("tồn tại") || value.includes("đã được") || value.includes("đã dùng"))) return "EMAIL_EXISTS";
-  if (value.includes("giới thiệu") || value.includes("referral")) return "REFERRAL";
-  if (value.includes("mạng") || value.includes("network") || value.includes("fetch")) return "NETWORK";
-  if (value.includes("server") || value.includes("máy chủ") || value.includes("api")) return "SERVER";
-  if (value.includes("không hợp lệ") || value.includes("mật khẩu") || value.includes("định dạng")) return "INVALID_INPUT";
-  return "OTHER";
 }
 
 export function ChatApp() {
@@ -439,7 +430,11 @@ export function ChatApp() {
     try {
       const response = await fetch(`/api/chat/session?sessionId=${encodeURIComponent(sessionId)}`);
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      if (!response.ok) {
+        const authError = new Error(data.error || "Chưa thể xác thực.");
+        Object.assign(authError, { httpStatus: response.status });
+        throw authError;
+      }
       if (!data.user) {
         window.localStorage.removeItem("chat_session_id");
         setSession(null);
@@ -675,9 +670,11 @@ export function ChatApp() {
               password: authPassword,
               passwordConfirmation: authPasswordConfirmation,
               name: authName,
-              phone: authPhone,
+              phone: authPhone.replace(/[\s.-]/g, ""),
               referralCode: authReferralCode,
-              registrationPath: window.location.pathname
+              registrationPath: window.location.pathname,
+              registrationContext: window.localStorage.getItem("pending_cashback_link") ? "LINK_REGISTER" : "MAIN_REGISTER",
+              registrationAttemptId: window.sessionStorage.getItem("registration_attempt_id") || undefined
             }
           : authMode === "forgot"
             ? { mode: "forgot", email: normalizedEmail }
@@ -691,7 +688,11 @@ export function ChatApp() {
         body: JSON.stringify(body)
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      if (!response.ok) {
+        const authError = new Error(data.error || "Chưa thể xác thực.");
+        Object.assign(authError, { httpStatus: response.status });
+        throw authError;
+      }
 
       if (authMode === "forgot") {
         setAuthMessage(data.message || "Nếu email này có tài khoản, Ry đã gửi hướng dẫn đặt lại mật khẩu rồi nhé.");
@@ -718,15 +719,29 @@ export function ChatApp() {
       setTwoFactorCode("");
       setPendingTwoFactorSessionId("");
       setAuthMessage("");
+      window.sessionStorage.removeItem("registration_funnel_started");
+      window.sessionStorage.removeItem("registration_attempt_id");
       setShowAuth(false);
     } catch (err) {
       if (authMode === "register") {
         const errorMessage = err instanceof Error ? err.message : "";
+        const httpStatus = Number((err as Error & { httpStatus?: number })?.httpStatus || 0) || undefined;
+        const category = registrationErrorCategory(errorMessage, httpStatus);
         void fetch("/api/analytics/registration", {
           method: "POST",
           keepalive: true,
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ stage: "FAILED", path: window.location.pathname, errorCategory: registrationErrorCategory(errorMessage) })
+          body: JSON.stringify({
+            stage: "FAILED",
+            step: 2,
+            path: window.location.pathname,
+            errorCategory: category,
+            errorCode: registrationErrorCode(category, httpStatus),
+            errorMessage,
+            httpStatus,
+            context: window.localStorage.getItem("pending_cashback_link") ? "LINK_REGISTER" : "MAIN_REGISTER",
+            attemptId: window.sessionStorage.getItem("registration_attempt_id")
+          })
         }).catch(() => {});
       }
       setError(err instanceof Error ? err.message : "Ry chưa xác thực được thông tin. Bạn kiểm tra rồi thử lại nhé.");
@@ -1619,19 +1634,37 @@ function AuthScreen({
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
   const [registerStep, setRegisterStep] = useState<1 | 2>(1);
+  const [formError, setFormError] = useState("");
+  const [hasPendingLink, setHasPendingLink] = useState(false);
   const passwordsMatch = passwordConfirmation.length > 0 && password === passwordConfirmation;
+
+  function registrationAttemptId() {
+    const existing = window.sessionStorage.getItem("registration_attempt_id");
+    if (existing) return existing;
+    const next = crypto.randomUUID();
+    window.sessionStorage.setItem("registration_attempt_id", next);
+    return next;
+  }
 
   function trackRegistration(stage: "STARTED" | "STEP_2" | "ABANDONED", step?: 1 | 2) {
     void fetch("/api/analytics/registration", {
       method: "POST",
       keepalive: stage === "ABANDONED",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ stage, step, path: window.location.pathname })
+      body: JSON.stringify({
+        stage,
+        step,
+        path: window.location.pathname,
+        context: window.localStorage.getItem("pending_cashback_link") ? "LINK_REGISTER" : "MAIN_REGISTER",
+        attemptId: registrationAttemptId()
+      })
     }).catch(() => {});
   }
 
   useEffect(() => {
     if (!isRegister) setRegisterStep(1);
+    setFormError("");
+    setHasPendingLink(isRegister && classifyShoppingLink(window.localStorage.getItem("pending_cashback_link") ?? "").kind === "supported");
   }, [isRegister]);
 
   useEffect(() => {
@@ -1654,10 +1687,37 @@ function AuthScreen({
   function handleAuthSubmit(event: FormEvent) {
     if (isRegister && registerStep === 1) {
       event.preventDefault();
-      if (!passwordsMatch) return;
+      setFormError("");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        setFormError("Bạn kiểm tra lại địa chỉ email.");
+        return;
+      }
+      if (password.length < 8) {
+        setFormError("Mật khẩu cần có ít nhất 8 ký tự.");
+        return;
+      }
+      if (!passwordsMatch) {
+        setFormError("Hai mật khẩu chưa giống nhau.");
+        return;
+      }
       setRegisterStep(2);
       trackRegistration("STEP_2", 2);
       return;
+    }
+    if (isRegister && registerStep === 2) {
+      setFormError("");
+      if (name.trim().length < 2) {
+        event.preventDefault();
+        setFormError("Bạn nhập họ tên có ít nhất 2 ký tự.");
+        return;
+      }
+      const normalizedPhone = phone.replace(/[\s.-]/g, "");
+      if (normalizedPhone && !/^\+?[0-9]{9,15}$/.test(normalizedPhone)) {
+        event.preventDefault();
+        setFormError("Số điện thoại chưa đúng. Bạn có thể sửa lại hoặc để trống.");
+        return;
+      }
+      if (normalizedPhone !== phone) onPhoneChange(normalizedPhone);
     }
     onSubmit(event);
   }
@@ -1716,6 +1776,12 @@ function AuthScreen({
 
         {isRegister ? (
           <div className="mb-5" aria-label={`Bước ${registerStep} trên 2`}>
+            {hasPendingLink ? (
+              <div className="mb-4 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm leading-5 text-emerald-800">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                <span><strong>Đã giữ link sản phẩm.</strong> Đăng ký xong, Qbot sẽ tự kiểm tra link này cho bạn.</span>
+              </div>
+            ) : null}
             <div className="mb-2 flex items-center justify-between text-sm font-semibold">
               <span className="text-brand-red">Bước {registerStep}/2</span>
               <span className="text-neutral-500">{registerStep === 1 ? "Thông tin đăng nhập" : "Thông tin cá nhân"}</span>
@@ -1743,7 +1809,7 @@ function AuthScreen({
                 Họ tên
                 <span className="relative">
                   <User aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
-                  <input value={name} onChange={(event) => onNameChange(event.target.value)} autoComplete="name" required placeholder="Nguyễn Văn An" className={inputClassName} />
+                  <input value={name} onChange={(event) => onNameChange(event.target.value)} autoComplete="name" required minLength={2} placeholder="Nguyễn Văn An" className={inputClassName} />
                 </span>
               </label>
               <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
@@ -1822,7 +1888,7 @@ function AuthScreen({
             </label>
           ) : null}
 
-          {error ? <div role="alert" className="flex gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-100"><AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />{error}</div> : null}
+          {formError || error ? <div role="alert" className="flex gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-100"><AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />{formError || error}</div> : null}
           {message ? <div role="status" className="flex gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700 ring-1 ring-emerald-100"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />{message}</div> : null}
 
           {isRegister && registerStep === 2 ? (
@@ -2333,7 +2399,7 @@ function InstallGuideCard() {
         <h2 className="text-sm font-bold text-[#216653]">Cài Em Ry trên iPhone</h2>
         <p className="mt-1 text-xs leading-5 text-neutral-600">Miễn phí, không tốn dung lượng. Xem hình và chạm vào vị trí có vòng màu cam.</p>
       </div>
-      <img src="/images/tutorials/install-iphone-pwa.png" alt="Cách thêm Em Ry vào màn hình chính iPhone" className="h-auto w-full border-y border-neutral-100" />
+      <img src="/images/tutorials/install-iphone-pwa.webp" alt="Cách thêm Em Ry vào màn hình chính iPhone" className="h-auto w-full border-y border-neutral-100" />
       <ol className="grid gap-1.5 p-3">
         {steps.map((step, index) => (
           <li key={step} className="flex items-start gap-2 rounded-xl bg-neutral-50 px-2.5 py-2">
@@ -2361,7 +2427,7 @@ function LinkGuideCard({ initialPlatform }: { initialPlatform: "shopee" | "tikto
         </div>
       </div>
       <img
-        src={shopee ? "/images/tutorials/copy-link-shopee.png" : "/images/tutorials/copy-link-tiktok-shop.png"}
+        src={shopee ? "/images/tutorials/copy-link-shopee.webp" : "/images/tutorials/copy-link-tiktok-shop.webp"}
         alt={shopee ? "Hai bước sao chép đường dẫn sản phẩm Shopee" : "Hai bước sao chép liên kết sản phẩm TikTok Shop"}
         className="aspect-[3/2] h-auto w-full border-y border-neutral-100 object-cover"
       />

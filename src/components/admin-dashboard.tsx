@@ -399,11 +399,27 @@ type PageAnalyticsDto = {
     completed: number;
     abandoned: number;
     failed: number;
+    failedAttempts: number;
     completionRate: number;
     abandonedByStep: { name: string; count: number }[];
     failureReasons: { name: string; count: number }[];
     sources: { name: string; count: number; completed: number; completionRate: number }[];
     devices: { name: string; count: number }[];
+    recentEvents: {
+      visitor: string;
+      stage: string;
+      createdAt: string;
+      step?: number;
+      source: string;
+      device: string;
+      path: string;
+      context: string;
+      errorCategory?: string;
+      errorCode?: string;
+      errorMessage?: string;
+      httpStatus?: number;
+      attemptId?: string;
+    }[];
   };
   pages: {
     path: string;
@@ -523,6 +539,11 @@ function PageAnalyticsPanel() {
             </div>
           ))}
         </div>
+        {(data?.registrationFunnel?.failedAttempts ?? 0) > 0 ? (
+          <p className="mt-2 text-right text-xs text-neutral-500">
+            {data?.registrationFunnel?.failed ?? 0} khách gặp lỗi · {data?.registrationFunnel?.failedAttempts ?? 0} lần thử thất bại
+          </p>
+        ) : null}
         {(data?.registrationFunnel?.started ?? 0) >= 20 && (data?.registrationFunnel?.completionRate ?? 0) < 20 ? (
           <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
             Cảnh báo: tỷ lệ đăng ký thành công đang dưới 20%. Hãy kiểm tra nhóm lỗi và bước khách bỏ dở bên dưới.
@@ -550,6 +571,7 @@ function PageAnalyticsPanel() {
                   INVALID_INPUT: "Thông tin chưa hợp lệ",
                   REFERRAL: "Mã giới thiệu",
                   NETWORK: "Kết nối mạng",
+                  RATE_LIMIT: "Thao tác quá nhanh",
                   SERVER: "Máy chủ/API",
                   OTHER: "Lỗi khác"
                 };
@@ -576,6 +598,51 @@ function PageAnalyticsPanel() {
               </tbody>
             </table>
             {!data?.registrationFunnel?.sources?.length ? <p className="p-3 text-xs text-neutral-400">Chưa có dữ liệu nguồn đăng ký.</p> : null}
+          </div>
+        </div>
+        <div className="mt-3 overflow-hidden rounded-lg border border-brand-line">
+          <div className="border-b border-brand-line bg-neutral-50 px-3 py-2">
+            <h4 className="text-sm font-bold">Lịch sử đăng ký gần nhất</h4>
+            <p className="mt-0.5 text-xs text-neutral-500">Không lưu mật khẩu, OTP, email hoặc số điện thoại của khách.</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[980px] text-left text-xs">
+              <thead className="text-neutral-500">
+                <tr>
+                  <th className="px-3 py-2">Thời gian</th>
+                  <th className="px-3 py-2">Khách</th>
+                  <th className="px-3 py-2">Sự kiện</th>
+                  <th className="px-3 py-2">Luồng</th>
+                  <th className="px-3 py-2">Nguồn / thiết bị</th>
+                  <th className="px-3 py-2">Chi tiết lỗi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-brand-line">
+                {(data?.registrationFunnel?.recentEvents ?? []).map((item, index) => {
+                  const stageLabels: Record<string, string> = {
+                    STARTED: "Bắt đầu",
+                    STEP_2: "Đến bước 2",
+                    COMPLETED: "Thành công",
+                    ABANDONED: "Bỏ dở",
+                    FAILED: "Thất bại"
+                  };
+                  return (
+                    <tr key={`${item.createdAt}-${index}`} className="align-top">
+                      <td className="whitespace-nowrap px-3 py-2">{new Date(item.createdAt).toLocaleString("vi-VN")}</td>
+                      <td className="px-3 py-2 font-mono">{item.visitor}</td>
+                      <td className="px-3 py-2 font-semibold">{stageLabels[item.stage] ?? item.stage}{item.step ? ` · Bước ${item.step}` : ""}</td>
+                      <td className="px-3 py-2">{item.context === "LINK_REGISTER" ? "Sau khi dán link" : "Đăng ký thường"}<span className="block text-neutral-400">{item.path}</span></td>
+                      <td className="px-3 py-2">{item.source}<span className="block text-neutral-400">{item.device}</span></td>
+                      <td className="max-w-sm px-3 py-2">
+                        {item.errorMessage ? <span className="text-red-700">{item.errorMessage}</span> : <span className="text-neutral-400">—</span>}
+                        {item.errorCode ? <span className="mt-0.5 block font-mono text-[11px] text-neutral-500">{item.errorCode}{item.httpStatus ? ` · HTTP ${item.httpStatus}` : ""}</span> : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {!data?.registrationFunnel?.recentEvents?.length ? <p className="p-4 text-center text-xs text-neutral-400">Chưa có lịch sử đăng ký.</p> : null}
           </div>
         </div>
       </section>

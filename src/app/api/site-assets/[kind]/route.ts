@@ -1,6 +1,7 @@
 import { readFile } from "fs/promises";
 import path from "path";
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 import { getSiteSettings } from "@/services/site-settings";
 import { brandingFilePath, brandingFilenameFromUrl } from "@/lib/upload-storage";
 
@@ -37,11 +38,15 @@ async function imageResponse(filePath: string) {
   if (!contentType) return null;
   try {
     const file = await readFile(filePath);
-    return new NextResponse(file, {
+    const optimized = await sharp(file, { animated: false })
+      .resize({ width: 256, height: 256, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 82, effort: 5 })
+      .toBuffer();
+    return new NextResponse(new Uint8Array(optimized), {
       status: 200,
       headers: {
-        "content-type": contentType,
-        "cache-control": "no-store, max-age=0",
+        "content-type": "image/webp",
+        "cache-control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
         "x-content-type-options": "nosniff"
       }
     });
