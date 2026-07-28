@@ -36,7 +36,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   for (const page of articles) {
     entries.push({
       url: `${base}/kien-thuc/${page.slug}`,
-      lastModified: new Date("2026-07-27"),
+      lastModified: new Date(page.updatedAt ?? "2026-07-27"),
       changeFrequency: "monthly",
       priority: 0.7
     });

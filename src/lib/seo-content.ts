@@ -13,6 +13,7 @@ export type SeoContent = {
   sections: ContentSection[];
   related: string[];
   faqs?: { question: string; answer: string }[];
+  updatedAt?: string;
 };
 
 export type SeoImage = {
@@ -39,8 +40,9 @@ const article = (
   keyword: string,
   intro: string,
   sections: ContentSection[],
-  related: string[]
-): SeoContent => ({ slug, title, description, keyword, intro, sections, related });
+  related: string[],
+  faqs: { question: string; answer: string }[] = []
+): SeoContent => ({ slug, title, description, keyword, intro, sections, related, faqs, updatedAt: "2026-07-28" });
 
 export const landingPages: SeoContent[] = [
   landing(
@@ -303,7 +305,75 @@ export const articles: SeoContent[] = [
     { heading: "Trong khi mua", body: "Bắt đầu bằng link Em Ry, dùng cùng thiết bị và không mở link quảng bá khác trước khi thanh toán." },
     { heading: "Sau khi đặt hàng", body: "Không hủy rồi đặt lại trực tiếp. Nếu cần mua lại, hãy tạo một phiên mới từ Em Ry." },
     { heading: "Khi theo dõi đơn", body: "Chờ đủ thời gian đồng bộ, giữ mã đơn và ảnh trạng thái. Không gửi OTP hoặc mật khẩu khi yêu cầu hỗ trợ." }
-  ], ["hoan-tien-shopee", "hoan-tien-tiktok-shop", "don-hang-bi-tu-choi-hoan-tien"])
+  ], ["hoan-tien-shopee", "hoan-tien-tiktok-shop", "don-hang-bi-tu-choi-hoan-tien"]),
+  article(
+    "cach-kiem-tra-tien-hoan-truoc-khi-mua",
+    "Cách kiểm tra tiền hoàn trước khi mua Shopee, TikTok Shop",
+    "Hướng dẫn kiểm tra tiền hoàn dự kiến từ link sản phẩm trước khi đặt hàng trên Shopee hoặc TikTok Shop, kèm lưu ý để đơn được ghi nhận.",
+    "kiểm tra tiền hoàn trước khi mua",
+    "Kiểm tra tiền hoàn trước khi mua giúp bạn biết sản phẩm có thể phát sinh quyền lợi hay không và bắt đầu phiên mua từ đúng liên kết. Mức hiển thị ban đầu chỉ là dự kiến; số tiền cuối cùng phụ thuộc đơn hàng hợp lệ và kết quả đối soát.",
+    [
+      { heading: "Kiểm tra tiền hoàn là gì?", body: "Đây là bước gửi đường dẫn sản phẩm vào Qbot để hệ thống tạo một liên kết mua hàng có thể theo dõi. Khi dữ liệu đối tác có sẵn, Qbot hiển thị giá sản phẩm và tiền hoàn dự kiến. Việc kiểm tra không làm thay đổi giá niêm yết trên sàn và không đồng nghĩa đơn chắc chắn được duyệt." },
+      { heading: "Chuẩn bị đúng link sản phẩm", body: "Đường dẫn nên mở trực tiếp trang chi tiết của đúng sản phẩm bạn định mua. Link trang chủ, trang tìm kiếm, video hoặc livestream có thể không đủ thông tin để xử lý.", bullets: ["Mở sản phẩm trong ứng dụng Shopee hoặc TikTok Shop.", "Chạm Chia sẻ và chọn Sao chép liên kết.", "Thử mở lại link để chắc chắn nó dẫn tới đúng sản phẩm.", "Không gửi ảnh chụp màn hình thay cho đường dẫn."] },
+      { heading: "Các bước kiểm tra trên Qbot", body: "Mở trang chủ Qbot, dán đường dẫn vào ô kiểm tra và đăng ký tài khoản miễn phí nếu bạn chưa có tài khoản. Tài khoản được dùng để gắn link, lịch sử đơn và số dư với đúng người nhận. Sau khi xử lý thành công, hãy dùng nút quay lại sàn trong kết quả." },
+      { heading: "Cách đọc kết quả dự kiến", body: "Giá sản phẩm là dữ liệu tham khảo tại thời điểm xử lý. Tiền hoàn dự kiến được tính từ thông tin hoa hồng đối tác cung cấp và chính sách chia sẻ đang áp dụng. Voucher, biến thể, giá trị hợp lệ, thuế và thay đổi chính sách có thể khiến số cuối cùng khác với số ban đầu." },
+      { heading: "Mua hàng thế nào để giảm rủi ro mất ghi nhận?", body: "Sau khi mở link Qbot tạo, nên hoàn tất việc chọn sản phẩm và thanh toán trong cùng phiên. Hạn chế mở liên kết quảng cáo, KOL hoặc link giới thiệu khác trước khi đặt hàng vì nguồn giới thiệu có thể bị thay đổi.", bullets: ["Kiểm tra đúng shop, sản phẩm và biến thể.", "Không chuyển sang thiết bị khác giữa phiên nếu không cần thiết.", "Không hủy rồi đặt lại trực tiếp từ lịch sử sàn.", "Nếu đổi sản phẩm, quay lại Qbot để tạo link mới."] },
+      { heading: "Khi nào tiền hoàn được xác nhận?", body: "Sau khi đặt hàng, dữ liệu có thể chưa xuất hiện ngay. Đơn cần giao thành công, qua thời hạn đổi trả và được đối tác xác nhận đủ điều kiện. Chỉ số dư đã duyệt hoặc khả dụng mới là số tiền có thể rút; trạng thái tạm tính chưa phải cam kết thanh toán." },
+      { heading: "Nếu kết quả không có tiền hoàn", body: "Một số sản phẩm, danh mục hoặc thời điểm không phát sinh hoa hồng. Bạn có thể kiểm tra lại link, thử đúng trang chi tiết sản phẩm hoặc chọn sản phẩm khác. Không nên tin công cụ tự ước tính một tỷ lệ cố định cho mọi mặt hàng." },
+      { heading: "Checklist 30 giây trước khi thanh toán", body: "Trước khi bấm đặt hàng, hãy xác nhận bạn đã mở sản phẩm từ đúng nút Qbot cung cấp, giá và biến thể trên sàn là chính xác, đồng thời không mở thêm nguồn giới thiệu khác. Lưu mã đơn sau khi mua để thuận tiện kiểm tra hoặc tra soát." }
+    ],
+    ["tao-link-hoan-tien", "cach-lay-link-shopee", "cach-lay-link-tiktok-shop", "nhung-loi-can-tranh-khi-mua-hang-hoan-tien"],
+    [
+      { question: "Kiểm tra tiền hoàn có mất phí không?", answer: "Không. Qbot không thu phí đăng ký hoặc phí kiểm tra link sản phẩm." },
+      { question: "Số tiền dự kiến có chắc chắn nhận được không?", answer: "Không. Số cuối cùng phụ thuộc trạng thái đơn, giá trị hợp lệ, chính sách hoa hồng và kết quả đối soát của đối tác." },
+      { question: "Có cần cung cấp mật khẩu Shopee hoặc TikTok không?", answer: "Không. Bạn chỉ đăng nhập và thanh toán trên ứng dụng hoặc website chính thức của sàn." }
+    ]
+  ),
+  article(
+    "tien-hoan-mua-hang-den-tu-dau",
+    "Tiền hoàn mua hàng đến từ đâu? Cơ chế cashback dễ hiểu",
+    "Giải thích nguồn tiền hoàn, vai trò của link giới thiệu, hoa hồng, thuế và đối soát khi mua hàng online.",
+    "tiền hoàn mua hàng đến từ đâu",
+    "Tiền hoàn không phải khoản Qbot cộng thêm vào giá sản phẩm và cũng không phải tiền hoàn trả do lỗi đơn hàng. Khoản này hình thành khi một giao dịch hợp lệ tạo ra hoa hồng giới thiệu và một phần hoa hồng được chia lại cho người mua.",
+    [
+      { heading: "Ba bên trong một giao dịch hoàn tiền", body: "Sàn thương mại điện tử bán hàng và xử lý thanh toán; đối tác liên kết cung cấp cơ chế ghi nhận nguồn giới thiệu; Qbot tạo link, nhận dữ liệu đối soát và hiển thị quyền lợi cho người dùng. Người mua vẫn giao dịch trực tiếp với sàn." },
+      { heading: "Vì sao cần một liên kết riêng?", body: "Liên kết chứa thông tin giúp hệ thống xác định giao dịch bắt đầu từ Qbot. Nếu người mua vào sản phẩm từ một nguồn khác sau đó, nguồn ghi nhận có thể bị thay thế. Đây là lý do nút quay lại sàn trong kết quả kiểm tra rất quan trọng." },
+      { heading: "Hoa hồng khác tiền hoàn như thế nào?", body: "Hoa hồng là khoản đối tác xác nhận cho nguồn giới thiệu khi giao dịch đủ điều kiện. Tiền hoàn là phần quyền lợi Qbot chia lại cho người dùng theo chính sách. Hai con số có thể khác nhau do thuế, tỷ lệ chia sẻ và điều chỉnh sau đối soát." },
+      { heading: "Tại sao không thể cam kết một tỷ lệ cố định?", body: "Mức hoa hồng có thể khác giữa ngành hàng, shop, sản phẩm, thời điểm và chương trình. Giá trị tính hoa hồng cũng có thể không gồm phí vận chuyển, voucher hoặc phần hàng bị hoàn. Vì vậy lấy một tỷ lệ chung nhân với tổng thanh toán thường cho kết quả sai." },
+      { heading: "Đối soát quyết định số tiền cuối cùng", body: "Sàn và đối tác cần xác minh đơn đã giao, không bị hủy hoặc trả hàng, không vi phạm chính sách và có nguồn giới thiệu hợp lệ. Dữ liệu ban đầu có thể ở trạng thái tạm tính; chỉ kết quả đã duyệt mới là căn cứ cộng số dư khả dụng." },
+      { heading: "Tiền hoàn có làm sản phẩm đắt hơn không?", body: "Qbot không thay đổi giá sản phẩm trên sàn. Bạn vẫn xem giá, voucher, phí vận chuyển và tổng thanh toán trong ứng dụng chính thức. Nếu tổng tiền không phù hợp, bạn có thể dừng giao dịch như một đơn mua hàng thông thường." },
+      { heading: "Những dấu hiệu cần cảnh giác", body: "Không chuyển phí để mở khóa tiền hoàn, không cung cấp OTP hoặc mật khẩu, và không tin lời hứa lợi nhuận chắc chắn. Dịch vụ minh bạch phải giải thích rõ trạng thái dự kiến, thời gian đối soát và điều kiện từ chối.", bullets: ["Thanh toán chỉ trên sàn chính thức.", "Không cung cấp mật khẩu hoặc OTP.", "Không có mức hoàn cố định cho mọi sản phẩm.", "Có điều khoản và kênh hỗ trợ rõ ràng."] }
+    ],
+    ["cach-hoat-dong", "cashback-hoat-dong-nhu-the-nao", "mua-hang-hoan-tien-co-tang-gia-khong", "tien-hoan-khac-du-kien"],
+    [
+      { question: "Tiền hoàn có phải Shopee Xu không?", answer: "Không. Shopee Xu và tiền hoàn từ hoa hồng giới thiệu là hai cơ chế khác nhau, có điều kiện và cách sử dụng riêng." },
+      { question: "Qbot có thu thêm tiền từ đơn hàng không?", answer: "Không. Bạn thanh toán giá hiển thị trực tiếp trên sàn; Qbot không cộng phụ phí vào sản phẩm." },
+      { question: "Vì sao phải chờ lâu mới rút được?", answer: "Đơn cần hoàn tất và được đối tác đối soát. Khoản tạm tính chưa thể rút cho đến khi chuyển thành số dư khả dụng." }
+    ]
+  ),
+  article(
+    "checklist-mua-hang-hoan-tien-khong-mat-don",
+    "Checklist mua hàng hoàn tiền để hạn chế mất ghi nhận đơn",
+    "Danh sách kiểm tra trước, trong và sau khi mua giúp giảm lỗi mất nguồn giới thiệu và chuẩn bị thông tin tra soát.",
+    "checklist mua hàng hoàn tiền",
+    "Không có thao tác nào đảm bảo tuyệt đối một đơn sẽ được duyệt, nhưng một quy trình nhất quán giúp giảm các lỗi phổ biến như dùng sai link, đổi nguồn giới thiệu hoặc đặt lại đơn không qua Qbot.",
+    [
+      { heading: "Trước khi sao chép link", body: "Xác định đúng sản phẩm, shop và nền tảng. Nếu sản phẩm nằm trong video hoặc livestream, hãy mở trang chi tiết sản phẩm trước khi chọn Chia sẻ. Link cần mở lại đúng mặt hàng, không phải trang chủ hoặc trang tìm kiếm." },
+      { heading: "Trước khi mở link mua", body: "Đóng bớt các trang quảng cáo hoặc link giới thiệu không cần thiết. Dán link vào Qbot, chờ hệ thống trả kết quả và chỉ dùng nút quay lại sàn trong thẻ kết quả.", bullets: ["Dùng đúng tài khoản Qbot của bạn.", "Kiểm tra nền tảng và tên sản phẩm.", "Đọc mức tiền hoàn dưới dạng dự kiến.", "Không chia sẻ link kết quả nếu link gắn với tài khoản cá nhân."] },
+      { heading: "Trong phiên mua hàng", body: "Giữ cùng thiết bị và hạn chế chuyển qua lại nhiều nguồn. Bạn có thể chọn biến thể, voucher và địa chỉ trên sàn, nhưng nếu chuyển sang một sản phẩm hoàn toàn khác thì nên quay lại Qbot tạo link mới." },
+      { heading: "Ngay trước khi thanh toán", body: "Kiểm tra tổng tiền, shop, biến thể và số lượng trong ứng dụng chính thức. Qbot không thu tiền mua hàng. Nếu trang yêu cầu OTP, mật khẩu hoặc chuyển khoản ngoài sàn dưới danh nghĩa hoàn tiền, hãy dừng lại." },
+      { heading: "Sau khi đặt hàng", body: "Lưu mã đơn và thời điểm đặt. Không lo lắng nếu đơn chưa xuất hiện ngay vì dữ liệu thường được đồng bộ theo kỳ. Tránh hủy và đặt lại trực tiếp; nếu cần mua lại, hãy bắt đầu một phiên mới từ Qbot." },
+      { heading: "Khi đơn bị hủy hoặc trả hàng", body: "Đơn không hoàn tất thường không phát sinh hoa hồng. Nếu chỉ hoàn một phần, giá trị hợp lệ và tiền hoàn có thể được điều chỉnh. Hãy chờ trạng thái cuối cùng thay vì dựa vào con số tạm tính ban đầu." },
+      { heading: "Chuẩn bị tra soát đúng cách", body: "Khi đã qua thời gian đồng bộ dự kiến mà chưa thấy đơn, hãy chuẩn bị mã đơn, ngày giờ mua, nền tảng và ảnh trạng thái đơn. Che địa chỉ, số điện thoại và thông tin thanh toán không liên quan; tuyệt đối không gửi OTP hoặc mật khẩu." },
+      { heading: "Bản kiểm tra nhanh có thể lưu lại", body: "Đúng link sản phẩm; mở sàn từ nút Qbot; không mở nguồn quảng cáo khác; mua trong cùng phiên; lưu mã đơn; chờ đủ kỳ đồng bộ. Sáu điểm này bao quát phần lớn lỗi thao tác mà người mua có thể chủ động phòng tránh." }
+    ],
+    ["nhung-loi-can-tranh-khi-mua-hang-hoan-tien", "shopee-khong-ghi-nhan-hoan-tien", "tiktok-shop-khong-ghi-nhan-don", "kiem-tra-don-hoan-tien"],
+    [
+      { question: "Mở thêm link quảng cáo có ảnh hưởng không?", answer: "Có thể. Nguồn giới thiệu cuối cùng có thể thay đổi, vì vậy nên hoàn tất phiên mua từ đúng link Qbot cung cấp." },
+      { question: "Có cần mua ngay sau khi tạo link không?", answer: "Nên hoàn tất trong cùng phiên và tránh mở nguồn khác. Thời hạn ghi nhận cụ thể phụ thuộc cơ chế của đối tác." },
+      { question: "Đơn chưa hiện ngay có phải mất đơn không?", answer: "Chưa chắc. Dữ liệu có thể đồng bộ chậm; hãy chờ đủ thời gian được Qbot thông báo trước khi tra soát." }
+    ]
+  )
 ];
 
 export const landingPageMap = new Map(landingPages.map((item) => [item.slug, item]));
@@ -311,6 +381,20 @@ export const articleMap = new Map(articles.map((item) => [item.slug, item]));
 
 export function getSeoImage(content: SeoContent): SeoImage {
   const slug = content.slug;
+  if (slug === "cach-kiem-tra-tien-hoan-truoc-khi-mua" || slug === "tien-hoan-mua-hang-den-tu-dau") {
+    return {
+      src: "/images/seo/quy-trinh-hoan-tien-qbot.png",
+      alt: "Quy trình sao chép link sản phẩm, theo dõi đơn và nhận tiền hoàn qua Qbot",
+      caption: "Qbot tạo liên kết mua hàng có thể theo dõi; tiền hoàn cuối cùng phụ thuộc kết quả đối soát."
+    };
+  }
+  if (slug === "checklist-mua-hang-hoan-tien-khong-mat-don") {
+    return {
+      src: "/images/seo/mua-hang-hoan-tien-an-toan.png",
+      alt: "Người mua kiểm tra liên kết và trạng thái đơn hàng hoàn tiền an toàn",
+      caption: "Kiểm tra đúng link, mua trên sàn chính thức và lưu mã đơn để thuận tiện theo dõi."
+    };
+  }
   if (slug.includes("shopee")) {
     return {
       src: "/images/seo/hoan-tien-shopee.webp",

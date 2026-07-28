@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: content.title,
     description: content.description,
-    keywords: [content.keyword, "Em Ry", "hoàn tiền mua hàng"],
+    keywords: [content.keyword, "Qbot", "hoàn tiền mua hàng", "hoàn tiền Shopee", "hoàn tiền TikTok Shop"],
     alternates: { canonical: `/${slug}` },
     openGraph: { type: "website", url: `/${slug}`, title: content.title, description: content.description, images: [{ url: image.src, alt: image.alt }] },
     twitter: { card: "summary_large_image", title: content.title, description: content.description, images: [image.src] }
@@ -41,6 +41,13 @@ export default async function SeoLandingPage({ params }: { params: Promise<{ slu
         image: `${base}${image.src}`,
         provider: { "@id": `${base}/#organization` },
         areaServed: { "@type": "Country", name: "Việt Nam" }
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Trang chủ", item: base },
+          { "@type": "ListItem", position: 2, name: content.title, item: `${base}/${slug}` }
+        ]
       },
       ...(content.faqs?.length ? [{
         "@type": "FAQPage",

@@ -244,7 +244,9 @@ export function ChatApp() {
   const [clipboardSuggestion, setClipboardSuggestion] = useState<{ link: string; platform: string } | null>(null);
   const [autoSubmitShoppingLinks, setAutoSubmitShoppingLinks] = useState(true);
   const [linkProgress, setLinkProgress] = useState("");
-  const [loading, setLoading] = useState(true);
+  // Render the public landing page in the server HTML so search engines and
+  // AI crawlers can understand the homepage before client-side session restore.
+  const [loading, setLoading] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");

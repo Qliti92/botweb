@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import {
   ArrowRight,
   Check,
@@ -23,6 +23,7 @@ import {
   UserPlus,
   WalletCards
 } from "lucide-react";
+import { classifyShoppingLink } from "@/lib/shopping-link";
 
 type LandingPageProps = {
   onLogin: () => void;
@@ -36,19 +37,19 @@ type InstallPromptEvent = Event & {
 
 const steps = [
   {
-    icon: UserPlus,
-    title: "Tạo tài khoản miễn phí",
-    text: "Tài khoản giúp hệ thống ghi nhận đơn hàng, tiền hoàn và lịch sử rút tiền đúng cho bạn. Bạn chỉ cần tạo một lần."
+    icon: ClipboardPaste,
+    title: "Dán link sản phẩm",
+    text: "Sao chép link sản phẩm trên Shopee hoặc TikTok Shop rồi dán vào Qbot."
   },
   {
-    icon: ClipboardPaste,
-    title: "Gửi link sản phẩm cho Ry",
-    text: "Sao chép link sản phẩm trên Shopee hoặc TikTok Shop rồi dán vào khung chat."
+    icon: UserPlus,
+    title: "Tạo tài khoản miễn phí",
+    text: "Tài khoản giúp Qbot ghi nhận đơn hàng và tiền hoàn đúng cho bạn."
   },
   {
     icon: ShoppingBag,
-    title: "Mở link Ry gửi và đặt hàng",
-    text: "Ry tạo link mua hàng dành riêng cho bạn. Hãy mở đúng link này để mua hàng."
+    title: "Mở link Qbot tạo",
+    text: "Quay lại Shopee hoặc TikTok Shop bằng đúng link và mua hàng như bình thường."
   },
   {
     icon: WalletCards,
@@ -91,6 +92,9 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
   const [linkGuideTab, setLinkGuideTab] = useState<"shopee" | "tiktok">("shopee");
   const [installGuideTab, setInstallGuideTab] = useState<"iphone" | "android">("iphone");
   const [installEvent, setInstallEvent] = useState<InstallPromptEvent | null>(null);
+  const [productLink, setProductLink] = useState("");
+  const [productLinkError, setProductLinkError] = useState("");
+  const [showSample, setShowSample] = useState(false);
 
   useEffect(() => {
     const onInstallPrompt = (event: Event) => {
@@ -105,6 +109,28 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
     if (!installEvent) return;
     await installEvent.prompt();
     await installEvent.userChoice;
+  }
+
+  function startWithProductLink(event: FormEvent) {
+    event.preventDefault();
+    setProductLinkError("");
+    const link = classifyShoppingLink(productLink);
+    if (link.kind !== "supported") {
+      setProductLinkError("Bạn hãy dán đầy đủ link sản phẩm Shopee hoặc TikTok Shop.");
+      return;
+    }
+    window.localStorage.setItem("pending_cashback_link", link.url);
+    onRegister();
+  }
+
+  async function pasteProductLink() {
+    setProductLinkError("");
+    try {
+      const value = await navigator.clipboard.readText();
+      setProductLink(value.trim());
+    } catch {
+      setProductLinkError("Bạn nhấn giữ trong ô rồi chọn Dán, hoặc dùng Ctrl+V.");
+    }
   }
 
   return (
@@ -122,7 +148,6 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
           <nav className="hidden items-center gap-7 text-xs font-medium text-neutral-600 md:flex">
             <a href="#cach-hoat-dong" className="transition hover:text-[#287a63]">Cách hoạt động</a>
             <a href="#sao-chep-link" className="transition hover:text-[#287a63]">Cách lấy link</a>
-            <a href="#cai-ung-dung" className="transition hover:text-[#287a63]">Cài ứng dụng</a>
             <a href="#luu-y" className="transition hover:text-[#287a63]">Lưu ý</a>
             <a href="#cau-hoi" className="transition hover:text-[#287a63]">Câu hỏi thường gặp</a>
           </nav>
@@ -143,48 +168,63 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
         <div className="relative mx-auto grid max-w-6xl items-center gap-9 px-4 pb-12 pt-8 sm:min-h-[650px] sm:px-6 sm:py-14 lg:grid-cols-[1.04fr_.96fr] lg:py-20">
           <div className="text-center lg:text-left">
             <span className="inline-flex items-center gap-2 rounded-full border border-[#d6e4de] bg-white/80 px-3 py-2 text-[11px] font-semibold text-[#287a63] shadow-sm">
-              <Check className="h-4 w-4" /> Miễn phí · Không cần cài ứng dụng
+              <Check className="h-4 w-4" /> Kiểm tra miễn phí · Thanh toán trên sàn
             </span>
-            <h1 className="mx-auto mt-5 max-w-2xl text-[34px] font-bold leading-[1.14] tracking-[-.025em] sm:text-[48px] lg:mx-0 lg:text-[56px]">
-              Mua hàng như bình thường,
-              <span className="mt-1 block text-[#287a63]">nhận lại 70% hoa hồng.</span>
+            <h1 className="mx-auto mt-5 max-w-2xl text-[clamp(27px,7.8vw,48px)] font-bold leading-[1.14] tracking-[-.035em] lg:mx-0">
+              <span className="block whitespace-nowrap">Dán link sản phẩm</span>
+              <span className="mt-1 block whitespace-nowrap text-[#287a63]">kiểm tra tiền hoàn.</span>
             </h1>
             <p className="mx-auto mt-5 max-w-xl text-[16px] leading-[1.7] text-neutral-600 lg:mx-0">
-              Đăng ký miễn phí, gửi link sản phẩm cho Ry và mua hàng qua link được tạo. Bạn có thể theo dõi đơn và tiền hoàn ngay trong tài khoản.
+              Sao chép link sản phẩm Shopee hoặc TikTok Shop, dán vào Qbot để tạo link mua hàng và theo dõi tiền hoàn của bạn.
             </p>
 
-            <div className="mx-auto mt-5 max-w-xl text-left lg:mx-0" aria-label="Nền tảng được hỗ trợ">
-              <p className="text-xs font-bold uppercase tracking-[.12em] text-neutral-500">Nền tảng đang hỗ trợ</p>
-              <div className="mt-2 grid max-w-md grid-cols-2 gap-2.5">
-                <a href="/hoan-tien-shopee" className="flex min-h-12 items-center gap-2.5 rounded-xl border border-[#f1d4ca] bg-[#fff8f4] px-3 transition hover:-translate-y-0.5 hover:border-[#ee4d2d] hover:shadow-sm">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#ee4d2d] text-xs font-black text-white">S</span>
-                  <span>
-                    <strong className="block text-[13px] text-[#ee4d2d]">Shopee</strong>
-                    <span className="text-[10px] text-neutral-500">Link sản phẩm</span>
-                  </span>
-                </a>
-                <a href="/hoan-tien-tiktok-shop" className="flex min-h-12 items-center gap-2.5 rounded-xl border border-[#d7e3e4] bg-[#f6fbfb] px-3 transition hover:-translate-y-0.5 hover:border-[#20242a] hover:shadow-sm">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#20242a] text-xs font-black text-white">T</span>
-                  <span>
-                    <strong className="block text-[13px] text-[#20242a]">TikTok Shop</strong>
-                    <span className="text-[10px] text-neutral-500">Link sản phẩm</span>
-                  </span>
-                </a>
-              </div>
-            </div>
+            <div className="mx-auto mt-6 max-w-xl rounded-2xl border border-[#d6e4de] bg-white p-4 text-left shadow-[0_18px_50px_rgba(48,52,59,.10)] sm:p-5 lg:mx-0">
+              <form onSubmit={startWithProductLink}>
+                <label htmlFor="home-product-link" className="text-sm font-bold">Dán link sản phẩm để bắt đầu</label>
+                <div className="mt-2.5 flex flex-col gap-2 sm:flex-row">
+                  <div className="relative min-w-0 flex-1">
+                    <Link2 className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
+                    <input
+                      id="home-product-link"
+                      value={productLink}
+                      onChange={(event) => { setProductLink(event.target.value); setProductLinkError(""); setShowSample(false); }}
+                      placeholder="Link Shopee hoặc TikTok Shop"
+                      className="h-14 w-full rounded-xl border border-neutral-200 bg-neutral-50 pl-11 pr-20 text-sm outline-none focus:border-[#287a63] focus:bg-white"
+                    />
+                    <button type="button" onClick={() => void pasteProductLink()} className="absolute right-2 top-1/2 inline-flex h-10 -translate-y-1/2 items-center gap-1 rounded-lg bg-[#e8f3ef] px-2.5 text-xs font-bold text-[#287a63] hover:bg-[#dcece6]">
+                      <ClipboardPaste className="h-3.5 w-3.5" /> Dán
+                    </button>
+                  </div>
+                  <button type="submit" className="inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#287a63] px-5 text-sm font-bold text-white hover:bg-[#216653]">
+                    Kiểm tra tiền hoàn <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+                {productLinkError ? <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{productLinkError}</p> : null}
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  <button type="button" onClick={() => setShowSample((current) => !current)} className="inline-flex items-center gap-1.5 text-xs font-bold text-[#287a63] hover:underline">
+                    <CircleDollarSign className="h-4 w-4" /> Xem thử kết quả mẫu
+                  </button>
+                  <a href="#sao-chep-link" className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-600 hover:text-[#287a63]">
+                    <HelpCircle className="h-4 w-4" /> Cách lấy link
+                  </a>
+                </div>
+              </form>
 
-            <div className="mx-auto mt-5 max-w-xl rounded-2xl border border-[#d6e4de] bg-white/80 p-4 text-left lg:mx-0">
-              <strong className="flex items-center gap-2 text-sm text-[#287a63]"><ShieldCheck className="h-4 w-4" /> Tại sao cần đăng ký tài khoản?</strong>
-              <p className="mt-2 text-sm leading-6 text-neutral-600">Để hệ thống biết đơn hàng và tiền hoàn thuộc về bạn, lưu lịch sử giao dịch và hỗ trợ bạn rút tiền an toàn. <strong className="text-[#30343b]">Đăng ký hoàn toàn miễn phí.</strong></p>
-            </div>
+              {showSample ? (
+                <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-800"><Check className="h-4 w-4" /> Ví dụ kết quả một sản phẩm</div>
+                  <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+                    <div><span className="block text-[11px] text-neutral-500">Giá sản phẩm</span><strong className="text-sm text-neutral-700">299.000đ</strong></div>
+                    <div><span className="block text-[11px] text-neutral-500">Tiền hoàn dự kiến</span><strong className="text-xl text-emerald-700">23.920đ</strong></div>
+                  </div>
+                  <p className="mt-2 text-[10px] leading-4 text-neutral-500">Số liệu minh họa. Mức thực tế phụ thuộc sản phẩm và kết quả đối soát.</p>
+                </div>
+              ) : null}
 
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row lg:justify-start">
-              <button onClick={onRegister} className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#287a63] px-6 text-base font-bold text-white shadow-[0_12px_30px_rgba(40,122,99,.2)] transition hover:-translate-y-0.5 hover:bg-[#216653]">
-                Bắt đầu – Đăng ký miễn phí <ArrowRight className="h-5 w-5" />
-              </button>
-              <a href="#cach-hoat-dong" className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-[#d9dde3] bg-white px-6 text-base font-semibold transition hover:border-[#bfc5cc] hover:bg-[#f7f8f8]">
-                Xem cách hoạt động <ChevronDown className="h-5 w-5" />
-              </a>
+              <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-4 text-neutral-500">
+                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#287a63]" />
+                Cần tài khoản miễn phí để ghi nhận đơn và tiền hoàn đúng cho bạn. Không cần mật khẩu hoặc OTP của sàn.
+              </p>
             </div>
 
             <div className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-[13px] text-neutral-500 lg:justify-start">
@@ -193,13 +233,13 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
             </div>
           </div>
 
-          <ChatPreview />
+          <CashbackOutcomePreview />
         </div>
       </section>
 
       <section id="cach-hoat-dong" className="scroll-mt-20 border-y border-[#e7e9ed] bg-white py-10 sm:py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <SectionHeading eyebrow="Rất dễ sử dụng" title="Bạn chỉ cần làm 4 bước" description="Làm lần lượt từ bước 1 đến bước 4. Ry sẽ hướng dẫn bạn trong suốt quá trình." />
+          <SectionHeading eyebrow="Rất dễ sử dụng" title="Từ link sản phẩm đến tiền hoàn" description="Qbot giúp bạn tạo đúng link mua hàng, theo dõi đơn và tiền hoàn trong một tài khoản." />
 
           <div className="relative mx-auto mt-7 max-w-md sm:hidden">
             <span className="absolute bottom-8 left-[23px] top-8 w-0.5 bg-[#d6e4de]" aria-hidden="true" />
@@ -231,9 +271,9 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
             ))}
           </div>
           <div className="mt-6 text-center sm:mt-8">
-            <button onClick={onRegister} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#287a63] px-5 text-sm font-semibold text-white hover:bg-[#216653] sm:w-auto">
-              Thực hiện bước 1 ngay <ArrowRight className="h-4 w-4" />
-            </button>
+            <a href="#trang-chu" className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#287a63] px-5 text-sm font-semibold text-white hover:bg-[#216653] sm:w-auto">
+              Dán link để bắt đầu <ArrowRight className="h-4 w-4" />
+            </a>
           </div>
         </div>
       </section>
@@ -337,17 +377,6 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
         </div>
       </section>
 
-      <section className="border-y border-[#e7e9ed] bg-white py-14">
-        <div className="mx-auto max-w-4xl px-4 text-center sm:px-6">
-          <Link2 className="mx-auto h-8 w-8 text-[#287a63]" />
-          <h2 className="mt-3 text-[28px] font-bold">Bạn đã có link sản phẩm?</h2>
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-neutral-600">Tạo tài khoản rồi dán link vào khung chat. Ry sẽ hướng dẫn bạn bước tiếp theo.</p>
-          <button onClick={onRegister} className="mt-6 inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#287a63] px-7 text-base font-bold text-white hover:bg-[#216653]">
-            Gửi link cho Ry <Send className="h-5 w-5" />
-          </button>
-        </div>
-      </section>
-
       <section id="luu-y" className="scroll-mt-20 py-14 sm:py-20">
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
           <SectionHeading eyebrow="Đừng bỏ qua" title="Làm đúng để đơn hàng được ghi nhận" description="Bốn lưu ý nhỏ dưới đây giúp bạn tránh mất quyền nhận tiền hoàn." />
@@ -362,7 +391,7 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
         </div>
       </section>
 
-      <section id="cai-ung-dung" className="scroll-mt-20 border-y border-[#e7e9ed] bg-white py-14 sm:py-20">
+      <section id="cai-ung-dung" className="hidden">
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
           <SectionHeading eyebrow="Mở nhanh như ứng dụng" title="Cài Em Ry trên điện thoại" description="Miễn phí, nhẹ và không cần tải từ App Store hay CH Play. Chọn loại điện thoại của bạn rồi làm theo." />
 
@@ -443,6 +472,8 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
             <a href="/hoan-tien-shopee" className="hover:text-[#287a63]">Hoàn tiền Shopee</a>
             <a href="/hoan-tien-tiktok-shop" className="hover:text-[#287a63]">Hoàn tiền TikTok Shop</a>
+            <a href="/kien-thuc/cach-kiem-tra-tien-hoan-truoc-khi-mua" className="hover:text-[#287a63]">Cách kiểm tra tiền hoàn</a>
+            <a href="/cach-hoat-dong" className="hover:text-[#287a63]">Cách hoạt động</a>
             <a href="/kien-thuc" className="hover:text-[#287a63]">Kiến thức</a>
             <a href="/thong-tin/dieu-khoan-dich-vu" className="hover:text-[#287a63]">Điều khoản dịch vụ</a>
             <a href="/thong-tin/chinh-sach-bao-mat" className="hover:text-[#287a63]">Chính sách bảo mật</a>
@@ -452,11 +483,59 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
       </footer>
 
       <div className="safe-bottom fixed inset-x-0 bottom-0 z-50 border-t border-black/5 bg-white/95 px-3 py-2 shadow-[0_-10px_30px_rgba(48,52,59,.12)] backdrop-blur sm:hidden">
-        <button onClick={onRegister} className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#287a63] px-5 text-base font-bold text-white">
-          Bắt đầu miễn phí <ArrowRight className="h-5 w-5" />
-        </button>
+        <a href="#trang-chu" className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#287a63] px-5 text-base font-bold text-white">
+          Dán link để kiểm tra <ArrowRight className="h-5 w-5" />
+        </a>
       </div>
     </main>
+  );
+}
+
+function CashbackOutcomePreview() {
+  return (
+    <div className="relative mx-auto w-full max-w-[430px]">
+      <div className="absolute -inset-5 rounded-full bg-[#dce9e4]/70 blur-3xl" />
+      <div className="relative overflow-hidden rounded-3xl border border-[#d6e4de] bg-white shadow-[0_24px_70px_rgba(48,52,59,.14)]">
+        <div className="flex items-center gap-3 border-b border-[#e7e9ed] bg-[#f7faf8] px-5 py-4">
+          <img src="/api/site-assets/logo" alt="Qbot" className="h-10 w-10 rounded-xl border bg-white object-cover" />
+          <div>
+            <strong className="block text-sm">Kết quả từ Qbot</strong>
+            <span className="text-[11px] text-neutral-500">Ví dụ một sản phẩm Shopee</span>
+          </div>
+          <span className="ml-auto rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-700">ĐÃ KIỂM TRA</span>
+        </div>
+
+        <div className="p-5 sm:p-6">
+          <div className="flex gap-4">
+            <span className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl bg-[#fff4ef] text-[#ee4d2d]"><ShoppingBag className="h-9 w-9" /></span>
+            <div className="min-w-0">
+              <p className="text-xs text-neutral-500">Sản phẩm mẫu trên Shopee</p>
+              <strong className="mt-1 block text-base leading-6 text-neutral-800">Sản phẩm bạn đang muốn mua</strong>
+              <p className="mt-1 text-sm text-neutral-500">Giá sản phẩm: <strong className="text-neutral-700">299.000đ</strong></p>
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <span className="text-xs font-medium text-emerald-800">Tiền hoàn dự kiến</span>
+            <div className="mt-1 flex items-end justify-between gap-3">
+              <strong className="text-3xl font-black tracking-[-.03em] text-emerald-700">23.920đ</strong>
+              <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-emerald-700">Ví dụ 8%</span>
+            </div>
+          </div>
+
+          <button type="button" className="mt-4 inline-flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#287a63] px-5 text-sm font-bold text-white">
+            Quay lại Shopee để mua <ExternalLink className="h-4 w-4" />
+          </button>
+          <p className="mt-3 text-center text-[10px] leading-4 text-neutral-500">Đây là số liệu minh họa. Kết quả thực tế phụ thuộc từng sản phẩm và đối soát của sàn.</p>
+        </div>
+      </div>
+
+      <div className="relative mx-auto mt-4 grid max-w-sm grid-cols-3 gap-2 text-center text-[10px] text-neutral-600">
+        <span className="rounded-xl border bg-white/80 px-2 py-2"><ShieldCheck className="mx-auto mb-1 h-4 w-4 text-[#287a63]" />Không cần OTP</span>
+        <span className="rounded-xl border bg-white/80 px-2 py-2"><ShoppingBag className="mx-auto mb-1 h-4 w-4 text-[#287a63]" />Mua trên sàn</span>
+        <span className="rounded-xl border bg-white/80 px-2 py-2"><WalletCards className="mx-auto mb-1 h-4 w-4 text-[#287a63]" />Theo dõi tiền hoàn</span>
+      </div>
+    </div>
   );
 }
 

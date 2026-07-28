@@ -8,13 +8,23 @@ function contentLink(slug: string) {
   return item ? { href: landing ? `/${slug}` : `/kien-thuc/${slug}`, title: item.title } : null;
 }
 
+function headingId(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 export function SeoHeader() {
   return (
     <header className="sticky top-0 z-30 border-b border-[#e1e5e3] bg-[#fafaf8]/95 backdrop-blur">
       <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <a href="/" className="flex items-center gap-2.5 font-bold">
           <img src="/api/site-assets/logo" alt="Em Ry" className="h-9 w-9 rounded-full bg-white object-cover ring-1 ring-[#d9dde3]" />
-          <span>Em Ry</span>
+          <span>Qbot</span>
         </a>
         <nav aria-label="Điều hướng chính" className="hidden items-center gap-5 text-sm text-neutral-600 md:flex">
           <a href="/hoan-tien-shopee" className="hover:text-[#287a63]">Shopee</a>
@@ -32,7 +42,7 @@ export function SeoFooter() {
   return (
     <footer className="border-t border-[#e1e5e3] bg-white">
       <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 text-sm text-neutral-600 sm:grid-cols-3 sm:px-6">
-        <div><strong className="text-[#30343b]">Em Ry</strong><p className="mt-2 leading-6">Trợ lý tạo link và theo dõi tiền hoàn khi mua hàng Shopee, TikTok Shop.</p></div>
+        <div><strong className="text-[#30343b]">Qbot</strong><p className="mt-2 leading-6">Công cụ tạo link và theo dõi tiền hoàn khi mua hàng Shopee, TikTok Shop.</p></div>
         <div><strong className="text-[#30343b]">Hướng dẫn</strong><div className="mt-2 grid gap-2"><a href="/tao-link-hoan-tien">Tạo link hoàn tiền</a><a href="/rut-tien-hoan-tien">Rút tiền hoàn</a><a href="/kien-thuc">Trung tâm kiến thức</a></div></div>
         <div><strong className="text-[#30343b]">Thông tin</strong><div className="mt-2 grid gap-2"><a href="/thong-tin/dieu-khoan-dich-vu">Điều khoản dịch vụ</a><a href="/thong-tin/chinh-sach-bao-mat">Chính sách bảo mật</a></div></div>
       </div>
@@ -102,13 +112,28 @@ export function ArticleContent({ content }: { content: SeoContent }) {
           <p className="mt-8 text-sm font-semibold uppercase tracking-[.14em] text-[#287a63]">{content.keyword}</p>
           <h1 className="mt-3 text-4xl font-bold leading-tight tracking-[-.035em] sm:text-5xl">{content.title}</h1>
           <p className="mt-6 border-l-4 border-[#287a63] pl-5 text-lg leading-8 text-neutral-600">{content.intro}</p>
+          <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-sm text-neutral-500">
+            <span>Cập nhật: {new Intl.DateTimeFormat("vi-VN").format(new Date(content.updatedAt ?? "2026-07-27"))}</span>
+            <span>Biên soạn bởi Qbot</span>
+            <span>{Math.max(4, Math.ceil(content.sections.reduce((total, section) => total + section.body.split(/\s+/).length + (section.bullets?.join(" ").split(/\s+/).length ?? 0), 0) / 220))} phút đọc</span>
+          </div>
           <figure className="mt-9 overflow-hidden rounded-2xl border border-[#dce3df] bg-white shadow-[0_14px_40px_rgba(40,70,60,.08)]">
             <Image src={image.src} alt={image.alt} width={1672} height={939} priority className="aspect-[16/9] h-auto w-full object-cover" sizes="(max-width: 768px) 100vw, 768px" />
             <figcaption className="px-5 py-3 text-sm leading-6 text-neutral-500">{image.caption}</figcaption>
           </figure>
+          <nav aria-label="Mục lục bài viết" className="mt-8 rounded-2xl border border-[#dce3df] bg-white p-5 sm:p-6">
+            <strong className="text-lg">Nội dung chính</strong>
+            <ol className="mt-4 grid gap-2 text-sm leading-6 text-neutral-700 sm:grid-cols-2">
+              {content.sections.map((section, index) => (
+                <li key={section.heading}>
+                  <a href={`#${headingId(section.heading)}`} className="hover:text-[#287a63]">{index + 1}. {section.heading}</a>
+                </li>
+              ))}
+            </ol>
+          </nav>
           <div className="mt-12 grid gap-12">
             {content.sections.map((section) => (
-              <section key={section.heading}>
+              <section key={section.heading} id={headingId(section.heading)} className="scroll-mt-24">
                 <h2 className="text-2xl font-bold tracking-[-.02em]">{section.heading}</h2>
                 <p className="mt-4 text-[17px] leading-8 text-neutral-700">{section.body}</p>
                 {section.bullets ? <ul className="mt-4 list-disc space-y-2 pl-6 leading-7 text-neutral-700">{section.bullets.map((item) => <li key={item}>{item}</li>)}</ul> : null}
@@ -117,10 +142,25 @@ export function ArticleContent({ content }: { content: SeoContent }) {
           </div>
           <div className="mt-12 rounded-2xl border border-[#cfe0d9] bg-[#edf7f3] p-6">
             <h2 className="text-xl font-bold">Bạn đã có link sản phẩm?</h2>
-            <p className="mt-2 leading-7 text-neutral-600">Quay lại Em Ry để kiểm tra link và bắt đầu mua hàng theo đúng quy trình ghi nhận.</p>
+            <p className="mt-2 leading-7 text-neutral-600">Quay lại Qbot để kiểm tra link và bắt đầu mua hàng theo đúng quy trình ghi nhận.</p>
             <a href="/" className="mt-5 inline-block rounded-xl bg-[#287a63] px-5 py-3 font-semibold text-white">Dán link sản phẩm</a>
           </div>
         </article>
+        {content.faqs?.length ? (
+          <section className="border-y border-[#e1e5e3] bg-white">
+            <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
+              <h2 className="text-3xl font-bold tracking-[-.025em]">Câu hỏi thường gặp</h2>
+              <div className="mt-7 grid gap-3">
+                {content.faqs.map((faq) => (
+                  <details key={faq.question} className="rounded-xl border border-[#dde2df] bg-[#fafaf8] p-5">
+                    <summary className="cursor-pointer font-semibold">{faq.question}</summary>
+                    <p className="mt-3 leading-7 text-neutral-600">{faq.answer}</p>
+                  </details>
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : null}
         <RelatedLinks slugs={content.related} />
       </main>
       <SeoFooter />
@@ -139,5 +179,5 @@ function RelatedLinks({ slugs }: { slugs: string[] }) {
 }
 
 function Cta() {
-  return <section className="bg-[#245f50] px-4 py-14 text-center text-white"><h2 className="text-3xl font-bold">Bắt đầu từ một link sản phẩm</h2><p className="mx-auto mt-3 max-w-xl text-white/80">Mở Em Ry, dán link Shopee hoặc TikTok Shop và làm theo hướng dẫn.</p><a href="/" className="mt-6 inline-block rounded-xl bg-white px-6 py-3 font-bold text-[#245f50]">Mở Em Ry</a></section>;
+  return <section className="bg-[#245f50] px-4 py-14 text-center text-white"><h2 className="text-3xl font-bold">Bắt đầu từ một link sản phẩm</h2><p className="mx-auto mt-3 max-w-xl text-white/80">Mở Qbot, dán link Shopee hoặc TikTok Shop và làm theo hướng dẫn.</p><a href="/" className="mt-6 inline-block rounded-xl bg-white px-6 py-3 font-bold text-[#245f50]">Mở Qbot</a></section>;
 }

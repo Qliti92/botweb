@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: content.title,
     description: content.description,
-    keywords: [content.keyword, "Em Ry", "hoàn tiền mua hàng"],
+    keywords: [content.keyword, "Qbot", "hoàn tiền mua hàng", "hoàn tiền Shopee", "hoàn tiền TikTok Shop"],
     alternates: { canonical: `/kien-thuc/${slug}` },
     openGraph: { type: "article", url: `/kien-thuc/${slug}`, title: content.title, description: content.description, images: [{ url: image.src, alt: image.alt }] },
     twitter: { card: "summary_large_image", title: content.title, description: content.description, images: [image.src] }
@@ -33,17 +33,37 @@ export default async function KnowledgeArticlePage({ params }: { params: Promise
   const image = getSeoImage(content);
   const structuredData = {
     "@context": "https://schema.org",
-    "@type": "Article",
-    headline: content.title,
-    description: content.description,
-    url,
-    image: `${base}${image.src}`,
-    mainEntityOfPage: url,
-    inLanguage: "vi-VN",
-    author: { "@id": `${base}/#organization` },
-    publisher: { "@id": `${base}/#organization` },
-    datePublished: "2026-07-27",
-    dateModified: "2026-07-27"
+    "@graph": [
+      {
+        "@type": "Article",
+        headline: content.title,
+        description: content.description,
+        url,
+        image: `${base}${image.src}`,
+        mainEntityOfPage: url,
+        inLanguage: "vi-VN",
+        author: { "@id": `${base}/#organization` },
+        publisher: { "@id": `${base}/#organization` },
+        datePublished: content.updatedAt ?? "2026-07-27",
+        dateModified: content.updatedAt ?? "2026-07-27"
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Trang chủ", item: base },
+          { "@type": "ListItem", position: 2, name: "Kiến thức", item: `${base}/kien-thuc` },
+          { "@type": "ListItem", position: 3, name: content.title, item: url }
+        ]
+      },
+      ...(content.faqs?.length ? [{
+        "@type": "FAQPage",
+        mainEntity: content.faqs.map((faq) => ({
+          "@type": "Question",
+          name: faq.question,
+          acceptedAnswer: { "@type": "Answer", text: faq.answer }
+        }))
+      }] : [])
+    ]
   };
   return <><ArticleContent content={content} /><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} /></>;
 }
