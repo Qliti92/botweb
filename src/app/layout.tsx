@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { getSiteSettings } from "@/services/site-settings";
 import { PageAnalytics } from "@/components/page-analytics";
+import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import "./globals.css";
 
 function absoluteUrl(value: string, base: string) {
@@ -105,6 +106,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body>
         {children}
         <PageAnalytics />
+        <ServiceWorkerRegistration />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
         {settings.googleTagManagerId ? (
           <>

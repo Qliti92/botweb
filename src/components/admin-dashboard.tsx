@@ -81,17 +81,14 @@ const blankIntent: Omit<IntentDto, "id"> = {
 };
 
 export function AdminDashboard() {
-  const [tab, setTab] = useState<"overview" | "analytics" | "pageAnalytics" | "tickets" | "intents" | "flows" | "apis" | "knowledge" | "unrecognized" | "feedback" | "notices" | "push" | "chats" | "settings" | "deployment">("overview");
+  const [tab, setTab] = useState<"overview" | "analytics" | "pageAnalytics" | "tickets" | "training" | "feedback" | "notices" | "push" | "chats" | "settings" | "deployment">("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [flows, setFlows] = useState<FlowDto[]>([]);
-  const [apis, setApis] = useState<ApiConfigDto[]>([]);
   const [notices, setNotices] = useState<AppNoticeDto[]>([]);
   const [knowledge, setKnowledge] = useState<KnowledgeEntryDto[]>([]);
   const [unrecognized, setUnrecognized] = useState<UnrecognizedMessageDto[]>([]);
   const [feedback, setFeedback] = useState<FeedbackDto[]>([]);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [tickets, setTickets] = useState<TicketDto[]>([]);
-  const [intents, setIntents] = useState<IntentDto[]>([]);
   const [chats, setChats] = useState<ChatDto[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettingsDto | null>(null);
   const [pushCampaigns, setPushCampaigns] = useState<PushCampaignDto[]>([]);
@@ -117,12 +114,9 @@ export function AdminDashboard() {
   }
 
   async function loadAll() {
-    const [dashboardData, ticketsData, intentsData, flowsData, apisData, knowledgeData, unrecognizedData, feedbackData, noticesData, pushData, chatsData, settingsData] = await Promise.all([
+    const [dashboardData, ticketsData, knowledgeData, unrecognizedData, feedbackData, noticesData, pushData, chatsData, settingsData] = await Promise.all([
       apiFetch("/api/admin/dashboard"),
       apiFetch("/api/admin/tickets"),
-      apiFetch("/api/admin/intents"),
-      apiFetch("/api/admin/flows"),
-      apiFetch("/api/admin/apis"),
       apiFetch("/api/admin/knowledge"),
       apiFetch("/api/admin/unrecognized"),
       apiFetch("/api/admin/feedback"),
@@ -133,9 +127,6 @@ export function AdminDashboard() {
     ]);
     setMetrics(dashboardData.metrics);
     setTickets(ticketsData.tickets);
-    setIntents(intentsData.intents);
-    setFlows(flowsData.flows);
-    setApis(apisData.apis);
     setKnowledge(knowledgeData.entries);
     setUnrecognized(unrecognizedData.messages);
     setFeedback(feedbackData.feedback);
@@ -163,11 +154,7 @@ export function AdminDashboard() {
         { id: "chats", label: "Lịch sử trò chuyện", icon: History, group: "Theo dõi" },
         { id: "tickets", label: "Yêu cầu hỗ trợ", icon: AlertCircle, group: "Người dùng" },
         { id: "feedback", label: "Đánh giá", icon: Bot, group: "Người dùng" },
-        { id: "unrecognized", label: "Câu Ry chưa hiểu", icon: AlertCircle, group: "Người dùng" },
-        { id: "knowledge", label: "Kiến thức", icon: BookOpen, group: "Nội dung chatbot" },
-        { id: "intents", label: "Ý định", icon: Bot, group: "Nội dung chatbot" },
-        { id: "flows", label: "Kịch bản", icon: Bot, group: "Nội dung chatbot" },
-        { id: "apis", label: "Kết nối API", icon: Server, group: "Hệ thống" },
+        { id: "training", label: "Huấn luyện Em Ry", icon: BookOpen, group: "Nội dung chatbot" },
         { id: "notices", label: "Thông báo trong app", icon: Bell, group: "Gửi thông báo" },
         { id: "push", label: "Push theo lịch", icon: Clock3, group: "Gửi thông báo" },
         { id: "settings", label: "Thương hiệu & SEO", icon: Settings, group: "Hệ thống" },
@@ -217,11 +204,7 @@ export function AdminDashboard() {
         {tab === "analytics" ? <LinkAnalyticsPanel /> : null}
         {tab === "pageAnalytics" ? <PageAnalyticsPanel /> : null}
         {tab === "tickets" ? <TicketsPanel tickets={tickets} reload={loadAll} setNotice={setNotice} /> : null}
-        {tab === "intents" ? <IntentsPanel intents={intents} reload={loadAll} setNotice={setNotice} /> : null}
-        {tab === "flows" ? <FlowsPanel flows={flows} apis={apis} reload={loadAll} setNotice={setNotice} /> : null}
-        {tab === "apis" ? <ApisPanel apis={apis} reload={loadAll} setNotice={setNotice} /> : null}
-        {tab === "knowledge" ? <KnowledgePanel entries={knowledge} reload={loadAll} setNotice={setNotice} /> : null}
-        {tab === "unrecognized" ? <UnrecognizedPanel messages={unrecognized} reload={loadAll} setNotice={setNotice} /> : null}
+        {tab === "training" ? <TrainingPanel entries={knowledge} messages={unrecognized} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "feedback" ? <FeedbackPanel items={feedback} /> : null}
         {tab === "notices" ? <NoticesPanel notices={notices} reload={loadAll} setNotice={setNotice} /> : null}
         {tab === "push" ? <PushCampaignsPanel campaigns={pushCampaigns} subscriptionCount={pushSubscriptionCount} adminSubscriptionCount={adminPushSubscriptionCount} deliveries={pushDeliveries} lastCronRun={lastPushCronRun} reload={loadAll} setNotice={setNotice} /> : null}
@@ -432,12 +415,14 @@ function formatDuration(seconds: number) {
 function PageAnalyticsPanel() {
   const [data, setData] = useState<PageAnalyticsDto | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+  const [period, setPeriod] = useState<"day" | "week" | "month" | "all">("month");
   const [error, setError] = useState("");
 
   async function load() {
     setLoading(true);
     try {
-      setData(await fetchJson("/api/admin/page-analytics") as PageAnalyticsDto);
+      setData(await fetchJson(`/api/admin/page-analytics?period=${period}`) as PageAnalyticsDto);
       setError("");
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Không thể tải thống kê truy cập.");
@@ -446,7 +431,22 @@ function PageAnalyticsPanel() {
     }
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [period]);
+
+  async function clearAnalytics() {
+    if (!window.confirm("Xóa toàn bộ dữ liệu truy cập website và số đăng ký đã thống kê? Thao tác này không thể hoàn tác.")) return;
+    setDeleting(true);
+    try {
+      const result = await fetchJson("/api/admin/page-analytics", { method: "DELETE" }) as { deleted?: number };
+      await load();
+      setError("");
+      window.alert(`Đã xóa ${result.deleted ?? 0} bản ghi thống kê.`);
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Không thể xóa dữ liệu thống kê.");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const pages = data?.pages ?? [];
   const totals = pages.reduce((result, page) => ({
@@ -459,9 +459,29 @@ function PageAnalyticsPanel() {
     <div className="grid gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div><h2 className="text-xl font-bold">Thống kê truy cập website</h2><p className="mt-1 text-sm text-neutral-500">Trang được xem nhiều, nguồn truy cập, thời gian ở lại, tương tác và đăng ký thành công.</p></div>
-        <button type="button" onClick={() => void load()} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-lg border border-brand-line bg-white px-3 text-sm font-semibold disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Làm mới</button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => void load()} disabled={loading || deleting} className="inline-flex h-10 items-center gap-2 rounded-lg border border-brand-line bg-white px-3 text-sm font-semibold disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Làm mới</button>
+          <button type="button" onClick={() => void clearAnalytics()} disabled={loading || deleting} className="inline-flex h-10 items-center gap-2 rounded-lg border border-red-200 bg-white px-3 text-sm font-semibold text-red-700 disabled:opacity-50"><Trash2 className="h-4 w-4" />{deleting ? "Đang xóa…" : "Xóa dữ liệu"}</button>
+        </div>
       </div>
       {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+      <div className="flex w-fit flex-wrap rounded-xl border border-brand-line bg-white p-1">
+        {([
+          ["day", "24 giờ"],
+          ["week", "7 ngày"],
+          ["month", "30 ngày"],
+          ["all", "Tất cả"]
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setPeriod(value)}
+            className={`h-9 rounded-lg px-3 text-sm font-semibold transition ${period === value ? "bg-brand-dark text-white" : "text-neutral-600 hover:bg-neutral-100"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <article className="rounded-xl border border-brand-line bg-white p-4"><span className="text-xs text-neutral-500">Tổng lượt truy cập</span><strong className="mt-1 block text-2xl">{totals.visits}</strong></article>
         <article className="rounded-xl border border-brand-line bg-white p-4"><span className="text-xs text-neutral-500">Người truy cập</span><strong className="mt-1 block text-2xl">{totals.visitors}</strong></article>
@@ -1057,6 +1077,213 @@ function ApiForm({ editing, setEditing, submit }: { editing: Partial<ApiConfigDt
         <button type="button" onClick={() => setEditing(null)} className="h-10 rounded-md border border-brand-line px-4">Hủy</button>
       </div>
     </form>
+  );
+}
+
+type TrainingDraft = Partial<KnowledgeEntryDto> & {
+  id?: string;
+  sourceMessageIds: string[];
+};
+
+function TrainingPanel({
+  entries,
+  messages,
+  reload,
+  setNotice
+}: {
+  entries: KnowledgeEntryDto[];
+  messages: UnrecognizedMessageDto[];
+  reload: () => Promise<void>;
+  setNotice: (value: string) => void;
+}) {
+  const [view, setView] = useState<"questions" | "knowledge">("questions");
+  const [draft, setDraft] = useState<TrainingDraft | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const groups = useMemo(() => {
+    const grouped = new Map<string, UnrecognizedMessageDto[]>();
+    for (const message of messages) {
+      const key = message.normalized.trim() || message.content.trim().toLocaleLowerCase("vi");
+      grouped.set(key, [...(grouped.get(key) ?? []), message]);
+    }
+    return Array.from(grouped.values()).sort((a, b) => {
+      const aPending = a.some((item) => !item.isResolved);
+      const bPending = b.some((item) => !item.isResolved);
+      if (aPending !== bPending) return aPending ? -1 : 1;
+      return new Date(b[0].createdAt).getTime() - new Date(a[0].createdAt).getTime();
+    });
+  }, [messages]);
+
+  const unresolvedCount = messages.filter((item) => !item.isResolved).length;
+  const activeKnowledgeCount = entries.filter((item) => item.isActive).length;
+
+  function startFromGroup(group: UnrecognizedMessageDto[]) {
+    const representative = group.find((item) => !item.isResolved) ?? group[0];
+    const keywords = representative.normalized
+      .split(/\s+/)
+      .filter((word) => word.length > 2)
+      .slice(0, 8)
+      .join(", ");
+    setDraft({
+      ...blankKnowledge,
+      question: representative.content,
+      keywords,
+      sourceLabel: "Huấn luyện Em Ry",
+      sourceMessageIds: group.map((item) => item.id)
+    });
+  }
+
+  function startManual() {
+    setDraft({ ...blankKnowledge, sourceLabel: "Huấn luyện Em Ry", sourceMessageIds: [] });
+  }
+
+  function editKnowledge(entry: KnowledgeEntryDto) {
+    setDraft({ ...entry, sourceMessageIds: [] });
+  }
+
+  async function saveDraft(event: FormEvent) {
+    event.preventDefault();
+    if (!draft?.question?.trim() || !draft.answer?.trim()) {
+      setNotice("Vui lòng nhập đủ câu hỏi mẫu và câu trả lời.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { sourceMessageIds, ...knowledgePayload } = draft;
+      await fetchJson(draft.id ? `/api/admin/knowledge/${draft.id}` : "/api/admin/knowledge", {
+        method: draft.id ? "PUT" : "POST",
+        body: JSON.stringify(knowledgePayload)
+      });
+      await Promise.all(
+        sourceMessageIds.map((id) =>
+          fetchJson("/api/admin/unrecognized", {
+            method: "PATCH",
+            body: JSON.stringify({ id, isResolved: true })
+          })
+        )
+      );
+      setDraft(null);
+      await reload();
+      setNotice(draft.id ? "Đã cập nhật kiến thức cho Em Ry." : "Đã duyệt câu trả lời và cho Em Ry sử dụng.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Không thể lưu nội dung huấn luyện.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleGroup(group: UnrecognizedMessageDto[]) {
+    const shouldResolve = group.some((item) => !item.isResolved);
+    try {
+      await Promise.all(
+        group.map((item) =>
+          fetchJson("/api/admin/unrecognized", {
+            method: "PATCH",
+            body: JSON.stringify({ id: item.id, isResolved: shouldResolve })
+          })
+        )
+      );
+      await reload();
+      setNotice(shouldResolve ? "Đã đánh dấu nhóm câu hỏi là đã xử lý." : "Đã mở lại nhóm câu hỏi.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Không thể cập nhật câu hỏi.");
+    }
+  }
+
+  async function removeKnowledge(id: string) {
+    try {
+      await fetchJson(`/api/admin/knowledge/${id}`, { method: "DELETE" });
+      if (draft?.id === id) setDraft(null);
+      await reload();
+      setNotice("Đã xóa kiến thức.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Không thể xóa kiến thức.");
+    }
+  }
+
+  return (
+    <div className="grid gap-5">
+      <div>
+        <h1 className="text-2xl font-bold">Huấn luyện Em Ry</h1>
+        <p className="mt-1 text-sm text-neutral-600">Duyệt câu Ry chưa hiểu, viết câu trả lời đúng rồi mới đưa vào sử dụng.</p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3"><span className="text-xs text-amber-700">Chờ xử lý</span><strong className="mt-1 block text-2xl text-amber-900">{unresolvedCount}</strong></div>
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3"><span className="text-xs text-emerald-700">Kiến thức đang dùng</span><strong className="mt-1 block text-2xl text-emerald-900">{activeKnowledgeCount}</strong></div>
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-3"><span className="text-xs text-blue-700">Đã xử lý</span><strong className="mt-1 block text-2xl text-blue-900">{messages.length - unresolvedCount}</strong></div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => setView("questions")} className={`h-10 rounded-md px-4 text-sm font-semibold ${view === "questions" ? "bg-brand-dark text-white" : "border border-brand-line bg-white"}`}>Câu Ry chưa hiểu</button>
+        <button type="button" onClick={() => setView("knowledge")} className={`h-10 rounded-md px-4 text-sm font-semibold ${view === "knowledge" ? "bg-brand-dark text-white" : "border border-brand-line bg-white"}`}>Kho kiến thức</button>
+        <button type="button" onClick={startManual} className="ml-auto flex h-10 items-center gap-2 rounded-md bg-brand-red px-4 text-sm font-semibold text-white"><Plus className="h-4 w-4" /> Thêm kiến thức</button>
+      </div>
+
+      <div className={`grid gap-4 ${draft ? "lg:grid-cols-[minmax(0,1fr)_400px]" : ""}`}>
+        <div className="grid content-start gap-3">
+          {view === "questions" ? groups.map((group) => {
+            const representative = group.find((item) => !item.isResolved) ?? group[0];
+            const isResolved = group.every((item) => item.isResolved);
+            return (
+              <article key={representative.normalized || representative.id} className={`rounded-xl border p-4 ${isResolved ? "border-neutral-200 bg-neutral-50 opacity-70" : "border-amber-200 bg-white"}`}>
+                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="break-words font-semibold">{representative.content}</p>
+                      {group.length > 1 ? <span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">{group.length} lần hỏi</span> : null}
+                    </div>
+                    <p className="mt-1 text-xs text-neutral-500">Chuẩn hóa: {representative.normalized}</p>
+                    <p className="mt-1 text-xs text-neutral-400">{new Date(representative.createdAt).toLocaleString("vi-VN")}</p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    {!isResolved ? <button type="button" onClick={() => startFromGroup(group)} className="rounded-md bg-brand-red px-3 py-2 text-xs font-semibold text-white">Soạn câu trả lời</button> : null}
+                    <button type="button" onClick={() => toggleGroup(group)} className="rounded-md border border-brand-line px-3 py-2 text-xs font-semibold">{isResolved ? "Mở lại" : "Bỏ qua"}</button>
+                  </div>
+                </div>
+              </article>
+            );
+          }) : entries.map((entry) => (
+            <article key={entry.id} className="rounded-xl border border-brand-line bg-white p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold">{entry.question}</h2>
+                  <p className="mt-1 text-xs text-neutral-500">{entry.category} · {entry.isActive ? "Đang dùng" : "Tạm tắt"} · {entry.sourceLabel}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => editKnowledge(entry)} className="h-9 rounded-md border border-brand-line px-3 text-sm">Sửa</button>
+                  <button type="button" onClick={() => removeKnowledge(entry.id)} className="grid h-9 w-9 place-items-center rounded-md border border-brand-line text-red-600" title="Xóa"><Trash2 className="h-4 w-4" /></button>
+                </div>
+              </div>
+              <p className="mt-3 whitespace-pre-line text-sm text-neutral-700">{entry.answer}</p>
+            </article>
+          ))}
+          {view === "questions" && !groups.length ? <p className="rounded-xl border border-dashed border-brand-line p-5 text-sm text-neutral-500">Chưa có câu hỏi nào Ry không hiểu.</p> : null}
+          {view === "knowledge" && !entries.length ? <p className="rounded-xl border border-dashed border-brand-line p-5 text-sm text-neutral-500">Kho kiến thức đang trống.</p> : null}
+        </div>
+
+        {draft ? (
+          <form onSubmit={saveDraft} className="h-fit rounded-xl border border-brand-line bg-white p-4 lg:sticky lg:top-24">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div><h2 className="font-semibold">{draft.id ? "Sửa kiến thức" : "Duyệt câu trả lời"}</h2><p className="text-xs text-neutral-500">Chỉ câu đã lưu mới được bot sử dụng.</p></div>
+              <button type="button" onClick={() => setDraft(null)} className="grid h-8 w-8 place-items-center rounded-md border border-brand-line" aria-label="Đóng"><X className="h-4 w-4" /></button>
+            </div>
+            <TextArea label="Câu hỏi mẫu" value={draft.question ?? ""} onChange={(value) => setDraft({ ...draft, question: value })} />
+            <TextArea label="Câu trả lời đã kiểm tra" value={draft.answer ?? ""} onChange={(value) => setDraft({ ...draft, answer: value })} />
+            <TextInput label="Từ khóa (cách nhau bằng dấu phẩy)" value={draft.keywords ?? ""} onChange={(value) => setDraft({ ...draft, keywords: value })} />
+            <TextInput label="Danh mục" value={draft.category ?? "Chung"} onChange={(value) => setDraft({ ...draft, category: value })} />
+            <TextInput label="Tên nguồn" value={draft.sourceLabel ?? ""} onChange={(value) => setDraft({ ...draft, sourceLabel: value })} />
+            <TextInput label="URL nguồn (không bắt buộc)" value={draft.sourceUrl ?? ""} onChange={(value) => setDraft({ ...draft, sourceUrl: value })} />
+            <Toggle checked={Boolean(draft.isActive)} label="Cho phép bot sử dụng" onChange={(value) => setDraft({ ...draft, isActive: value })} />
+            {draft.sourceMessageIds.length ? <p className="mt-3 rounded-md bg-blue-50 p-2 text-xs text-blue-800">Khi duyệt, {draft.sourceMessageIds.length} câu hỏi cùng nhóm sẽ được đánh dấu đã xử lý.</p> : null}
+            <button disabled={saving} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-md bg-brand-red px-4 font-semibold text-white disabled:opacity-60">
+              {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              {draft.id ? "Lưu thay đổi" : "Duyệt và cho bot sử dụng"}
+            </button>
+          </form>
+        ) : null}
+      </div>
+    </div>
   );
 }
 

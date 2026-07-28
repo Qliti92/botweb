@@ -313,7 +313,7 @@ export function ChatApp() {
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [session?.messages.length, optimisticMessages.length, sending, showPushSettings]);
+  }, [session?.messages.length, optimisticMessages.length, sending]);
 
   useEffect(() => {
     if (!session?.user || !navigator.clipboard?.readText) return;
@@ -1860,16 +1860,25 @@ function DeviceNotificationCard({
   const busy = state === "enabling";
   const options = [["REMINDER", "Nhắc mua hàng"], ["ORDER", "Đơn hàng"], ["CASHBACK", "Tiền hoàn"], ["SUPPORT", "Hỗ trợ"]];
   return (
-    <div className="mb-3 flex items-end gap-2">
-      <BotAvatar />
-      <section className="min-w-0 max-w-[calc(100%-44px)] flex-1 overflow-hidden rounded-2xl rounded-bl-md border border-[#d9dde3] bg-white shadow-sm sm:max-w-[440px]">
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+      onClick={onClose}
+      role="presentation"
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="device-notification-title"
+        className="safe-bottom max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl border border-[#d9dde3] bg-white shadow-2xl sm:max-w-[440px] sm:rounded-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
         <header className="flex items-center gap-2.5 border-b border-neutral-100 bg-[#fafaf8] px-3 py-2.5">
           <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
             <Bell className="h-4 w-4" />
             <span className={`absolute right-1 top-1 h-2 w-2 rounded-full ring-2 ring-white ${enabled ? "bg-emerald-500" : "bg-neutral-300"}`} />
           </span>
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-bold text-brand-ink">Cài đặt thông báo</h2>
+            <h2 id="device-notification-title" className="text-sm font-bold text-brand-ink">Cài đặt thông báo</h2>
             <p className="truncate text-[11px] text-neutral-500">{enabled ? "Đang bật trên thiết bị này" : "Nhận cập nhật quan trọng từ Ry"}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Đóng cài đặt thông báo" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"><X className="h-4 w-4" /></button>

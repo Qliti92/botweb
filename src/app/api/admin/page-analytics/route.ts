@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -15,17 +16,29 @@ type PageStat = {
   sources: Map<string, number>;
 };
 
-export async function GET() {
+const periodDays = { day: 1, week: 7, month: 30 } as const;
+
+function periodStart(period: string | null) {
+  if (!period || period === "all") return undefined;
+  const days = periodDays[period as keyof typeof periodDays];
+  if (!days) return undefined;
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+}
+
+export async function GET(request: NextRequest) {
   await requireAdmin();
+  const period = request.nextUrl.searchParams.get("period") || "month";
+  const createdAt = periodStart(period);
+  const dateFilter = createdAt ? { gte: createdAt } : undefined;
   const [visits, registrations] = await Promise.all([
     prisma.auditLog.findMany({
-      where: { action: "PAGE_VISIT" },
+      where: { action: "PAGE_VISIT", createdAt: dateFilter },
       orderBy: { createdAt: "desc" },
       take: 5000,
       select: { actorId: true, targetId: true, metadata: true, createdAt: true }
     }),
     prisma.auditLog.findMany({
-      where: { action: "WEB_REGISTRATION_COMPLETED" },
+      where: { action: "WEB_REGISTRATION_COMPLETED", createdAt: dateFilter },
       orderBy: { createdAt: "desc" },
       take: 5000,
       select: { actorId: true, metadata: true }
@@ -73,6 +86,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
+    period,
     pages: Array.from(pages.values())
       .map((page) => ({
         path: page.path,
@@ -88,4 +102,14 @@ export async function GET() {
       }))
       .sort((a, b) => b.visits - a.visits)
   });
+}
+
+export async function DELETE() {
+  await requireAdmin();
+  const result = await prisma.auditLog.deleteMany({
+    where: {
+      action: { in: ["PAGE_VISIT", "WEB_REGISTRATION_COMPLETED"] }
+    }
+  });
+  return NextResponse.json({ ok: true, deleted: result.count });
 }
