@@ -19,7 +19,8 @@ const authSchema = z.discriminatedUnion("mode", [
     passwordConfirmation: z.string().min(8),
     name: z.string().trim().optional(),
     phone: z.string().trim().optional(),
-    referralCode: z.string().trim().optional()
+    referralCode: z.string().trim().optional(),
+    registrationPath: z.string().trim().max(300).optional()
   }),
   z.object({
     mode: z.literal("forgot"),
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
           action: "WEB_REGISTRATION_COMPLETED",
           targetType: "ChatSession",
           targetId: session.id,
-          metadata: { path: "/", email: body.email }
+          metadata: { path: body.registrationPath || "/" }
         });
       }
       return setChatSessionCookie(NextResponse.json(session), session.id);

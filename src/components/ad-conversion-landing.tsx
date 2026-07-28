@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { ArrowRight, Check, ClipboardPaste, HelpCircle, Link2, LoaderCircle, LockKeyhole, ShieldCheck, ShoppingBag, X } from "lucide-react";
 import { classifyShoppingLink } from "@/lib/shopping-link";
 
@@ -42,6 +42,27 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
+  function trackRegistration(stage: "STARTED" | "STEP_2" | "ABANDONED" | "FAILED", errorCategory?: string) {
+    void fetch("/api/analytics/registration", {
+      method: "POST",
+      keepalive: stage === "ABANDONED",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        stage,
+        step: stage === "STARTED" ? 1 : 2,
+        path: window.location.pathname,
+        errorCategory
+      })
+    }).catch(() => {});
+  }
+
+  useEffect(() => {
+    if (!showRegister || success) return;
+    const onPageHide = () => trackRegistration("ABANDONED");
+    window.addEventListener("pagehide", onPageHide);
+    return () => window.removeEventListener("pagehide", onPageHide);
+  }, [showRegister, success]);
+
   async function pasteProductLink() {
     setError("");
     try {
@@ -66,6 +87,7 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
     }
     localStorage.setItem("pending_cashback_link", link.url);
     setShowRegister(true);
+    trackRegistration("STARTED");
   }
 
   async function register(event: FormEvent) {
@@ -74,6 +96,7 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
     if (password !== confirmation) return setError("Hai mật khẩu chưa giống nhau.");
     setLoading(true);
     setError("");
+    trackRegistration("STEP_2");
     try {
       const response = await fetch("/api/chat/auth", {
         method: "POST",
@@ -82,7 +105,8 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
           mode: "register",
           email: email.trim().toLowerCase(),
           password,
-          passwordConfirmation: confirmation
+          passwordConfirmation: confirmation,
+          registrationPath: window.location.pathname
         })
       });
       const data = await response.json();
@@ -95,7 +119,16 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
       }
       window.location.href = "/";
     } catch (registerError) {
-      setError(registerError instanceof Error ? registerError.message : "Chưa thể đăng ký.");
+      const message = registerError instanceof Error ? registerError.message : "Chưa thể đăng ký.";
+      const normalized = message.toLocaleLowerCase("vi");
+      const category =
+        normalized.includes("email") && (normalized.includes("tồn tại") || normalized.includes("đã được")) ? "EMAIL_EXISTS" :
+        normalized.includes("mật khẩu") || normalized.includes("không hợp lệ") ? "INVALID_INPUT" :
+        normalized.includes("mạng") || normalized.includes("fetch") ? "NETWORK" :
+        normalized.includes("server") || normalized.includes("máy chủ") || normalized.includes("api") ? "SERVER" :
+        "OTHER";
+      trackRegistration("FAILED", category);
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -164,7 +197,7 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
                       <h2 className="mt-1 text-xl font-bold">Tạo tài khoản Em Ry miễn phí</h2>
                       <p className="mt-1.5 max-w-xl text-xs leading-5 text-neutral-600">Tài khoản giúp hệ thống xác định đơn hàng, hoa hồng và số dư tiền hoàn thuộc về bạn. Bạn chỉ cần đăng ký một lần để theo dõi và rút tiền sau này.</p>
                     </div>
-                    <button type="button" onClick={() => setShowRegister(false)} className="text-xs font-semibold text-neutral-500 hover:text-neutral-800">Đổi link</button>
+                    <button type="button" onClick={() => { trackRegistration("ABANDONED"); setShowRegister(false); }} className="text-xs font-semibold text-neutral-500 hover:text-neutral-800">Đổi link</button>
                   </div>
                   <div className="mt-4 grid gap-2 sm:grid-cols-3">
                     <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email của bạn" autoComplete="email" className="h-12 rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-[#287a63]" />

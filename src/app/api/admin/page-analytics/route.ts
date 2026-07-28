@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
   const period = request.nextUrl.searchParams.get("period") || "month";
   const createdAt = periodStart(period);
   const dateFilter = createdAt ? { gte: createdAt } : undefined;
-  const [visits, registrations] = await Promise.all([
+  const [visits, registrations, funnelEvents] = await Promise.all([
     prisma.auditLog.findMany({
       where: { action: "PAGE_VISIT", createdAt: dateFilter },
       orderBy: { createdAt: "desc" },
@@ -42,8 +42,44 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
       take: 5000,
       select: { actorId: true, metadata: true }
+    }),
+    prisma.auditLog.findMany({
+      where: {
+        action: { in: ["WEB_REGISTRATION_STARTED", "WEB_REGISTRATION_STEP_2", "WEB_REGISTRATION_ABANDONED", "WEB_REGISTRATION_FAILED"] },
+        createdAt: dateFilter
+      },
+      orderBy: { createdAt: "desc" },
+      take: 10000,
+      select: { actorId: true, action: true, metadata: true, createdAt: true }
     })
   ]);
+
+  const completedVisitors = new Set(registrations.map((item) => item.actorId).filter(Boolean));
+  const funnelActors = (action: string) => new Set(funnelEvents.filter((item) => item.action === action).map((item) => item.actorId).filter(Boolean));
+  const startedVisitors = funnelActors("WEB_REGISTRATION_STARTED");
+  const stepTwoVisitors = funnelActors("WEB_REGISTRATION_STEP_2");
+  const abandonedVisitors = funnelActors("WEB_REGISTRATION_ABANDONED");
+  const failedVisitors = funnelActors("WEB_REGISTRATION_FAILED");
+  const abandonedWithoutCompletion = Array.from(abandonedVisitors).filter((actorId) => !completedVisitors.has(actorId)).length;
+  const parseMetadata = (value: string) => {
+    try { return JSON.parse(value || "{}") as Record<string, unknown>; } catch { return {} as Record<string, unknown>; }
+  };
+  const countBy = (items: typeof funnelEvents, field: string) => {
+    const counts = new Map<string, number>();
+    for (const item of items) {
+      const value = String(parseMetadata(item.metadata)[field] || "Không xác định");
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+    }
+    return Array.from(counts.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+  };
+  const startedEvents = funnelEvents.filter((item) => item.action === "WEB_REGISTRATION_STARTED");
+  const abandonedEvents = funnelEvents.filter((item) => item.action === "WEB_REGISTRATION_ABANDONED" && !completedVisitors.has(item.actorId));
+  const failedEvents = funnelEvents.filter((item) => item.action === "WEB_REGISTRATION_FAILED");
+  const sources = countBy(startedEvents, "source").map((source) => {
+    const actors = new Set(startedEvents.filter((item) => String(parseMetadata(item.metadata).source || "Không xác định") === source.name).map((item) => item.actorId));
+    const completed = Array.from(actors).filter((actorId) => completedVisitors.has(actorId)).length;
+    return { ...source, completed, completionRate: actors.size ? Math.round(completed / actors.size * 100) : 0 };
+  });
 
   const registrationsByPath = new Map<string, number>();
   for (const registration of registrations) {
@@ -87,6 +123,18 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     period,
+    registrationFunnel: {
+      started: startedVisitors.size,
+      reachedStepTwo: stepTwoVisitors.size,
+      completed: completedVisitors.size,
+      abandoned: abandonedWithoutCompletion,
+      failed: failedVisitors.size,
+      completionRate: startedVisitors.size ? Math.round(completedVisitors.size / startedVisitors.size * 100) : 0,
+      abandonedByStep: countBy(abandonedEvents, "step"),
+      failureReasons: countBy(failedEvents, "errorCategory"),
+      sources,
+      devices: countBy(startedEvents, "device")
+    },
     pages: Array.from(pages.values())
       .map((page) => ({
         path: page.path,
@@ -108,7 +156,16 @@ export async function DELETE() {
   await requireAdmin();
   const result = await prisma.auditLog.deleteMany({
     where: {
-      action: { in: ["PAGE_VISIT", "WEB_REGISTRATION_COMPLETED"] }
+      action: {
+        in: [
+          "PAGE_VISIT",
+          "WEB_REGISTRATION_STARTED",
+          "WEB_REGISTRATION_STEP_2",
+          "WEB_REGISTRATION_COMPLETED",
+          "WEB_REGISTRATION_ABANDONED",
+          "WEB_REGISTRATION_FAILED"
+        ]
+      }
     }
   });
   return NextResponse.json({ ok: true, deleted: result.count });

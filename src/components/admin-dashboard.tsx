@@ -393,6 +393,18 @@ function LinkAnalyticsPanel() {
 }
 
 type PageAnalyticsDto = {
+  registrationFunnel: {
+    started: number;
+    reachedStepTwo: number;
+    completed: number;
+    abandoned: number;
+    failed: number;
+    completionRate: number;
+    abandonedByStep: { name: string; count: number }[];
+    failureReasons: { name: string; count: number }[];
+    sources: { name: string; count: number; completed: number; completionRate: number }[];
+    devices: { name: string; count: number }[];
+  };
   pages: {
     path: string;
     visits: number;
@@ -487,6 +499,86 @@ function PageAnalyticsPanel() {
         <article className="rounded-xl border border-brand-line bg-white p-4"><span className="text-xs text-neutral-500">Người truy cập</span><strong className="mt-1 block text-2xl">{totals.visitors}</strong></article>
         <article className="rounded-xl border border-brand-line bg-white p-4"><span className="text-xs text-neutral-500">Đăng ký thành công</span><strong className="mt-1 block text-2xl text-emerald-700">{totals.registrations}</strong></article>
       </div>
+      <section className="rounded-xl border border-brand-line bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h3 className="font-bold">Phễu đăng ký tài khoản</h3>
+            <p className="mt-1 text-xs text-neutral-500">Theo dõi khách bắt đầu, đi đến bước cuối, thành công hoặc bỏ dở trong khoảng thời gian đã chọn.</p>
+          </div>
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+            Hoàn tất {data?.registrationFunnel?.completionRate ?? 0}%
+          </span>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-5">
+          {[
+            ["Bắt đầu", data?.registrationFunnel?.started ?? 0, "text-blue-700"],
+            ["Đến bước 2", data?.registrationFunnel?.reachedStepTwo ?? 0, "text-violet-700"],
+            ["Thành công", data?.registrationFunnel?.completed ?? 0, "text-emerald-700"],
+            ["Bỏ dở", data?.registrationFunnel?.abandoned ?? 0, "text-amber-700"],
+            ["Gặp lỗi", data?.registrationFunnel?.failed ?? 0, "text-red-700"]
+          ].map(([label, value, tone]) => (
+            <div key={String(label)} className="rounded-lg bg-neutral-50 p-3 text-center">
+              <span className="block text-xs text-neutral-500">{label}</span>
+              <strong className={`mt-1 block text-xl ${tone}`}>{value}</strong>
+            </div>
+          ))}
+        </div>
+        {(data?.registrationFunnel?.started ?? 0) >= 20 && (data?.registrationFunnel?.completionRate ?? 0) < 20 ? (
+          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+            Cảnh báo: tỷ lệ đăng ký thành công đang dưới 20%. Hãy kiểm tra nhóm lỗi và bước khách bỏ dở bên dưới.
+          </p>
+        ) : null}
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          <div className="rounded-lg border border-brand-line p-3">
+            <h4 className="text-sm font-bold">Bỏ dở ở bước nào</h4>
+            <div className="mt-2 grid gap-2">
+              {(data?.registrationFunnel?.abandonedByStep ?? []).map((item) => (
+                <div key={item.name} className="flex items-center justify-between text-sm">
+                  <span className="text-neutral-600">{item.name === "1" ? "Bước 1 · Email và mật khẩu" : item.name === "2" ? "Bước 2 · Thông tin cá nhân" : "Không xác định"}</span>
+                  <strong className="text-amber-700">{item.count}</strong>
+                </div>
+              ))}
+              {!data?.registrationFunnel?.abandonedByStep?.length ? <p className="text-xs text-neutral-400">Chưa có dữ liệu.</p> : null}
+            </div>
+          </div>
+          <div className="rounded-lg border border-brand-line p-3">
+            <h4 className="text-sm font-bold">Nhóm lỗi đăng ký</h4>
+            <div className="mt-2 grid gap-2">
+              {(data?.registrationFunnel?.failureReasons ?? []).map((item) => {
+                const labels: Record<string, string> = {
+                  EMAIL_EXISTS: "Email đã tồn tại",
+                  INVALID_INPUT: "Thông tin chưa hợp lệ",
+                  REFERRAL: "Mã giới thiệu",
+                  NETWORK: "Kết nối mạng",
+                  SERVER: "Máy chủ/API",
+                  OTHER: "Lỗi khác"
+                };
+                return <div key={item.name} className="flex items-center justify-between text-sm"><span className="text-neutral-600">{labels[item.name] ?? item.name}</span><strong className="text-red-700">{item.count}</strong></div>;
+              })}
+              {!data?.registrationFunnel?.failureReasons?.length ? <p className="text-xs text-neutral-400">Chưa có lỗi đăng ký.</p> : null}
+            </div>
+          </div>
+          <div className="rounded-lg border border-brand-line p-3">
+            <h4 className="text-sm font-bold">Thiết bị bắt đầu đăng ký</h4>
+            <div className="mt-2 grid gap-2">
+              {(data?.registrationFunnel?.devices ?? []).map((item) => <div key={item.name} className="flex items-center justify-between text-sm"><span className="text-neutral-600">{item.name}</span><strong>{item.count}</strong></div>)}
+              {!data?.registrationFunnel?.devices?.length ? <p className="text-xs text-neutral-400">Chưa có dữ liệu.</p> : null}
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 overflow-hidden rounded-lg border border-brand-line">
+          <div className="border-b border-brand-line bg-neutral-50 px-3 py-2"><h4 className="text-sm font-bold">Hiệu quả theo nguồn truy cập</h4></div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-left text-sm">
+              <thead className="text-xs text-neutral-500"><tr><th className="px-3 py-2">Nguồn</th><th className="px-3 py-2 text-center">Bắt đầu</th><th className="px-3 py-2 text-center">Thành công</th><th className="px-3 py-2 text-center">Tỷ lệ</th></tr></thead>
+              <tbody className="divide-y divide-brand-line">
+                {(data?.registrationFunnel?.sources ?? []).map((source) => <tr key={source.name}><td className="px-3 py-2 font-medium">{source.name}</td><td className="px-3 py-2 text-center">{source.count}</td><td className="px-3 py-2 text-center text-emerald-700">{source.completed}</td><td className="px-3 py-2 text-center font-bold">{source.completionRate}%</td></tr>)}
+              </tbody>
+            </table>
+            {!data?.registrationFunnel?.sources?.length ? <p className="p-3 text-xs text-neutral-400">Chưa có dữ liệu nguồn đăng ký.</p> : null}
+          </div>
+        </div>
+      </section>
       <section className="overflow-hidden rounded-xl border border-brand-line bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1050px] text-left">

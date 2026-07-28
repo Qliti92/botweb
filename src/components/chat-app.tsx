@@ -227,6 +227,16 @@ function isAuthStartMessage(content: string) {
   return normalized.includes("có tài khoản chọn 1") && normalized.includes("chưa có tài khoản chọn 2");
 }
 
+function registrationErrorCategory(message: string) {
+  const value = message.toLocaleLowerCase("vi");
+  if (value.includes("email") && (value.includes("tồn tại") || value.includes("đã được") || value.includes("đã dùng"))) return "EMAIL_EXISTS";
+  if (value.includes("giới thiệu") || value.includes("referral")) return "REFERRAL";
+  if (value.includes("mạng") || value.includes("network") || value.includes("fetch")) return "NETWORK";
+  if (value.includes("server") || value.includes("máy chủ") || value.includes("api")) return "SERVER";
+  if (value.includes("không hợp lệ") || value.includes("mật khẩu") || value.includes("định dạng")) return "INVALID_INPUT";
+  return "OTHER";
+}
+
 export function ChatApp() {
   const [session, setSession] = useState<ChatSessionPayload | null>(null);
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
@@ -664,7 +674,8 @@ export function ChatApp() {
               passwordConfirmation: authPasswordConfirmation,
               name: authName,
               phone: authPhone,
-              referralCode: authReferralCode
+              referralCode: authReferralCode,
+              registrationPath: window.location.pathname
             }
           : authMode === "forgot"
             ? { mode: "forgot", email: normalizedEmail }
@@ -707,6 +718,15 @@ export function ChatApp() {
       setAuthMessage("");
       setShowAuth(false);
     } catch (err) {
+      if (authMode === "register") {
+        const errorMessage = err instanceof Error ? err.message : "";
+        void fetch("/api/analytics/registration", {
+          method: "POST",
+          keepalive: true,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ stage: "FAILED", path: window.location.pathname, errorCategory: registrationErrorCategory(errorMessage) })
+        }).catch(() => {});
+      }
       setError(err instanceof Error ? err.message : "Ry chưa xác thực được thông tin. Bạn kiểm tra rồi thử lại nhé.");
     } finally {
       setLoading(false);
@@ -1599,11 +1619,32 @@ function AuthScreen({
   const [registerStep, setRegisterStep] = useState<1 | 2>(1);
   const passwordsMatch = passwordConfirmation.length > 0 && password === passwordConfirmation;
 
+  function trackRegistration(stage: "STARTED" | "STEP_2" | "ABANDONED", step?: 1 | 2) {
+    void fetch("/api/analytics/registration", {
+      method: "POST",
+      keepalive: stage === "ABANDONED",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ stage, step, path: window.location.pathname })
+    }).catch(() => {});
+  }
+
   useEffect(() => {
     if (!isRegister) setRegisterStep(1);
   }, [isRegister]);
 
+  useEffect(() => {
+    if (!isRegister) return;
+    if (window.sessionStorage.getItem("registration_funnel_started") !== "1") {
+      window.sessionStorage.setItem("registration_funnel_started", "1");
+      trackRegistration("STARTED", 1);
+    }
+    const onPageHide = () => trackRegistration("ABANDONED", registerStep);
+    window.addEventListener("pagehide", onPageHide);
+    return () => window.removeEventListener("pagehide", onPageHide);
+  }, [isRegister, registerStep]);
+
   function changeMode(nextMode: AuthMode) {
+    if (isRegister && nextMode !== "register") trackRegistration("ABANDONED", registerStep);
     if (nextMode === "register") setRegisterStep(1);
     onModeChange(nextMode);
   }
@@ -1613,6 +1654,7 @@ function AuthScreen({
       event.preventDefault();
       if (!passwordsMatch) return;
       setRegisterStep(2);
+      trackRegistration("STEP_2", 2);
       return;
     }
     onSubmit(event);
@@ -1647,7 +1689,7 @@ function AuthScreen({
     <main className="chat-compact relative flex min-h-dvh flex-col overflow-hidden bg-[#f4f7f6]">
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-[#dceee8] to-transparent" />
       <AppNoticeBanner notice={appNotice} secondsLeft={appNoticeSecondsLeft} />
-      <button type="button" onClick={onBack} className="fixed left-3 top-3 z-20 flex items-center gap-2 rounded-full border border-white bg-white/90 px-3.5 py-2 text-sm font-semibold text-brand-ink shadow-sm backdrop-blur transition hover:bg-white sm:left-6 sm:top-6">
+      <button type="button" onClick={() => { if (isRegister) trackRegistration("ABANDONED", registerStep); onBack(); }} className="fixed left-3 top-3 z-20 flex items-center gap-2 rounded-full border border-white bg-white/90 px-3.5 py-2 text-sm font-semibold text-brand-ink shadow-sm backdrop-blur transition hover:bg-white sm:left-6 sm:top-6">
         <ArrowLeft aria-hidden="true" className="h-4 w-4" />
         Trang chủ
       </button>
