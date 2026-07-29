@@ -1642,7 +1642,7 @@ function AuthScreen({
   const isTwoFactor = mode === "2fa";
   const isEmailVerification = mode === "verify-email";
   const isCodeVerification = isTwoFactor || isEmailVerification;
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
   const [registerStep, setRegisterStep] = useState<1 | 2>(1);
@@ -1697,7 +1697,7 @@ function AuthScreen({
   }
 
   function handleAuthSubmit(event: FormEvent) {
-    if (isRegister && registerStep === 1) {
+    if (isRegister) {
       event.preventDefault();
       setFormError("");
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
@@ -1712,32 +1712,17 @@ function AuthScreen({
         setFormError("Hai mật khẩu chưa giống nhau.");
         return;
       }
-      setRegisterStep(2);
+      if (!acceptedTerms) {
+        setFormError("Bạn cần đồng ý với Điều khoản dịch vụ và Chính sách bảo mật.");
+        return;
+      }
       trackRegistration("STEP_2", 2);
-      return;
-    }
-    if (isRegister && registerStep === 2) {
-      setFormError("");
-      if (name.trim().length < 2) {
-        event.preventDefault();
-        setFormError("Bạn nhập họ tên có ít nhất 2 ký tự.");
-        return;
-      }
-      const normalizedPhone = phone.replace(/[\s.-]/g, "");
-      if (normalizedPhone && !/^\+?[0-9]{9,15}$/.test(normalizedPhone)) {
-        event.preventDefault();
-        setFormError("Số điện thoại chưa đúng. Bạn có thể sửa lại hoặc để trống.");
-        return;
-      }
-      if (normalizedPhone !== phone) onPhoneChange(normalizedPhone);
     }
     onSubmit(event);
   }
 
   const title = isRegister
-    ? registerStep === 1
-      ? "Tạo tài khoản"
-      : `Sắp xong rồi${name.trim() ? `, ${name.trim().split(/\s+/).slice(-1)[0]}` : ""}!`
+    ? "Tạo tài khoản"
     : isForgot
       ? "Lấy lại mật khẩu"
       : isTwoFactor
@@ -1746,9 +1731,7 @@ function AuthScreen({
           ? "Xác minh email"
         : "Chào mừng bạn trở lại";
   const description = isRegister
-    ? registerStep === 1
-      ? "Trước tiên, hãy tạo thông tin đăng nhập của bạn."
-      : "Bạn tên gì để Ry tiện xưng hô?"
+    ? "Chỉ cần email và mật khẩu để bắt đầu nhận tiền hoàn."
     : isForgot
       ? "Nhập email đã đăng ký, chúng tôi sẽ gửi hướng dẫn cho bạn."
       : isTwoFactor
@@ -1786,26 +1769,19 @@ function AuthScreen({
           </div>
         ) : null}
 
-        {isRegister ? (
-          <div className="mb-5" aria-label={`Bước ${registerStep} trên 2`}>
+        {isRegister && hasPendingLink ? (
+          <div className="mb-5">
             {hasPendingLink ? (
               <div className="mb-4 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm leading-5 text-emerald-800">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
                 <span><strong>Đã giữ link sản phẩm.</strong> Đăng ký xong, Qbot sẽ tự kiểm tra link này cho bạn.</span>
               </div>
             ) : null}
-            <div className="mb-2 flex items-center justify-between text-sm font-semibold">
-              <span className="text-brand-red">Bước {registerStep}/2</span>
-              <span className="text-neutral-500">{registerStep === 1 ? "Thông tin đăng nhập" : "Thông tin cá nhân"}</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
-              <div className={`h-full rounded-full bg-brand-red transition-all duration-300 ${registerStep === 1 ? "w-1/2" : "w-full"}`} />
-            </div>
           </div>
         ) : null}
 
         <form onSubmit={handleAuthSubmit} className="grid gap-4">
-          {!isCodeVerification && (!isRegister || registerStep === 1) ? (
+          {!isCodeVerification ? (
             <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
               Địa chỉ email
               <span className="relative">
@@ -1815,27 +1791,7 @@ function AuthScreen({
             </label>
           ) : null}
 
-          {isRegister && registerStep === 2 ? (
-            <>
-              <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
-                Họ tên
-                <span className="relative">
-                  <User aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
-                  <input value={name} onChange={(event) => onNameChange(event.target.value)} autoComplete="name" required minLength={2} placeholder="Nguyễn Văn An" className={inputClassName} />
-                </span>
-              </label>
-              <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
-                Số điện thoại <span className="font-normal text-neutral-500">(không bắt buộc)</span>
-                <span className="relative">
-                  <Phone aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
-                  <input value={phone} onChange={(event) => onPhoneChange(event.target.value)} type="tel" inputMode="tel" autoComplete="tel" placeholder="0912 345 678" className={inputClassName} />
-                </span>
-                <span className="font-normal text-neutral-500">Không bắt buộc, bạn có thể bỏ qua.</span>
-              </label>
-            </>
-          ) : null}
-
-          {!isForgot && !isCodeVerification && (!isRegister || registerStep === 1) ? (
+          {!isForgot && !isCodeVerification ? (
             <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
               Mật khẩu
               <span className="relative">
@@ -1848,7 +1804,7 @@ function AuthScreen({
             </label>
           ) : null}
 
-          {isRegister && registerStep === 1 ? (
+          {isRegister ? (
             <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
               Xác nhận mật khẩu
               <span className="relative">
@@ -1867,15 +1823,7 @@ function AuthScreen({
             </label>
           ) : null}
 
-          {isRegister && registerStep === 2 ? (
-            <>
-              <label className="grid gap-1.5 text-sm font-semibold text-brand-ink">
-                Mã giới thiệu <span className="font-normal text-neutral-500">(không bắt buộc)</span>
-                <span className="relative">
-                  <Gift aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
-                  <input value={referralCode} onChange={(event) => onReferralCodeChange(event.target.value)} autoComplete="off" placeholder="Bỏ qua nếu bạn không có mã" className={inputClassName} />
-                </span>
-              </label>
+          {isRegister ? (
               <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-neutral-50 p-3 text-sm leading-5 text-neutral-700 ring-1 ring-neutral-200">
                 <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} required className="mt-0.5 h-5 w-5 shrink-0 accent-brand-red" />
                 <span>
@@ -1890,7 +1838,6 @@ function AuthScreen({
                   .
                 </span>
               </label>
-            </>
           ) : null}
 
           {isCodeVerification ? (
@@ -1903,30 +1850,20 @@ function AuthScreen({
           {formError || error ? <div role="alert" className="flex gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-100"><AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />{formError || error}</div> : null}
           {message ? <div role="status" className="flex gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700 ring-1 ring-emerald-100"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />{message}</div> : null}
 
-          {isRegister && registerStep === 2 ? (
-            <button type="button" onClick={() => setRegisterStep(1)} className="flex items-center justify-center gap-2 text-sm font-semibold text-neutral-600 hover:text-brand-red">
-              <ArrowLeft className="h-4 w-4" /> Sửa email hoặc mật khẩu
-            </button>
-          ) : null}
-
           <button type="submit" disabled={loading} className="mt-1 flex min-h-14 items-center justify-center gap-2 rounded-xl bg-brand-red px-5 text-base font-bold text-white shadow-lg shadow-emerald-900/10 transition hover:bg-[#236c58] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50">
             {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
             {loading
               ? isForgot
                 ? "Đang gửi hướng dẫn..."
-                : isRegister && registerStep === 2
-                  ? "Đang đăng ký..."
-                  : isRegister
-                    ? "Đang chuyển bước..."
+                : isRegister
+                    ? "Đang đăng ký..."
                   : isCodeVerification
                     ? "Đang xác thực..."
                     : "Đang đăng nhập..."
               : isForgot
                 ? "Gửi hướng dẫn"
-                : isRegister && registerStep === 2
-                  ? "Tạo tài khoản"
-                  : isRegister
-                    ? "Tiếp tục"
+                : isRegister
+                    ? "Tạo tài khoản"
                   : isCodeVerification
                     ? "Xác thực"
                     : "Đăng nhập"}

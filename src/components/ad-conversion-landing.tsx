@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { ArrowRight, Check, ClipboardPaste, HelpCircle, Link2, LoaderCircle, LockKeyhole, ShieldCheck, ShoppingBag, X } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ClipboardPaste, HelpCircle, Link2, LoaderCircle, LockKeyhole, ShieldCheck, ShoppingBag, X } from "lucide-react";
 import { classifyShoppingLink } from "@/lib/shopping-link";
 import { registrationErrorCategory, registrationErrorCode } from "@/lib/registration-errors";
 
@@ -55,9 +55,11 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [openTrustItem, setOpenTrustItem] = useState<"source" | "account" | "payment" | null>("source");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -165,6 +167,7 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return rejectInput("Bạn kiểm tra lại địa chỉ email.");
     if (password.length < 8) return rejectInput("Mật khẩu cần có ít nhất 8 ký tự.");
     if (password !== confirmation) return rejectInput("Hai mật khẩu chưa giống nhau.");
+    if (!acceptedTerms) return rejectInput("Bạn cần đồng ý với Điều khoản dịch vụ và Chính sách bảo mật.");
     if (loading) return;
     setLoading(true);
     setError("");
@@ -242,10 +245,16 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
             </h1>
             <p className="mx-auto mt-4 max-w-md text-center text-[15px] leading-6 text-neutral-600 sm:mx-0 sm:mt-5 sm:max-w-xl sm:text-left sm:text-base sm:leading-7">Dán link sản phẩm Shopee hoặc TikTok Shop để xem số tiền hoàn dự kiến trước khi mua.</p>
 
-            <div className="mt-6 grid max-w-xl gap-2.5 text-sm text-neutral-700 sm:grid-cols-3">
-              <span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 shrink-0 text-[#287a63]" /> Không cần mật khẩu sàn</span>
-              <span className="flex items-center gap-2"><ShoppingBag className="h-4 w-4 shrink-0 text-[#287a63]" /> Thanh toán trên sàn</span>
-              <span className="flex items-center gap-2"><Check className="h-4 w-4 shrink-0 text-[#287a63]" /> Theo dõi trong Em Ry</span>
+            <div className="mt-5 grid max-w-xl grid-cols-3 divide-x divide-[#d6e4de] overflow-hidden rounded-xl border border-[#d6e4de] bg-white/80 text-center shadow-sm">
+              <span className="flex min-w-0 flex-col items-center justify-center gap-1 px-1.5 py-2.5 text-[10px] font-semibold leading-4 text-neutral-700 sm:flex-row sm:gap-2 sm:px-3 sm:text-xs">
+                <Link2 className="h-4 w-4 shrink-0 text-[#287a63]" /> Dán link là xong
+              </span>
+              <span className="flex min-w-0 flex-col items-center justify-center gap-1 px-1.5 py-2.5 text-[10px] font-semibold leading-4 text-neutral-700 sm:flex-row sm:gap-2 sm:px-3 sm:text-xs">
+                <ShieldCheck className="h-4 w-4 shrink-0 text-[#287a63]" /> Không hỏi mật khẩu
+              </span>
+              <span className="flex min-w-0 flex-col items-center justify-center gap-1 px-1.5 py-2.5 text-[10px] font-semibold leading-4 text-neutral-700 sm:flex-row sm:gap-2 sm:px-3 sm:text-xs">
+                <Check className="h-4 w-4 shrink-0 text-[#287a63]" /> Hoàn từ hoa hồng
+              </span>
             </div>
 
             <div className="mt-7 rounded-2xl border bg-white p-4 shadow-[0_18px_50px_rgba(48,52,59,.09)] sm:p-5" style={{ borderColor: content.border }}>
@@ -327,6 +336,12 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
                     <input required minLength={8} type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Mật khẩu từ 8 ký tự" autoComplete="new-password" className="h-12 rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-[#287a63]" />
                     <input required minLength={8} type="password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} placeholder="Nhập lại mật khẩu" autoComplete="new-password" className="h-12 rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-[#287a63]" />
                   </div>
+                  <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl bg-neutral-50 p-3 text-xs leading-5 text-neutral-700 ring-1 ring-neutral-200">
+                    <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} required className="mt-0.5 h-5 w-5 shrink-0 accent-[#287a63]" />
+                    <span>
+                      Tôi đồng ý với <a href="/thong-tin/dieu-khoan-dich-vu" target="_blank" rel="noreferrer" className="font-bold text-[#287a63] underline">Điều khoản dịch vụ</a> và <a href="/thong-tin/chinh-sach-bao-mat" target="_blank" rel="noreferrer" className="font-bold text-[#287a63] underline">Chính sách bảo mật</a>.
+                    </span>
+                  </label>
                   <button disabled={loading} type="submit" className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#287a63] px-5 text-sm font-bold text-white disabled:opacity-50">{loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <LockKeyhole className="h-4 w-4" />} Tạo tài khoản và kiểm tra link</button>
                   <p className="mt-2 text-center text-[11px] text-neutral-500">Không yêu cầu mật khẩu hoặc OTP của {content.label}.</p>
                 </form>
@@ -336,26 +351,110 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
           </div>
 
           <aside className="rounded-3xl border border-[#d6e4de] bg-white p-5 shadow-[0_24px_70px_rgba(48,52,59,.10)] sm:p-7">
-            <p className="text-xs font-bold uppercase tracking-[.12em] text-[#287a63]">Chỉ 4 bước</p>
-            <h2 className="mt-2 text-2xl font-bold">Mua hàng như bình thường</h2>
-            <ol className="mt-6 grid gap-3">
-              {[
-                ["1", `Sao chép link sản phẩm trên ${content.label}`],
-                ["2", "Dán link vào Em Ry và đăng ký miễn phí"],
-                ["3", `Mở link Em Ry gửi để quay lại ${content.label}`],
-                ["4", "Theo dõi đơn và tiền hoàn trong tài khoản"]
-              ].map(([number, text]) => (
-                <li key={number} className="flex items-center gap-3 rounded-2xl p-3.5" style={{ backgroundColor: content.pale }}>
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-black text-white" style={{ backgroundColor: content.accent }}>{number}</span>
-                  <span className="text-sm font-semibold leading-5">{text}</span>
-                </li>
-              ))}
-            </ol>
-            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">
-              <strong className="block">An toàn khi sử dụng</strong>
-              Em Ry chỉ xử lý link sản phẩm. Bạn vẫn đăng nhập, chọn địa chỉ và thanh toán trực tiếp trên {content.label}.
+            <p className="text-xs font-bold uppercase tracking-[.12em] text-[#287a63]">Hiểu rõ trước khi dùng</p>
+            <h2 className="mt-2 text-2xl font-bold">Tiền hoàn từ đâu, có an toàn không?</h2>
+            <p className="mt-2 text-sm leading-6 text-neutral-600">QBot chỉ xử lý link sản phẩm, không đăng nhập hoặc thanh toán thay bạn.</p>
+
+            <div className="mt-5 grid gap-2">
+              {([
+                {
+                  id: "source",
+                  question: "Tiền hoàn từ đâu?",
+                  answer: "Khi bạn mua qua link QBot tạo, sàn có thể trả hoa hồng tiếp thị liên kết cho hệ thống. QBot chia lại một phần khoản hoa hồng đó cho bạn dưới dạng tiền hoàn."
+                },
+                {
+                  id: "account",
+                  question: "QBot có đăng nhập tài khoản sàn không?",
+                  answer: "Không. QBot không yêu cầu mật khẩu, OTP hay mã xác minh của Shopee/TikTok Shop. Bạn tự đăng nhập và mua hàng trên ứng dụng chính thức của sàn."
+                },
+                {
+                  id: "payment",
+                  question: "QBot có giữ tiền mua hàng không?",
+                  answer: "Không. Bạn chọn địa chỉ và thanh toán trực tiếp cho Shopee/TikTok Shop. QBot chỉ theo dõi hoa hồng và cộng tiền hoàn sau khi đơn được sàn xác nhận."
+                }
+              ] as const).map((item) => {
+                const expanded = openTrustItem === item.id;
+                return (
+                  <div key={item.id} className={`overflow-hidden rounded-xl border transition ${expanded ? "border-[#9ec9b9] bg-[#f1f7f4]" : "border-neutral-200 bg-white"}`}>
+                    <button type="button" onClick={() => setOpenTrustItem(expanded ? null : item.id)} aria-expanded={expanded} className="flex min-h-12 w-full items-center justify-between gap-3 px-3.5 text-left text-sm font-bold">
+                      <span>{item.question}</span>
+                      <ChevronDown className={`h-4 w-4 shrink-0 text-[#287a63] transition-transform ${expanded ? "rotate-180" : ""}`} />
+                    </button>
+                    {expanded ? <p className="border-t border-[#d6e4de] px-3.5 py-3 text-sm leading-6 text-neutral-700">{item.answer}</p> : null}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+              <p><strong>Luôn nhớ:</strong> không cung cấp mật khẩu hoặc OTP của sàn cho bất kỳ ai. Tiền hoàn chỉ được tính khi đơn được ghi nhận và đối soát thành công.</p>
             </div>
           </aside>
+        </div>
+      </section>
+
+      <section className="border-y border-[#e4e8e6] bg-white py-12 sm:py-16">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-[10px] font-bold uppercase tracking-[.14em] text-[#287a63]">Cách nhận tiền hoàn</p>
+            <h2 className="mt-2 text-2xl font-bold tracking-[-.025em] sm:text-3xl">Làm lần lượt 4 bước là được</h2>
+            <p className="mt-2 text-sm leading-6 text-neutral-600">Bạn vẫn chọn sản phẩm và mua hàng như bình thường, QBot chỉ giúp tạo link để theo dõi hoa hồng.</p>
+          </div>
+
+          <ol className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["1", "Sao chép link", `Mở sản phẩm trên ${content.label} rồi sao chép đường dẫn.`],
+              ["2", "Kiểm tra tiền hoàn", "Dán link vào QBot để xem số tiền hoàn dự kiến."],
+              ["3", "Mở link QBot tạo", `Quay lại ${content.label} bằng đúng link QBot gửi.`],
+              ["4", "Theo dõi tiền về", "Đơn được sàn ghi nhận, đối soát rồi cộng tiền hoàn."]
+            ].map(([number, title, text]) => (
+              <li key={number} className="relative rounded-2xl border border-[#dce4e0] bg-[#fafcfb] p-4">
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-[#287a63] text-sm font-black text-white">{number}</span>
+                <h3 className="mt-3 text-sm font-bold">{title}</h3>
+                <p className="mt-1.5 text-xs leading-5 text-neutral-600">{text}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section className="bg-[#fafaf8] py-12 sm:py-16">
+        <div className="mx-auto grid max-w-6xl gap-4 px-4 sm:px-6 lg:grid-cols-2">
+          <article className="rounded-3xl border border-[#d6e4de] bg-white p-5 shadow-sm sm:p-6">
+            <div className="flex items-center gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#f1f7f4] text-[#287a63]"><Check className="h-5 w-5" /></span>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#287a63]">Để đơn dễ được ghi nhận</p>
+                <h2 className="mt-1 text-xl font-bold">Nhớ 4 điều nhỏ này</h2>
+              </div>
+            </div>
+            <ul className="mt-5 grid gap-2.5 text-sm leading-6 text-neutral-700">
+              {[
+                "Mở sản phẩm bằng đúng link QBot vừa tạo.",
+                "Nên để giỏ hàng trống trước khi mở link.",
+                "Mua trên cùng thiết bị và tài khoản sàn.",
+                "Đơn hủy, trả hàng hoặc hoàn tiền sẽ không có tiền hoàn."
+              ].map((text) => <li key={text} className="flex gap-2"><Check className="mt-1 h-4 w-4 shrink-0 text-[#287a63]" /><span>{text}</span></li>)}
+            </ul>
+          </article>
+
+          <article className="rounded-3xl border border-[#d6e4de] bg-[#287a63] p-5 text-white shadow-sm sm:p-6">
+            <div className="flex items-center gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/15"><ShieldCheck className="h-5 w-5" /></span>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[.12em] text-white/70">QBot làm gì?</p>
+                <h2 className="mt-1 text-xl font-bold">Chỉ xử lý link sản phẩm</h2>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-2.5 text-sm leading-6 text-white/85">
+              <p className="rounded-xl bg-white/10 px-3.5 py-2.5"><strong className="text-white">QBot làm:</strong> kiểm tra link, tạo link mua hàng và theo dõi tiền hoàn.</p>
+              <p className="rounded-xl bg-white/10 px-3.5 py-2.5"><strong className="text-white">QBot không làm:</strong> hỏi mật khẩu sàn, đăng nhập thay hoặc nhận tiền mua hàng của bạn.</p>
+            </div>
+            <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-bold text-[#287a63]">
+              Dán link để kiểm tra <ArrowRight className="h-4 w-4" />
+            </button>
+          </article>
         </div>
       </section>
 

@@ -12,10 +12,13 @@ import {
   HelpCircle,
   Link2,
   LogIn,
+  Menu,
   PackageCheck,
   Send,
   ShieldCheck,
   ShoppingBag,
+  ThumbsDown,
+  ThumbsUp,
   UserPlus,
   WalletCards,
   X
@@ -146,7 +149,7 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
         <div className="relative mx-auto grid w-full min-w-0 max-w-6xl items-center gap-7 px-4 pb-10 pt-6 sm:min-h-[650px] sm:gap-9 sm:px-6 sm:py-14 lg:grid-cols-[1.04fr_.96fr] lg:py-20">
           <div className="min-w-0 text-center lg:text-left">
             <span className="inline-flex max-w-full items-center justify-center gap-1.5 rounded-full border border-[#d6e4de] bg-white/80 px-3 py-1.5 text-[10px] font-semibold text-[#287a63] shadow-sm sm:gap-2 sm:py-2 sm:text-[11px]">
-              <Check className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" /> Kiểm tra miễn phí · Thanh toán trên sàn
+              <Check className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" /> Kiểm tra miễn phí · Mua sắm trên sàn
             </span>
             <h1 className="mx-auto mt-4 max-w-2xl text-[clamp(30px,9vw,48px)] font-bold leading-[1.08] tracking-[-.035em] sm:mt-5 sm:leading-[1.14] lg:mx-0">
               <span className="block sm:whitespace-nowrap">Dán link sản phẩm</span>
@@ -319,28 +322,68 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
         </div>
       ) : null}
 
-      <section className="py-14 sm:py-20">
-        <div className="mx-auto grid max-w-5xl items-center gap-8 px-4 sm:px-6 lg:grid-cols-2">
-          <div>
-            <span className="text-[11px] font-semibold uppercase tracking-[.14em] text-[#8a6c35]">Ví dụ dễ hiểu</span>
-            <h2 className="mt-3 text-[28px] font-bold leading-tight sm:text-[38px]">Bạn nhận 70% hoa hồng sau thuế</h2>
-            <p className="mt-4 text-[15px] leading-7 text-neutral-600">Hoa hồng chỉ được tính khi đơn hàng hoàn tất và được sàn xác nhận. Thuế được trừ theo quy định trước khi chia 70% cho bạn.</p>
-            <div className="mt-5 rounded-2xl bg-[#f1f7f4] p-4 text-sm leading-6 text-neutral-700">
-              <strong className="block text-[#287a63]">Công thức tính</strong>
-              <span className="mt-1 block">(Hoa hồng được sàn xác nhận − Thuế) × 70% = Tiền bạn nhận</span>
-            </div>
+      <section className="border-y border-[#e4e8e6] bg-white py-12 sm:py-16">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="text-[10px] font-semibold uppercase tracking-[.14em] text-[#287a63]">Hiểu rõ trước khi dùng</span>
+            <h2 className="mt-2 text-[26px] font-bold leading-tight tracking-[-.025em] sm:text-[36px]">Tiền hoàn từ đâu, có an toàn không?</h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-neutral-600">QBot chỉ xử lý link sản phẩm và theo dõi hoa hồng, không đăng nhập hoặc mua hàng thay bạn.</p>
           </div>
-          <div className="rounded-3xl border border-[#d6e4de] bg-white p-5 shadow-[0_18px_50px_rgba(48,52,59,.08)] sm:p-7">
-            <div className="flex items-center gap-3 border-b border-[#e7e9ed] pb-5">
-              <span className="grid h-12 w-12 place-items-center rounded-xl bg-[#f1f7f4] text-[#287a63]"><ShoppingBag className="h-6 w-6" /></span>
-              <div><p className="text-xs text-neutral-500">Hoa hồng còn lại sau thuế (ví dụ)</p><strong className="text-2xl">25.000đ</strong></div>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <article className="rounded-2xl border border-[#d6e4de] bg-[#fafcfb] p-4 text-center">
+              <span className="mx-auto grid h-10 w-10 place-items-center rounded-xl bg-[#f1f7f4] text-[#287a63]"><CircleDollarSign className="h-5 w-5" /></span>
+              <h3 className="mt-3 text-sm font-bold">Tiền hoàn từ hoa hồng</h3>
+              <p className="mt-1.5 text-xs leading-5 text-neutral-600">Sàn trả hoa hồng tiếp thị liên kết, QBot chia lại một phần cho bạn.</p>
+            </article>
+            <article className="rounded-2xl border border-[#d6e4de] bg-[#fafcfb] p-4 text-center">
+              <span className="mx-auto grid h-10 w-10 place-items-center rounded-xl bg-[#f1f7f4] text-[#287a63]"><ShieldCheck className="h-5 w-5" /></span>
+              <h3 className="mt-3 text-sm font-bold">Không hỏi mật khẩu</h3>
+              <p className="mt-1.5 text-xs leading-5 text-neutral-600">QBot chỉ nhận link sản phẩm, không đăng nhập tài khoản sàn của bạn.</p>
+            </article>
+            <article className="rounded-2xl border border-[#d6e4de] bg-[#fafcfb] p-4 text-center">
+              <span className="mx-auto grid h-10 w-10 place-items-center rounded-xl bg-[#f1f7f4] text-[#287a63]"><ShoppingBag className="h-5 w-5" /></span>
+              <h3 className="mt-3 text-sm font-bold">Không giữ tiền mua hàng</h3>
+              <p className="mt-1.5 text-xs leading-5 text-neutral-600">Bạn tự đặt hàng và thanh toán trên Shopee hoặc TikTok Shop.</p>
+            </article>
+          </div>
+
+          <div className="mt-5 text-center">
+            <a href="/bat-dau" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#9ec9b9] bg-[#f1f7f4] px-5 text-sm font-bold text-[#287a63] hover:border-[#287a63]">
+              Xem giải thích chi tiết <ArrowRight className="h-4 w-4" />
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-12 sm:py-20">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6">
+          <div className="text-center">
+            <span className="text-[10px] font-semibold uppercase tracking-[.14em] text-[#8a6c35]">Tiền hoàn được chia thế nào?</span>
+            <h2 className="mx-auto mt-2 whitespace-nowrap text-[clamp(17px,5vw,34px)] font-bold leading-tight tracking-[-.03em] sm:mt-3">Hoa hồng 25.000đ → Bạn nhận 17.500đ</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-neutral-600 sm:text-[15px] sm:leading-7">Nói đơn giản: sau khi sàn duyệt đơn và trừ thuế, QBot gửi lại bạn 70% phần hoa hồng còn lại.</p>
+          </div>
+
+          <div className="mt-6 overflow-hidden rounded-3xl border border-[#d6e4de] bg-white shadow-[0_18px_50px_rgba(48,52,59,.08)] sm:mt-8">
+            <div className="grid gap-0 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-center">
+              <div className="p-4 text-center sm:p-6">
+                <span className="mx-auto grid h-10 w-10 place-items-center rounded-xl bg-[#f1f7f4] text-[#287a63]"><ShoppingBag className="h-5 w-5" /></span>
+                <p className="mt-2 text-xs text-neutral-500">Hoa hồng còn lại</p>
+                <strong className="mt-1 block text-xl">25.000đ</strong>
+              </div>
+              <ArrowRight className="mx-auto h-5 w-5 rotate-90 text-neutral-300 sm:rotate-0" />
+              <div className="p-4 text-center sm:p-6">
+                <span className="mx-auto grid h-10 w-10 place-items-center rounded-xl bg-[#f7f2e7] text-[#8a6c35]"><CircleDollarSign className="h-5 w-5" /></span>
+                <p className="mt-2 text-xs text-neutral-500">Phần của bạn</p>
+                <strong className="mt-1 block text-xl text-[#8a6c35]">70%</strong>
+              </div>
+              <ArrowRight className="mx-auto h-5 w-5 rotate-90 text-neutral-300 sm:rotate-0" />
+              <div className="bg-[#f1f7f4] p-5 text-center sm:p-6">
+                <span className="text-xs font-semibold text-[#287a63]">Tiền bạn nhận</span>
+                <strong className="mt-1 block text-3xl font-black text-[#287a63]">17.500đ</strong>
+              </div>
             </div>
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 py-6 text-center">
-              <div><p className="text-xs text-neutral-500">Phần của bạn</p><strong className="mt-1 block text-xl text-[#8a6c35]">70%</strong></div>
-              <ArrowRight className="h-5 w-5 text-neutral-300" />
-              <div><p className="text-xs text-neutral-500">Bạn nhận</p><strong className="mt-1 block text-xl text-[#287a63]">17.500đ</strong></div>
-            </div>
-            <p className="rounded-xl bg-[#f6f7f8] px-4 py-3 text-xs leading-5 text-neutral-600">25.000đ × 70% = 17.500đ. Đây là ví dụ minh họa; số thực tế phụ thuộc hoa hồng, thuế và đối soát của từng đơn.</p>
+            <p className="border-t border-[#e7e9ed] px-4 py-3 text-center text-[11px] leading-5 text-neutral-500">Đây là ví dụ cho dễ hình dung. Tiền thực tế tùy sản phẩm và kết quả đối soát của sàn.</p>
           </div>
         </div>
       </section>
@@ -416,47 +459,79 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
 
 function CashbackOutcomePreview() {
   return (
-    <div className="relative mx-auto w-full max-w-[430px]">
+    <div className="relative mx-auto w-full max-w-[440px]">
       <div className="absolute -inset-5 rounded-full bg-[#dce9e4]/70 blur-3xl" />
-      <div className="relative overflow-hidden rounded-3xl border border-[#d6e4de] bg-white shadow-[0_24px_70px_rgba(48,52,59,.14)]">
-        <div className="flex items-center gap-3 border-b border-[#e7e9ed] bg-[#f7faf8] px-5 py-4">
-          <img src="/api/site-assets/logo" alt="Qbot" className="h-10 w-10 rounded-xl border bg-white object-cover" />
-          <div>
-            <strong className="block text-sm">Kết quả từ Qbot</strong>
-            <span className="text-[11px] text-neutral-500">Ví dụ một sản phẩm Shopee</span>
+      <div className="relative overflow-hidden rounded-[26px] border border-[#d4dcda] bg-white shadow-[0_24px_70px_rgba(48,52,59,.14)]">
+        <div className="flex items-center gap-3 bg-[#287a63] px-4 py-3.5 text-white">
+          <span className="relative shrink-0">
+            <img src="/api/site-assets/avatar" alt="Em Ry" className="h-12 w-12 rounded-full border-2 border-white/90 bg-white object-cover" />
+            <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[#287a63] bg-emerald-300" />
+          </span>
+          <div className="min-w-0">
+            <strong className="block text-[17px] leading-5">Em Ry</strong>
+            <span className="block truncate text-[11px] text-white/85">demo@qbot.vn</span>
           </div>
-          <span className="ml-auto rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-700">ĐÃ KIỂM TRA</span>
+          <span className="ml-auto grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/20 bg-white/10"><Menu className="h-5 w-5" /></span>
         </div>
 
-        <div className="p-5 sm:p-6">
-          <div className="flex gap-4">
-            <span className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl bg-[#fff4ef] text-[#ee4d2d]"><ShoppingBag className="h-9 w-9" /></span>
-            <div className="min-w-0">
-              <p className="text-xs text-neutral-500">Sản phẩm mẫu trên Shopee</p>
-              <strong className="mt-1 block text-base leading-6 text-neutral-800">Sản phẩm bạn đang muốn mua</strong>
-              <p className="mt-1 text-sm text-neutral-500">Giá sản phẩm: <strong className="text-neutral-700">299.000đ</strong></p>
+        <div className="bg-[#f2f5f6] px-3 py-4">
+          <div className="flex items-end justify-end gap-2">
+            <span className="rounded-full bg-white px-3 py-1 text-[10px] font-semibold text-slate-400 shadow-sm">Đã ghi nhận</span>
+          </div>
+          <div className="mt-2 flex items-start justify-end gap-2">
+            <div className="max-w-[84%] break-all rounded-2xl rounded-br-md bg-[#dff3eb] px-4 py-3 text-sm leading-5 text-brand-ink">
+              https://s.shopee.vn/20uEIxOF9A
             </div>
           </div>
 
-          <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-            <span className="text-xs font-medium text-emerald-800">Tiền hoàn dự kiến</span>
-            <div className="mt-1 flex items-end justify-between gap-3">
-              <strong className="text-3xl font-black tracking-[-.03em] text-emerald-700">23.920đ</strong>
-              <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-emerald-700">Ví dụ 8%</span>
+          <div className="mt-3 flex items-start gap-2">
+            <img src="/api/site-assets/avatar" alt="" className="mt-2 h-8 w-8 shrink-0 rounded-full border bg-white object-cover" />
+            <div className="min-w-0 flex-1 overflow-hidden rounded-2xl rounded-bl-md border border-neutral-200 bg-white shadow-sm">
+              <div className="flex gap-3 p-3">
+                <img src="/images/seo/hoan-tien-shopee.webp" alt="" className="h-16 w-16 shrink-0 rounded-xl border border-neutral-200 bg-white object-cover" />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-sm font-bold"><span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" /> Link hoàn tiền đã sẵn sàng</div>
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-neutral-600">Sản phẩm bạn vừa gửi trên Shopee</p>
+                  <p className="mt-1 text-xs font-semibold text-neutral-700">Hoàn dự kiến: <strong className="text-[#287a63]">8.415 VND</strong></p>
+                </div>
+              </div>
+
+              <div className="px-3">
+                <span className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#287a63] px-3 text-sm font-bold text-white">
+                  <ExternalLink className="h-4 w-4" /> Nhấn để quay lại Shopee mua hàng
+                </span>
+              </div>
+
+              <div className="p-3 text-[11px] leading-5 text-neutral-500">
+                <strong className="block text-xs text-neutral-700">Lưu ý:</strong>
+                <p>• Để giỏ hàng trống trước khi mở link.</p>
+                <p>• Mua bằng đúng link Ry tạo để đơn được ghi nhận.</p>
+                <p>• Đơn hủy hoặc hoàn trả sẽ không có tiền hoàn.</p>
+                <p>• Đơn có thể mất 1–24 giờ để hiển thị.</p>
+              </div>
             </div>
           </div>
-
-          <button type="button" className="mt-4 inline-flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#287a63] px-5 text-sm font-bold text-white">
-            Quay lại Shopee để mua <ExternalLink className="h-4 w-4" />
-          </button>
-          <p className="mt-3 text-center text-[10px] leading-4 text-neutral-500">Đây là số liệu minh họa. Kết quả thực tế phụ thuộc từng sản phẩm và đối soát của sàn.</p>
+          <div className="mt-1 flex justify-end pr-1 text-slate-400">
+            <span className="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 shadow-sm"><ThumbsUp className="h-4 w-4" /><span className="h-4 w-px bg-slate-200" /><ThumbsDown className="h-4 w-4" /></span>
+          </div>
         </div>
-      </div>
 
-      <div className="relative mx-auto mt-4 grid max-w-sm grid-cols-3 gap-2 text-center text-[10px] text-neutral-600">
-        <span className="rounded-xl border bg-white/80 px-2 py-2"><ShieldCheck className="mx-auto mb-1 h-4 w-4 text-[#287a63]" />Không cần OTP</span>
-        <span className="rounded-xl border bg-white/80 px-2 py-2"><ShoppingBag className="mx-auto mb-1 h-4 w-4 text-[#287a63]" />Mua trên sàn</span>
-        <span className="rounded-xl border bg-white/80 px-2 py-2"><WalletCards className="mx-auto mb-1 h-4 w-4 text-[#287a63]" />Theo dõi tiền hoàn</span>
+        <div className="border-t border-neutral-200 bg-white p-3">
+          <div className="no-scrollbar flex gap-2 overflow-x-auto pb-2 text-[11px] font-semibold text-neutral-600">
+            <span className="flex shrink-0 items-center gap-1.5 rounded-xl border bg-[#fafcfb] px-3 py-2"><HelpCircle className="h-4 w-4 text-[#287a63]" /> Hướng dẫn</span>
+            <span className="flex shrink-0 items-center gap-1.5 rounded-xl border bg-[#fafcfb] px-3 py-2"><WalletCards className="h-4 w-4 text-[#287a63]" /> Số dư</span>
+            <span className="flex shrink-0 items-center gap-1.5 rounded-xl border bg-[#fafcfb] px-3 py-2"><PackageCheck className="h-4 w-4 text-[#287a63]" /> Đơn hàng</span>
+            <span className="flex shrink-0 items-center gap-1.5 rounded-xl border bg-[#fafcfb] px-3 py-2"><WalletCards className="h-4 w-4 text-[#287a63]" /> Rút tiền</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex min-h-12 min-w-0 flex-1 items-center justify-between rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-sm text-neutral-400">
+              <span className="truncate">Hỏi Ry hoặc gửi link sản phẩm...</span>
+              <ClipboardPaste className="h-5 w-5 shrink-0 text-[#287a63]" />
+            </div>
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#a8cbc0] text-white"><Send className="h-5 w-5" /></span>
+          </div>
+          <p className="mt-2 text-center text-[9px] text-neutral-400">Demo giao diện · Kết quả thực tế phụ thuộc sản phẩm và đối soát của sàn</p>
+        </div>
       </div>
     </div>
   );
