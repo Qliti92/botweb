@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { ArrowRight, Check, ChevronDown, ClipboardPaste, HelpCircle, Link2, LoaderCircle, LockKeyhole, ShieldCheck, ShoppingBag, X } from "lucide-react";
 import { classifyShoppingLink } from "@/lib/shopping-link";
 import { registrationErrorCategory, registrationErrorCode } from "@/lib/registration-errors";
+import { friendlyRequestError, readApiResponse } from "@/lib/api-response";
 
 type Platform = "all" | "shopee" | "tiktok-shop";
 type CashbackPreview = {
@@ -135,12 +136,12 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ url: link.url })
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Chưa thể kiểm tra tiền hoàn.");
+      const data = await readApiResponse(response, "Chưa thể kiểm tra tiền hoàn.");
+      if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Chưa thể kiểm tra tiền hoàn.");
       setCheckedPlatform(link.platform);
-      setPreview(data.preview);
+      setPreview(data.preview as CashbackPreview);
     } catch (previewError) {
-      setError(previewError instanceof Error ? previewError.message : "Chưa thể kiểm tra tiền hoàn.");
+      setError(friendlyRequestError(previewError, "Chưa thể kiểm tra tiền hoàn."));
     } finally {
       setPreviewLoading(false);
     }
@@ -186,21 +187,21 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
           registrationAttemptId: registrationAttemptId()
         })
       });
-      const data = await response.json();
+      const data = await readApiResponse(response, "Chưa thể đăng ký.");
       if (!response.ok) {
-        const authError = new Error(data.error || "Chưa thể đăng ký.");
+        const authError = new Error(typeof data.error === "string" ? data.error : "Chưa thể đăng ký.");
         Object.assign(authError, { httpStatus: response.status, apiResponse: JSON.stringify(data) });
         throw authError;
       }
       if (data.user) {
-        localStorage.setItem("chat_session_id", data.id);
+        if (typeof data.id === "string") localStorage.setItem("chat_session_id", data.id);
         setSuccess(true);
         window.location.href = "/";
         return;
       }
       window.location.href = "/";
     } catch (registerError) {
-      const message = registerError instanceof Error ? registerError.message : "Chưa thể đăng ký.";
+      const message = friendlyRequestError(registerError, "Chưa thể đăng ký.");
       const httpStatus = Number((registerError as Error & { httpStatus?: number })?.httpStatus || 0) || undefined;
       const apiResponse = (registerError as Error & { apiResponse?: string })?.apiResponse;
       const category = registrationErrorCategory(message, httpStatus);

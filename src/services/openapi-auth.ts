@@ -1,4 +1,12 @@
 const authBaseUrl = "https://hoantienmuahang.vn/api/v1/openapi/auth";
+const authTimeoutMs = 15_000;
+
+export class AuthServiceError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = "AuthServiceError";
+  }
+}
 
 type AuthUser = {
   id?: string | number;
@@ -96,15 +104,29 @@ function friendlyAuthError(path: string, data: Record<string, unknown>) {
 }
 
 async function postAuth(path: string, body: Record<string, unknown>) {
-  const response = await fetch(`${authBaseUrl}${path}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body)
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), authTimeoutMs);
+  let response: Response;
+  try {
+    response = await fetch(`${authBaseUrl}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new AuthServiceError("Dịch vụ xác thực phản hồi quá lâu. Bạn vui lòng thử lại.", 504);
+    }
+    throw new AuthServiceError("Không thể kết nối tới dịch vụ xác thực. Bạn vui lòng thử lại sau.", 503);
+  } finally {
+    clearTimeout(timeout);
+  }
+
   const data = asRecord(await response.json().catch(() => ({})));
 
   if (!response.ok || data.success === false) {
-    throw new Error(friendlyAuthError(path, data));
+    throw new AuthServiceError(friendlyAuthError(path, data), response.ok ? 422 : response.status || 502);
   }
 
   return data;
@@ -134,7 +156,7 @@ function normalizeAuthResponse(data: Record<string, unknown>): AuthResult {
 
   const token = String(payload.token ?? payload.access_token ?? data.token ?? data.access_token ?? "");
   if (!token) {
-    throw new Error(String(data.message ?? "API không trả access token."));
+    throw new AuthServiceError(String(data.message ?? "API không trả access token."), 502);
   }
 
   return {
@@ -169,7 +191,7 @@ export async function registerWithOpenApi(input: {
     device_name: input.deviceName ?? "Webchat"
   });
   if (data.success !== true) {
-    throw new Error(String(data.message ?? "API chưa xác nhận đăng ký tài khoản thành công."));
+    throw new AuthServiceError(String(data.message ?? "API chưa xác nhận đăng ký tài khoản thành công."), 502);
   }
   const payload = asRecord(data.data);
   const hasToken = Boolean(payload.token ?? payload.access_token ?? data.token ?? data.access_token);
@@ -177,7 +199,7 @@ export async function registerWithOpenApi(input: {
   const needsEmailVerification = Boolean(payload.email_verification_required ?? data.email_verification_required);
 
   if (!hasToken && !hasChallenge && !needsEmailVerification) {
-    throw new Error("API báo đăng ký thành công nhưng không trả access token hoặc yêu cầu xác minh email.");
+    throw new AuthServiceError("API báo đăng ký thành công nhưng không trả access token hoặc yêu cầu xác minh email.", 502);
   }
 
   return normalizeAuthResponse(data);

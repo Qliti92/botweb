@@ -36,6 +36,7 @@ import {
   WalletCards,
   X
 } from "lucide-react";
+import { friendlyRequestError, readApiResponse } from "@/lib/api-response";
 import type { AppNoticeDto, ChatHistoryItem, ChatMessage, ChatSessionPayload } from "@/types/app";
 import { LandingPage } from "@/components/landing-page";
 import { classifyShoppingLink, shoppingPlatformLabel } from "@/lib/shopping-link";
@@ -433,9 +434,9 @@ export function ChatApp() {
     setError("");
     try {
       const response = await fetch(`/api/chat/session?sessionId=${encodeURIComponent(sessionId)}`);
-      const data = await response.json();
+      const data = await readApiResponse(response, "Không thể mở lại cuộc trò chuyện.") as unknown as ChatSessionPayload & { error?: string };
       if (!response.ok) {
-        const authError = new Error(data.error || "Chưa thể xác thực.");
+        const authError = new Error(typeof data.error === "string" ? data.error : "Chưa thể xác thực.");
         Object.assign(authError, { httpStatus: response.status, apiResponse: JSON.stringify(data) });
         throw authError;
       }
@@ -691,7 +692,7 @@ export function ChatApp() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body)
       });
-      const data = await response.json();
+      const data = await readApiResponse(response, "Ry chưa xác thực được thông tin.") as unknown as ChatSessionPayload & { error?: string; message?: string };
       if (!response.ok) {
         const authError = new Error(data.error || "Chưa thể xác thực.");
         Object.assign(authError, { httpStatus: response.status });
@@ -756,7 +757,7 @@ export function ChatApp() {
           })
         }).catch(() => {});
       }
-      setError(err instanceof Error ? err.message : "Ry chưa xác thực được thông tin. Bạn kiểm tra rồi thử lại nhé.");
+      setError(friendlyRequestError(err, "Ry chưa xác thực được thông tin. Bạn kiểm tra rồi thử lại nhé."));
     } finally {
       setLoading(false);
     }

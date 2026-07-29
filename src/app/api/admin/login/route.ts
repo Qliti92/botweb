@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { adminLoginSchema } from "@/lib/validators";
 import { createAdminToken, setAdminCookie } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
+import { z } from "zod";
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") ?? "local";
@@ -24,6 +25,20 @@ export async function POST(request: NextRequest) {
     await setAdminCookie(await createAdminToken(admin.id, admin.email));
     return NextResponse.json({ ok: true });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Không thể đăng nhập." }, { status: 400 });
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: "Dữ liệu đăng nhập không đúng định dạng." }, { status: 400 });
+    }
+    if (error instanceof z.ZodError) {
+      const field = String(error.issues[0]?.path[0] ?? "");
+      return NextResponse.json({
+        error: field === "email"
+          ? "Vui lòng nhập tài khoản admin."
+          : field === "password"
+            ? "Vui lòng nhập mật khẩu."
+            : "Thông tin đăng nhập chưa hợp lệ."
+      }, { status: 400 });
+    }
+    console.error("Admin login failed", error);
+    return NextResponse.json({ error: "Máy chủ đang gặp sự cố. Vui lòng thử lại sau." }, { status: 500 });
   }
 }

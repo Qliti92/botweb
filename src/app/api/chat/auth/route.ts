@@ -6,6 +6,7 @@ import { requireMatchingChatSession, setChatSessionCookie } from "@/lib/chat-ses
 import { resolveReferralDomain } from "@/services/referral-domain";
 import { writeAuditLog } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
+import { AuthServiceError } from "@/services/openapi-auth";
 
 const authSchema = z.discriminatedUnion("mode", [
   z.object({
@@ -103,6 +104,25 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ message: await forgotChatPassword(body.email) });
   } catch (error) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: "Dữ liệu gửi lên không đúng định dạng." }, { status: 400 });
+    }
+    if (error instanceof z.ZodError) {
+      const first = error.issues[0];
+      const field = String(first?.path[0] ?? "");
+      const messages: Record<string, string> = {
+        mode: "Yêu cầu xác thực không hợp lệ.",
+        email: "Bạn kiểm tra lại địa chỉ email.",
+        password: "Mật khẩu cần có ít nhất 8 ký tự.",
+        passwordConfirmation: "Mật khẩu xác nhận cần có ít nhất 8 ký tự.",
+        code: "Mã xác thực chưa hợp lệ.",
+        sessionId: "Phiên xác thực không hợp lệ hoặc đã hết hạn."
+      };
+      return NextResponse.json({ error: messages[field] ?? first?.message ?? "Thông tin xác thực chưa hợp lệ." }, { status: 400 });
+    }
+    if (error instanceof AuthServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     return NextResponse.json({ error: error instanceof Error ? error.message : "Không thể xác thực." }, { status: 400 });
   }
 }

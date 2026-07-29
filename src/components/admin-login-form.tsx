@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { LoaderCircle, LockKeyhole } from "lucide-react";
+import { friendlyRequestError, readApiResponse } from "@/lib/api-response";
 
 export function AdminLoginForm() {
   const [email, setEmail] = useState("admin");
@@ -14,20 +15,23 @@ export function AdminLoginForm() {
     setLoading(true);
     setError("");
 
-    const response = await fetch("/api/admin/login", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email, password })
-    });
-    const data = await response.json();
-    setLoading(false);
-
-    if (!response.ok) {
-      setError(data.error ?? "Không thể đăng nhập.");
-      return;
+    try {
+      const response = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await readApiResponse(response, "Không thể đăng nhập.");
+      if (!response.ok) {
+        setError(typeof data.error === "string" ? data.error : "Không thể đăng nhập.");
+        return;
+      }
+      window.location.href = "/admin";
+    } catch (submitError) {
+      setError(friendlyRequestError(submitError, "Không thể đăng nhập."));
+    } finally {
+      setLoading(false);
     }
-
-    window.location.href = "/admin";
   }
 
   return (
