@@ -5,7 +5,11 @@ import { requireAdmin } from "@/lib/auth";
 export async function GET() {
   await requireAdmin();
   const sessions = await prisma.chatSession.findMany({
-    include: {
+    select: {
+      id: true,
+      state: true,
+      createdAt: true,
+      updatedAt: true,
       messages: { orderBy: { createdAt: "asc" }, take: 80 }
     },
     orderBy: { updatedAt: "desc" },

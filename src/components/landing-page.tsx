@@ -110,11 +110,14 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
   return (
     <main className="landing-page metal-theme min-h-dvh overflow-hidden bg-[#fafaf8] pb-20 text-[#30343b] sm:pb-0">
       <header className="safe-top sticky top-0 z-40 border-b border-[#e4e6e9] bg-[#fafaf8]/95 backdrop-blur-xl">
-        <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-2 px-3 sm:px-6">
+        <div className="mx-auto flex min-h-14 max-w-6xl items-center justify-between gap-2 px-3 sm:min-h-16 sm:px-6">
           <a href="#trang-chu" className="flex min-w-0 flex-1 items-center gap-2.5">
-            <img src="/api/site-assets/logo" alt="Hoàn Tiền Mua Hàng" className="h-10 w-10 shrink-0 rounded-full bg-white object-cover ring-1 ring-[#d9dde3]" />
+            <img src="/api/site-assets/logo" alt="Hoàn Tiền Mua Hàng" className="h-9 w-9 shrink-0 rounded-full bg-white object-cover ring-1 ring-[#d9dde3] sm:h-10 sm:w-10" />
             <div className="min-w-0">
-              <strong className="block truncate text-[13px] sm:text-sm">Hoàn Tiền Mua Hàng</strong>
+              <strong className="block truncate text-[13px] sm:text-sm">
+                <span className="sm:hidden">Qbot</span>
+                <span className="hidden sm:inline">Hoàn Tiền Mua Hàng</span>
+              </strong>
               <span className="hidden text-[10px] text-neutral-500 sm:block">Em Ry · Trợ lý hoàn tiền</span>
             </div>
           </a>
@@ -126,11 +129,11 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
             <a href="#cau-hoi" className="transition hover:text-[#287a63]">Câu hỏi thường gặp</a>
           </nav>
 
-          <div className="flex items-center gap-2">
-            <button onClick={onLogin} className="inline-flex h-11 items-center gap-1.5 rounded-xl px-2.5 text-xs font-semibold transition hover:bg-[#f1f3f4]">
-              <LogIn className="h-4 w-4" /> <span className="hidden min-[380px]:inline">Đăng nhập</span>
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <button onClick={onLogin} aria-label="Đăng nhập" className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-xs font-semibold transition hover:bg-[#f1f3f4] sm:h-11 sm:w-auto sm:gap-1.5 sm:px-2.5">
+              <LogIn className="h-4 w-4" /> <span className="hidden sm:inline">Đăng nhập</span>
             </button>
-            <button onClick={onRegister} className="hidden h-11 items-center gap-1.5 rounded-xl bg-[#287a63] px-3.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#216653] min-[390px]:inline-flex">
+            <button onClick={onRegister} className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#287a63] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#216653] sm:h-11 sm:px-3.5">
               <UserPlus className="h-4 w-4" /> <span className="hidden sm:inline">Bắt đầu miễn phí</span><span className="sm:hidden">Đăng ký</span>
             </button>
           </div>
@@ -139,20 +142,20 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
 
       <section id="trang-chu" className="relative">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_20%,rgba(40,122,99,.10),transparent_28%),radial-gradient(circle_at_88%_75%,rgba(198,167,106,.14),transparent_30%)]" />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-9 px-4 pb-12 pt-8 sm:min-h-[650px] sm:px-6 sm:py-14 lg:grid-cols-[1.04fr_.96fr] lg:py-20">
-          <div className="text-center lg:text-left">
-            <span className="inline-flex items-center gap-2 rounded-full border border-[#d6e4de] bg-white/80 px-3 py-2 text-[11px] font-semibold text-[#287a63] shadow-sm">
-              <Check className="h-4 w-4" /> Kiểm tra miễn phí · Thanh toán trên sàn
+        <div className="relative mx-auto grid w-full min-w-0 max-w-6xl items-center gap-7 px-4 pb-10 pt-6 sm:min-h-[650px] sm:gap-9 sm:px-6 sm:py-14 lg:grid-cols-[1.04fr_.96fr] lg:py-20">
+          <div className="min-w-0 text-center lg:text-left">
+            <span className="inline-flex max-w-full items-center justify-center gap-1.5 rounded-full border border-[#d6e4de] bg-white/80 px-3 py-1.5 text-[10px] font-semibold text-[#287a63] shadow-sm sm:gap-2 sm:py-2 sm:text-[11px]">
+              <Check className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" /> Kiểm tra miễn phí · Thanh toán trên sàn
             </span>
-            <h1 className="mx-auto mt-5 max-w-2xl text-[clamp(27px,7.8vw,48px)] font-bold leading-[1.14] tracking-[-.035em] lg:mx-0">
-              <span className="block whitespace-nowrap">Dán link sản phẩm</span>
-              <span className="mt-1 block whitespace-nowrap text-[#287a63]">kiểm tra tiền hoàn.</span>
+            <h1 className="mx-auto mt-4 max-w-2xl text-[clamp(30px,9vw,48px)] font-bold leading-[1.08] tracking-[-.035em] sm:mt-5 sm:leading-[1.14] lg:mx-0">
+              <span className="block sm:whitespace-nowrap">Dán link sản phẩm</span>
+              <span className="mt-1 block sm:whitespace-nowrap text-[#287a63]">kiểm tra tiền hoàn.</span>
             </h1>
-            <p className="mx-auto mt-5 max-w-xl text-[16px] leading-[1.7] text-neutral-600 lg:mx-0">
+            <p className="mx-auto mt-4 max-w-xl text-[15px] leading-6 text-neutral-600 sm:mt-5 sm:text-[16px] sm:leading-[1.7] lg:mx-0">
               Sao chép link sản phẩm Shopee hoặc TikTok Shop, dán vào Qbot để tạo link mua hàng và theo dõi tiền hoàn của bạn.
             </p>
 
-            <div className="mx-auto mt-6 max-w-xl rounded-2xl border border-[#d6e4de] bg-white p-4 text-left shadow-[0_18px_50px_rgba(48,52,59,.10)] sm:p-5 lg:mx-0">
+            <div className="mx-auto mt-5 max-w-xl rounded-2xl border border-[#d6e4de] bg-white p-3.5 text-left shadow-[0_18px_50px_rgba(48,52,59,.10)] sm:mt-6 sm:p-5 lg:mx-0">
               <form onSubmit={startWithProductLink}>
                 <label htmlFor="home-product-link" className="text-sm font-bold">Dán link sản phẩm để bắt đầu</label>
                 <div className="mt-2.5 flex flex-col gap-2 sm:flex-row">
@@ -163,22 +166,24 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
                       value={productLink}
                       onChange={(event) => { setProductLink(event.target.value); setProductLinkError(""); setShowSample(false); }}
                       placeholder="Link Shopee hoặc TikTok Shop"
-                      className="h-14 w-full rounded-xl border border-neutral-200 bg-neutral-50 pl-11 pr-20 text-sm outline-none focus:border-[#287a63] focus:bg-white"
+                      className="h-12 w-full rounded-xl border border-neutral-200 bg-neutral-50 pl-11 pr-20 text-sm outline-none focus:border-[#287a63] focus:bg-white sm:h-14"
                     />
                     <button type="button" onClick={() => void pasteProductLink()} className="absolute right-2 top-1/2 inline-flex h-10 -translate-y-1/2 items-center gap-1 rounded-lg bg-[#e8f3ef] px-2.5 text-xs font-bold text-[#287a63] hover:bg-[#dcece6]">
                       <ClipboardPaste className="h-3.5 w-3.5" /> Dán
                     </button>
                   </div>
-                  <button type="submit" className="inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#287a63] px-5 text-sm font-bold text-white hover:bg-[#216653]">
-                    Kiểm tra tiền hoàn <ArrowRight className="h-4 w-4" />
+                  <button type="submit" className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#287a63] px-5 text-sm font-bold text-white hover:bg-[#216653] sm:h-14">
+                    <span className="sm:hidden">Kiểm tra ngay</span>
+                    <span className="hidden sm:inline">Kiểm tra tiền hoàn</span>
+                    <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
                 {productLinkError ? <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{productLinkError}</p> : null}
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <div className="mt-2.5 grid grid-cols-2 gap-2 sm:mt-3 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
                   <button type="button" onClick={() => setShowSample((current) => !current)} className="inline-flex items-center gap-1.5 text-xs font-bold text-[#287a63] hover:underline">
                     <CircleDollarSign className="h-4 w-4" /> Xem thử kết quả mẫu
                   </button>
-                  <a href="#sao-chep-link" className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-600 hover:text-[#287a63]">
+                  <a href="#sao-chep-link" className="inline-flex items-center justify-end gap-1.5 text-right text-xs font-semibold text-neutral-600 hover:text-[#287a63]">
                     <HelpCircle className="h-4 w-4" /> Cách lấy link
                   </a>
                 </div>

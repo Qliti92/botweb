@@ -13,7 +13,13 @@ const schema = z.object({
   errorMessage: z.string().trim().max(500).optional(),
   httpStatus: z.number().int().min(0).max(599).optional(),
   context: z.enum(["MAIN_REGISTER", "LINK_REGISTER"]).optional(),
-  attemptId: z.string().trim().max(80).optional()
+  attemptId: z.string().trim().max(80).optional(),
+  inputSnapshot: z.object({
+    email: z.string().trim().max(200).optional(),
+    name: z.string().trim().max(120).optional(),
+    phone: z.string().trim().max(30).optional(),
+    referralCode: z.string().trim().max(100).optional()
+  }).optional()
 });
 
 function sanitizeErrorMessage(value?: string) {
@@ -29,6 +35,19 @@ function deviceFromUserAgent(value: string) {
   if (/iphone|ipad|ipod/i.test(value)) return "iPhone/iPad";
   if (/android/i.test(value)) return "Android";
   return "Máy tính";
+}
+
+function maskRegistrationInput(input?: { email?: string; name?: string; phone?: string; referralCode?: string }) {
+  if (!input) return undefined;
+  const email = input.email?.trim().toLowerCase();
+  const [local = "", domain = ""] = email?.split("@") ?? [];
+  const phone = input.phone?.replace(/\D/g, "");
+  return {
+    email: email ? `${local.slice(0, 2)}***${domain ? `@${domain}` : ""}` : undefined,
+    name: input.name?.trim() || undefined,
+    phone: phone ? `${"*".repeat(Math.max(0, phone.length - 3))}${phone.slice(-3)}` : undefined,
+    referralCode: input.referralCode?.trim() || undefined
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -63,7 +82,8 @@ export async function POST(request: NextRequest) {
         errorMessage: sanitizeErrorMessage(body.errorMessage),
         httpStatus: body.httpStatus,
         context: body.context,
-        attemptId: body.attemptId
+        attemptId: body.attemptId,
+        inputSnapshot: maskRegistrationInput(body.inputSnapshot)
       }
     });
   } catch {

@@ -75,24 +75,89 @@ export async function GET(request: NextRequest) {
   const startedEvents = funnelEvents.filter((item) => item.action === "WEB_REGISTRATION_STARTED");
   const abandonedEvents = funnelEvents.filter((item) => item.action === "WEB_REGISTRATION_ABANDONED" && !completedVisitors.has(item.actorId));
   const failedEvents = funnelEvents.filter((item) => item.action === "WEB_REGISTRATION_FAILED");
-  const recentRegistrationEvents = funnelEvents.slice(0, 100).map((item) => {
+  type RegistrationAttempt = {
+    key: string;
+    visitor: string;
+    startedAt: string;
+    updatedAt: string;
+    source: string;
+    device: string;
+    path: string;
+    context: string;
+    stages: Set<string>;
+    latestStage: string;
+    lastStep?: number;
+    failureCount: number;
+    errorCategory?: string;
+    errorCode?: string;
+    errorMessage?: string;
+    httpStatus?: number;
+    inputSnapshot?: { email?: string; name?: string; phone?: string; referralCode?: string };
+  };
+  const attempts = new Map<string, RegistrationAttempt>();
+  for (const item of funnelEvents) {
     const metadata = parseMetadata(item.metadata);
-    return {
+    const stage = item.action.replace("WEB_REGISTRATION_", "");
+    const attemptId = metadata.attemptId ? String(metadata.attemptId) : "";
+    const key = attemptId || `legacy:${item.actorId || "unknown"}`;
+    const createdAt = item.createdAt.toISOString();
+    const step = Number(metadata.step || 0) || undefined;
+    const existing = attempts.get(key);
+    const attempt = existing ?? {
+      key,
       visitor: item.actorId ? `…${item.actorId.slice(-8)}` : "Không xác định",
-      stage: item.action.replace("WEB_REGISTRATION_", ""),
-      createdAt: item.createdAt.toISOString(),
-      step: Number(metadata.step || 0) || undefined,
+      startedAt: createdAt,
+      updatedAt: createdAt,
       source: String(metadata.source || "Trực tiếp"),
       device: String(metadata.device || "Không xác định"),
       path: String(metadata.path || "/"),
       context: String(metadata.context || "MAIN_REGISTER"),
-      errorCategory: metadata.errorCategory ? String(metadata.errorCategory) : undefined,
-      errorCode: metadata.errorCode ? String(metadata.errorCode) : undefined,
-      errorMessage: metadata.errorMessage ? String(metadata.errorMessage) : undefined,
-      httpStatus: Number(metadata.httpStatus || 0) || undefined,
-      attemptId: metadata.attemptId ? String(metadata.attemptId) : undefined
+      stages: new Set<string>(),
+      latestStage: stage,
+      lastStep: step,
+      failureCount: 0
     };
-  });
+    if (createdAt < attempt.startedAt) attempt.startedAt = createdAt;
+    if (createdAt > attempt.updatedAt) {
+      attempt.updatedAt = createdAt;
+      attempt.latestStage = stage;
+    }
+    attempt.stages.add(stage);
+    attempt.lastStep = Math.max(attempt.lastStep ?? 0, step ?? 0) || undefined;
+    if (!attempt.inputSnapshot && metadata.inputSnapshot && typeof metadata.inputSnapshot === "object") {
+      const input = metadata.inputSnapshot as Record<string, unknown>;
+      attempt.inputSnapshot = {
+        email: input.email ? String(input.email) : undefined,
+        name: input.name ? String(input.name) : undefined,
+        phone: input.phone ? String(input.phone) : undefined,
+        referralCode: input.referralCode ? String(input.referralCode) : undefined
+      };
+    }
+    if (stage === "FAILED") {
+      attempt.failureCount += 1;
+      if (!attempt.errorMessage) {
+        attempt.errorCategory = metadata.errorCategory ? String(metadata.errorCategory) : undefined;
+        attempt.errorCode = metadata.errorCode ? String(metadata.errorCode) : undefined;
+        attempt.errorMessage = metadata.errorMessage ? String(metadata.errorMessage) : undefined;
+        attempt.httpStatus = Number(metadata.httpStatus || 0) || undefined;
+      }
+    }
+    attempts.set(key, attempt);
+  }
+  const recentRegistrationAttempts = Array.from(attempts.values())
+    .map((attempt) => ({
+      ...attempt,
+      stages: Array.from(attempt.stages),
+      status: attempt.stages.has("COMPLETED")
+        ? "COMPLETED"
+        : attempt.latestStage === "FAILED"
+          ? "FAILED"
+          : attempt.latestStage === "ABANDONED"
+            ? "ABANDONED"
+            : "IN_PROGRESS"
+    }))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 30);
   const sources = countBy(startedEvents, "source").map((source) => {
     const actors = new Set(startedEvents.filter((item) => String(parseMetadata(item.metadata).source || "Không xác định") === source.name).map((item) => item.actorId));
     const completed = Array.from(actors).filter((actorId) => completedVisitors.has(actorId)).length;
@@ -153,7 +218,7 @@ export async function GET(request: NextRequest) {
       failureReasons: countBy(failedEvents, "errorCategory"),
       sources,
       devices: countBy(startedEvents, "device"),
-      recentEvents: recentRegistrationEvents
+      recentAttempts: recentRegistrationAttempts
     },
     pages: Array.from(pages.values())
       .map((page) => ({

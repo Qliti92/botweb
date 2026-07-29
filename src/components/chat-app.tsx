@@ -425,6 +425,10 @@ export function ChatApp() {
   }, [session]);
 
   async function restoreSession(sessionId: string) {
+    if (sessionId === session?.id) {
+      setShowHistory(false);
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -441,10 +445,10 @@ export function ChatApp() {
         return;
       }
       setSession(data);
+      setShowHistory(false);
       window.localStorage.setItem("chat_session_id", data.id);
-    } catch {
-      window.localStorage.removeItem("chat_session_id");
-      setSession(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể mở lại cuộc trò chuyện.");
     } finally {
       setLoading(false);
     }
@@ -740,7 +744,13 @@ export function ChatApp() {
             errorMessage,
             httpStatus,
             context: window.localStorage.getItem("pending_cashback_link") ? "LINK_REGISTER" : "MAIN_REGISTER",
-            attemptId: window.sessionStorage.getItem("registration_attempt_id")
+            attemptId: window.sessionStorage.getItem("registration_attempt_id"),
+            inputSnapshot: {
+              email: normalizedEmail,
+              name: authName,
+              phone: authPhone,
+              referralCode: authReferralCode
+            }
           })
         }).catch(() => {});
       }

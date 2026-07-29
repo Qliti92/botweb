@@ -82,7 +82,8 @@ export async function POST(request: NextRequest) {
             source: String(visitMetadata.source || "Trực tiếp"),
             device: /iphone|ipad|ipod/i.test(userAgent) ? "iPhone/iPad" : /android/i.test(userAgent) ? "Android" : "Máy tính",
             context: body.registrationContext || "MAIN_REGISTER",
-            attemptId: body.registrationAttemptId
+            attemptId: body.registrationAttemptId,
+            inputSnapshot: registrationInputSnapshot(body)
           }
         });
       }
@@ -103,4 +104,15 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Không thể xác thực." }, { status: 400 });
   }
+}
+function registrationInputSnapshot(body: { email?: string; name?: string; phone?: string; referralCode?: string }) {
+  const email = body.email?.trim().toLowerCase();
+  const [local = "", domain = ""] = email?.split("@") ?? [];
+  const phone = body.phone?.replace(/\D/g, "");
+  return {
+    email: email ? `${local.slice(0, 2)}***${domain ? `@${domain}` : ""}` : undefined,
+    name: body.name?.trim() || undefined,
+    phone: phone ? `${"*".repeat(Math.max(0, phone.length - 3))}${phone.slice(-3)}` : undefined,
+    referralCode: body.referralCode?.trim() || undefined
+  };
 }

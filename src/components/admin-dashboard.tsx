@@ -8,6 +8,7 @@ type ChatDto = {
   id: string;
   user?: { phone: string; email: string; userId: string } | null;
   messages: { id: string; sender: string; content: string; createdAt: string }[];
+  createdAt: string;
   updatedAt: string;
 };
 
@@ -25,6 +26,7 @@ type SiteSettingsDto = {
   googleAnalyticsId: string; googleTagManagerId: string; metaPixelId: string; googleSiteVerification: string;
   guestChatRetentionDays: number; memberChatRetentionDays: number; inactiveSessionRetentionDays: number;
   supportTicketRetentionDays: number; autoSubmitShoppingLinks: boolean; cashbackCacheSeconds: number;
+  cashbackPreviewEnabled: boolean; cashbackPreviewEmail: string; cashbackPreviewPassword: string; cashbackPreviewConfigured: boolean;
   referralDomains: { domain: string; referralCode: string; enabled: boolean }[];
 };
 type FeedbackDto = { id: string; messageId?: string | null; rating: string; preview: string; createdAt: string };
@@ -198,7 +200,7 @@ export function AdminDashboard() {
         </div>
       </aside>
 
-      <section className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
+      <section className="mx-auto min-w-0 max-w-7xl px-3 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-8">
         {notice ? <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{notice}</p> : null}
         {tab === "overview" ? <OverviewPanel metrics={metrics} /> : null}
         {tab === "analytics" ? <LinkAnalyticsPanel /> : null}
@@ -405,11 +407,16 @@ type PageAnalyticsDto = {
     failureReasons: { name: string; count: number }[];
     sources: { name: string; count: number; completed: number; completionRate: number }[];
     devices: { name: string; count: number }[];
-    recentEvents: {
+    recentAttempts: {
+      key: string;
       visitor: string;
-      stage: string;
-      createdAt: string;
-      step?: number;
+      status: "COMPLETED" | "FAILED" | "ABANDONED" | "IN_PROGRESS";
+      startedAt: string;
+      updatedAt: string;
+      stages: string[];
+      latestStage: string;
+      lastStep?: number;
+      failureCount: number;
       source: string;
       device: string;
       path: string;
@@ -418,7 +425,7 @@ type PageAnalyticsDto = {
       errorCode?: string;
       errorMessage?: string;
       httpStatus?: number;
-      attemptId?: string;
+      inputSnapshot?: { email?: string; name?: string; phone?: string; referralCode?: string };
     }[];
   };
   pages: {
@@ -603,46 +610,78 @@ function PageAnalyticsPanel() {
         <div className="mt-3 overflow-hidden rounded-lg border border-brand-line">
           <div className="border-b border-brand-line bg-neutral-50 px-3 py-2">
             <h4 className="text-sm font-bold">Lịch sử đăng ký gần nhất</h4>
-            <p className="mt-0.5 text-xs text-neutral-500">Không lưu mật khẩu, OTP, email hoặc số điện thoại của khách.</p>
+            <p className="mt-0.5 text-xs text-neutral-500">Mỗi thẻ là một lần thử đăng ký; hệ thống tự gom các bước và chỉ rõ lỗi cuối cùng. Không lưu mật khẩu, OTP, email hoặc số điện thoại.</p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-left text-xs">
-              <thead className="text-neutral-500">
-                <tr>
-                  <th className="px-3 py-2">Thời gian</th>
-                  <th className="px-3 py-2">Khách</th>
-                  <th className="px-3 py-2">Sự kiện</th>
-                  <th className="px-3 py-2">Luồng</th>
-                  <th className="px-3 py-2">Nguồn / thiết bị</th>
-                  <th className="px-3 py-2">Chi tiết lỗi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-brand-line">
-                {(data?.registrationFunnel?.recentEvents ?? []).map((item, index) => {
-                  const stageLabels: Record<string, string> = {
-                    STARTED: "Bắt đầu",
-                    STEP_2: "Đến bước 2",
-                    COMPLETED: "Thành công",
-                    ABANDONED: "Bỏ dở",
-                    FAILED: "Thất bại"
-                  };
-                  return (
-                    <tr key={`${item.createdAt}-${index}`} className="align-top">
-                      <td className="whitespace-nowrap px-3 py-2">{new Date(item.createdAt).toLocaleString("vi-VN")}</td>
-                      <td className="px-3 py-2 font-mono">{item.visitor}</td>
-                      <td className="px-3 py-2 font-semibold">{stageLabels[item.stage] ?? item.stage}{item.step ? ` · Bước ${item.step}` : ""}</td>
-                      <td className="px-3 py-2">{item.context === "LINK_REGISTER" ? "Sau khi dán link" : "Đăng ký thường"}<span className="block text-neutral-400">{item.path}</span></td>
-                      <td className="px-3 py-2">{item.source}<span className="block text-neutral-400">{item.device}</span></td>
-                      <td className="max-w-sm px-3 py-2">
-                        {item.errorMessage ? <span className="text-red-700">{item.errorMessage}</span> : <span className="text-neutral-400">—</span>}
-                        {item.errorCode ? <span className="mt-0.5 block font-mono text-[11px] text-neutral-500">{item.errorCode}{item.httpStatus ? ` · HTTP ${item.httpStatus}` : ""}</span> : null}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {!data?.registrationFunnel?.recentEvents?.length ? <p className="p-4 text-center text-xs text-neutral-400">Chưa có lịch sử đăng ký.</p> : null}
+          <div className="grid gap-2 p-3">
+            {(data?.registrationFunnel?.recentAttempts ?? []).map((item) => {
+              const status = {
+                COMPLETED: { label: "Đăng ký thành công", icon: Check, box: "border-emerald-200 bg-emerald-50/40", badge: "bg-emerald-100 text-emerald-800", iconTone: "bg-emerald-600 text-white" },
+                FAILED: { label: "Đăng ký lỗi", icon: AlertCircle, box: "border-red-200 bg-red-50/40", badge: "bg-red-100 text-red-800", iconTone: "bg-red-600 text-white" },
+                ABANDONED: { label: "Bỏ dở đăng ký", icon: X, box: "border-amber-200 bg-amber-50/40", badge: "bg-amber-100 text-amber-800", iconTone: "bg-amber-500 text-white" },
+                IN_PROGRESS: { label: "Đang đăng ký", icon: Clock3, box: "border-blue-200 bg-blue-50/40", badge: "bg-blue-100 text-blue-800", iconTone: "bg-blue-600 text-white" }
+              }[item.status];
+              const StatusIcon = status.icon;
+              const errorLabels: Record<string, string> = {
+                EMAIL_EXISTS: "Email đã được đăng ký",
+                INVALID_INPUT: "Thông tin nhập chưa hợp lệ",
+                REFERRAL: "Mã giới thiệu không hợp lệ",
+                NETWORK: "Mất kết nối mạng",
+                RATE_LIMIT: "Thao tác quá nhanh",
+                SERVER: "Máy chủ hoặc API gặp lỗi",
+                OTHER: "Lỗi chưa phân loại"
+              };
+              const reachedStep = item.lastStep === 2 ? "Bước 2 · Thông tin cá nhân" : "Bước 1 · Email và mật khẩu";
+              const submitted = [
+                item.inputSnapshot?.email ? `Email: ${item.inputSnapshot.email}` : "",
+                item.inputSnapshot?.name ? `Tên: ${item.inputSnapshot.name}` : "",
+                item.inputSnapshot?.phone ? `SĐT: ${item.inputSnapshot.phone}` : "",
+                item.inputSnapshot?.referralCode ? `Mã GT: ${item.inputSnapshot.referralCode}` : ""
+              ].filter(Boolean);
+              return (
+                <article key={item.key} className={`min-w-0 rounded-xl border p-3 ${status.box}`}>
+                  <div className="grid min-w-0 gap-3 md:grid-cols-[180px_minmax(180px,.85fr)_minmax(180px,.8fr)_minmax(260px,1.3fr)] md:items-start">
+                    <div className="flex items-center gap-2.5">
+                      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${status.iconTone}`}><StatusIcon className="h-4 w-4" /></span>
+                      <div className="min-w-0">
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${status.badge}`}>{status.label}</span>
+                        <h5 className="mt-1 truncate text-sm font-bold">{item.visitor}</h5>
+                        <p className="text-[10px] text-neutral-500">{new Date(item.updatedAt).toLocaleString("vi-VN")}</p>
+                      </div>
+                    </div>
+
+                    <div className="min-w-0 rounded-lg bg-white/70 p-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Thông tin đã nhập</p>
+                      {submitted.length ? submitted.map((value) => <p key={value} className="mt-1 truncate text-xs font-medium" title={value}>{value}</p>) : <p className="mt-1 text-xs text-neutral-400">Dữ liệu cũ chưa ghi nhận</p>}
+                      <p className="mt-1 text-[10px] text-neutral-400">Không lưu mật khẩu hoặc OTP</p>
+                    </div>
+
+                    <div className="min-w-0 rounded-lg bg-white/70 p-2 text-xs">
+                      <p className="font-bold">{reachedStep}</p>
+                      <p className="mt-1 text-neutral-600">{item.context === "LINK_REGISTER" ? "Sau khi dán link" : "Đăng ký thường"} · {item.device}</p>
+                      <p className="mt-1 truncate text-neutral-500" title={`${item.source} · ${item.path}`}>{item.source} · {item.path}</p>
+                      <p className="mt-1 text-[10px] text-neutral-400">Bắt đầu {relativeTime(item.startedAt)}{item.failureCount > 1 ? ` · ${item.failureCount} lần lỗi` : ""}</p>
+                    </div>
+
+                    <div className={`min-w-0 rounded-lg border bg-white/85 p-2.5 ${item.status === "FAILED" ? "border-red-200" : "border-black/5"}`}>
+                      <p className={`text-[10px] font-bold uppercase tracking-wide ${item.status === "FAILED" ? "text-red-700" : "text-neutral-500"}`}>
+                        {item.status === "FAILED" ? `Thông báo web · Lỗi tại ${reachedStep}` : "Kết quả từ website"}
+                      </p>
+                      <p className={`mt-1 text-xs leading-5 ${item.status === "FAILED" ? "font-medium text-red-700" : item.status === "COMPLETED" ? "font-medium text-emerald-700" : "text-neutral-600"}`}>
+                        {item.status === "FAILED"
+                          ? item.errorMessage || errorLabels[item.errorCategory || ""] || "Website không trả mô tả lỗi."
+                          : item.status === "COMPLETED"
+                            ? "Website xác nhận đăng ký thành công."
+                            : item.status === "ABANDONED"
+                              ? `Khách dừng ở ${reachedStep.toLowerCase()}, chưa gửi đăng ký thành công.`
+                              : "Khách đang thực hiện đăng ký, chưa có kết quả cuối cùng."}
+                      </p>
+                      {(item.errorCode || item.httpStatus) ? <p className="mt-1 font-mono text-[10px] text-neutral-500">{item.errorCode || "UNKNOWN"}{item.httpStatus ? ` · HTTP ${item.httpStatus}` : ""}</p> : null}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+            {!data?.registrationFunnel?.recentAttempts?.length ? <p className="p-4 text-center text-xs text-neutral-400">Chưa có lịch sử đăng ký.</p> : null}
           </div>
         </div>
       </section>
@@ -1367,7 +1406,7 @@ function TrainingPanel({
         <p className="mt-1 text-sm text-neutral-600">Duyệt câu Ry chưa hiểu, viết câu trả lời đúng rồi mới đưa vào sử dụng.</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3"><span className="text-xs text-amber-700">Chờ xử lý</span><strong className="mt-1 block text-2xl text-amber-900">{unresolvedCount}</strong></div>
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3"><span className="text-xs text-emerald-700">Kiến thức đang dùng</span><strong className="mt-1 block text-2xl text-emerald-900">{activeKnowledgeCount}</strong></div>
         <div className="rounded-xl border border-blue-200 bg-blue-50 p-3"><span className="text-xs text-blue-700">Đã xử lý</span><strong className="mt-1 block text-2xl text-blue-900">{messages.length - unresolvedCount}</strong></div>
@@ -1661,9 +1700,24 @@ function NoticeForm({ editing, setEditing, submit }: { editing: Partial<AppNotic
 }
 
 function ChatsPanel({ chats, reload, setNotice }: { chats: ChatDto[]; reload: () => Promise<void>; setNotice: (value: string) => void }) {
+  const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const filteredChats = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase("vi");
+    if (!normalized) return chats;
+    return chats.filter((chat) => {
+      const identity = [chat.user?.email, chat.user?.phone, chat.user?.userId].filter(Boolean).join(" ");
+      const messages = chat.messages.map((message) => message.content).join(" ");
+      return `${identity} ${messages}`.toLocaleLowerCase("vi").includes(normalized);
+    });
+  }, [chats, query]);
+  const selectedChat = filteredChats.find((chat) => chat.id === selectedId) ?? filteredChats[0] ?? null;
+
   async function remove(id: string) {
+    if (!window.confirm("Xóa vĩnh viễn phiên chat này?")) return;
     try {
       await fetchJson(`/api/admin/chats/${id}`, { method: "DELETE" });
+      if (selectedId === id) setSelectedId(null);
       await reload();
       setNotice("Đã xóa phiên chat.");
     } catch (error) {
@@ -1672,25 +1726,56 @@ function ChatsPanel({ chats, reload, setNotice }: { chats: ChatDto[]; reload: ()
   }
 
   return (
-    <div className="grid gap-3">
-      {chats.map((chat) => (
-        <article key={chat.id} className="rounded-lg border border-brand-line p-4">
-          <div className="mb-3 flex justify-end">
-            <button onClick={() => remove(chat.id)} className="grid h-9 w-9 place-items-center rounded-md border border-brand-line text-red-600" title="Xóa chat">
-              <Trash2 className="h-4 w-4" />
-            </button>
+    <div>
+      <div className="mb-4">
+        <h1 className="text-xl font-bold sm:text-2xl">Lịch sử trò chuyện</h1>
+        <p className="mt-1 text-sm text-neutral-500">{filteredChats.length} phiên gần nhất</p>
+      </div>
+      <label className="relative mb-4 block">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm email, số điện thoại hoặc nội dung..." className="h-11 w-full rounded-lg border border-brand-line bg-white pl-10 pr-3 text-sm outline-none focus:border-brand-red" />
+      </label>
+
+      {!selectedChat ? <div className="rounded-xl border border-dashed border-brand-line bg-white p-8 text-center text-sm text-neutral-500">Không tìm thấy cuộc trò chuyện.</div> : (
+        <div className="grid min-h-[560px] overflow-hidden rounded-xl border border-brand-line bg-white shadow-sm lg:grid-cols-[320px_minmax(0,1fr)]">
+          <div className={`${selectedId ? "hidden lg:block" : "block"} border-brand-line lg:border-r`}>
+            <div className="max-h-[70dvh] overflow-y-auto">
+              {filteredChats.map((chat) => {
+                const identity = chat.user?.email || chat.user?.phone || "Khách chưa đăng nhập";
+                const lastMessage = chat.messages.at(-1)?.content || "Chưa có tin nhắn";
+                return (
+                  <button key={chat.id} type="button" onClick={() => setSelectedId(chat.id)} className={`block w-full border-b border-brand-line p-3 text-left transition hover:bg-neutral-50 ${selectedChat.id === chat.id ? "bg-red-50 lg:border-l-2 lg:border-l-brand-red" : ""}`}>
+                    <span className="block truncate text-sm font-semibold">{identity}</span>
+                    <span className="mt-1 block truncate text-xs text-neutral-500">{lastMessage}</span>
+                    <span className="mt-1 block text-[11px] text-neutral-400">{new Date(chat.updatedAt).toLocaleString("vi-VN")} · {chat.messages.length} tin</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <h2 className="font-semibold">{chat.user?.email || chat.user?.phone || "Khách chưa đăng nhập"}</h2>
-          <p className="mb-3 text-xs text-neutral-500">{new Date(chat.updatedAt).toLocaleString("vi-VN")}</p>
-          <div className="grid gap-2">
-            {chat.messages.map((message) => (
-              <p key={message.id} className="rounded-md bg-brand-soft p-2 text-sm">
-                <span className="font-semibold">{message.sender}: </span>{message.content}
-              </p>
-            ))}
-          </div>
-        </article>
-      ))}
+
+          <section className={`${selectedId ? "flex" : "hidden lg:flex"} min-w-0 flex-col`}>
+            <header className="flex min-h-16 items-center gap-2 border-b border-brand-line px-3 py-2 sm:px-4">
+              <button type="button" onClick={() => setSelectedId(null)} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-brand-line text-xl lg:hidden" aria-label="Quay lại danh sách">‹</button>
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-sm font-semibold sm:text-base">{selectedChat.user?.email || selectedChat.user?.phone || "Khách chưa đăng nhập"}</h2>
+                <p className="truncate text-xs text-neutral-500">{selectedChat.user?.phone || selectedChat.user?.userId || selectedChat.id}</p>
+              </div>
+              <button onClick={() => remove(selectedChat.id)} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-brand-line text-red-600 hover:bg-red-50" title="Xóa chat" aria-label="Xóa phiên chat"><Trash2 className="h-4 w-4" /></button>
+            </header>
+            <div className="flex max-h-[65dvh] flex-1 flex-col gap-2 overflow-y-auto bg-neutral-50 p-3 sm:p-4">
+              {selectedChat.messages.length ? selectedChat.messages.map((message) => (
+                <div key={message.id} className={`flex ${message.sender === "USER" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm shadow-sm sm:max-w-[75%] ${message.sender === "USER" ? "rounded-br-md bg-brand-red text-white" : "rounded-bl-md border border-brand-line bg-white"}`}>
+                    <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                    <p className={`mt-1 text-[10px] ${message.sender === "USER" ? "text-white/70" : "text-neutral-400"}`}>{message.sender === "USER" ? "Người dùng" : message.sender === "BOT" ? "Em Ry" : "Hệ thống"} · {new Date(message.createdAt).toLocaleString("vi-VN")}</p>
+                  </div>
+                </div>
+              )) : <p className="m-auto text-sm text-neutral-500">Phiên này chưa có tin nhắn.</p>}
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
@@ -1891,6 +1976,33 @@ sudo nginx -t && sudo systemctl reload nginx`;
           <TextInput label="Google Tag Manager (GTM-XXXXXXX)" value={settings.googleTagManagerId} onChange={(value) => setSettings({ ...settings, googleTagManagerId: value.trim() })} />
           <TextInput label="Meta Pixel ID" value={settings.metaPixelId} onChange={(value) => setSettings({ ...settings, metaPixelId: value.trim() })} />
           <TextInput label="Google Search Console verification" value={settings.googleSiteVerification} onChange={(value) => setSettings({ ...settings, googleSiteVerification: value.trim() })} />
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-brand-line bg-white p-4">
+        <div className="mb-4">
+          <h2 className="font-semibold">Tài khoản kiểm tra tiền hoàn cho khách</h2>
+          <p className="mt-1 text-xs leading-5 text-neutral-500">Tài khoản này chỉ dùng phía server để lấy giá và tiền hoàn dự kiến trước khi khách đăng ký. Link affiliate của tài khoản test không được gửi cho khách.</p>
+        </div>
+        <div className="grid gap-x-4 sm:grid-cols-2">
+          <TextInput label="Email tài khoản test" value={settings.cashbackPreviewEmail} onChange={(value) => setSettings({ ...settings, cashbackPreviewEmail: value.trim() })} />
+          <label className="mb-3 block">
+            <span className="mb-1 block text-sm font-medium">Mật khẩu tài khoản test</span>
+            <input
+              type="password"
+              value={settings.cashbackPreviewPassword}
+              onChange={(event) => setSettings({ ...settings, cashbackPreviewPassword: event.target.value })}
+              placeholder={settings.cashbackPreviewConfigured ? "Đã lưu — để trống nếu không đổi" : "Nhập mật khẩu"}
+              autoComplete="new-password"
+              className="h-10 w-full rounded-lg border border-brand-line px-3 text-sm outline-none focus:border-brand-red"
+            />
+          </label>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Toggle checked={settings.cashbackPreviewEnabled} label="Bật kiểm tra trước đăng ký" onChange={(value) => setSettings({ ...settings, cashbackPreviewEnabled: value })} />
+          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${settings.cashbackPreviewConfigured ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+            {settings.cashbackPreviewConfigured ? "Đã lưu mật khẩu" : "Chưa có mật khẩu"}
+          </span>
         </div>
       </section>
 

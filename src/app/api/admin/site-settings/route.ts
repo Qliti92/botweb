@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { assertSameOrigin } from "@/lib/security";
+import { encryptSecret } from "@/lib/crypto";
 import { getSiteSettings, saveSiteSettings } from "@/services/site-settings";
 
 const optionalUrl = z.string().trim().max(500).refine((value) => value.startsWith("/") || /^https?:\/\//i.test(value), "URL ảnh không hợp lệ.");
@@ -34,6 +35,10 @@ const schema = z.object({
   supportTicketRetentionDays: z.number().int().min(30).max(1825),
   autoSubmitShoppingLinks: z.boolean(),
   cashbackCacheSeconds: z.number().int().min(0).max(3600),
+  cashbackPreviewEnabled: z.boolean(),
+  cashbackPreviewEmail: z.string().trim().email().max(200).or(z.literal("")),
+  cashbackPreviewPassword: z.string().max(500),
+  cashbackPreviewConfigured: z.boolean(),
   referralDomains: z.array(z.object({
     domain: z.string().trim().toLowerCase().min(3).max(253).regex(/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i, "Domain không hợp lệ."),
     referralCode: z.string().trim().min(2).max(100).regex(/^[A-Za-z0-9_-]+$/, "Mã giới thiệu không hợp lệ."),
@@ -50,16 +55,35 @@ const schema = z.object({
 
 export async function GET() {
   await requireAdmin();
-  return NextResponse.json({ settings: await getSiteSettings() });
+  const settings = await getSiteSettings();
+  return NextResponse.json({
+    settings: {
+      ...settings,
+      cashbackPreviewPassword: "",
+      cashbackPreviewConfigured: Boolean(settings.cashbackPreviewPassword)
+    }
+  });
 }
 
 export async function PUT(request: NextRequest) {
   await requireAdmin();
   try {
     assertSameOrigin(request);
-    const settings = schema.parse(await request.json());
+    const input = schema.parse(await request.json());
+    const current = await getSiteSettings();
+    const password = input.cashbackPreviewPassword
+      ? encryptSecret(input.cashbackPreviewPassword)
+      : current.cashbackPreviewPassword;
+    const { cashbackPreviewConfigured: _configured, ...validated } = input;
+    const settings = { ...validated, cashbackPreviewPassword: password };
     await saveSiteSettings(settings);
-    return NextResponse.json({ settings });
+    return NextResponse.json({
+      settings: {
+        ...settings,
+        cashbackPreviewPassword: "",
+        cashbackPreviewConfigured: Boolean(password)
+      }
+    });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Không thể lưu cài đặt." }, { status: 400 });
   }

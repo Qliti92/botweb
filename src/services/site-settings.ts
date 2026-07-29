@@ -29,6 +29,9 @@ export type SiteSettings = {
   supportTicketRetentionDays: number;
   autoSubmitShoppingLinks: boolean;
   cashbackCacheSeconds: number;
+  cashbackPreviewEnabled: boolean;
+  cashbackPreviewEmail: string;
+  cashbackPreviewPassword: string;
   referralDomains: { domain: string; referralCode: string; enabled: boolean }[];
 };
 
@@ -61,6 +64,9 @@ export const defaultSiteSettings: SiteSettings = {
   supportTicketRetentionDays: 180,
   autoSubmitShoppingLinks: true,
   cashbackCacheSeconds: 600,
+  cashbackPreviewEnabled: false,
+  cashbackPreviewEmail: "",
+  cashbackPreviewPassword: "",
   referralDomains: []
 };
 

@@ -6,6 +6,23 @@ import { classifyShoppingLink } from "@/lib/shopping-link";
 import { registrationErrorCategory, registrationErrorCode } from "@/lib/registration-errors";
 
 type Platform = "all" | "shopee" | "tiktok-shop";
+type CashbackPreview = {
+  productName?: string;
+  productImage?: string;
+  productPrice?: number | string;
+  cashbackAmount?: number | string;
+  platform: "shopee" | "tiktok";
+  demo: boolean;
+};
+
+function formatPreviewMoney(value?: number | string) {
+  if (value === undefined || value === null || value === "") return "Đang cập nhật";
+  const numeric = typeof value === "number"
+    ? value
+    : Number(String(value).replace(/[^\d.-]/g, ""));
+  if (!Number.isFinite(numeric)) return String(value);
+  return `${Math.round(numeric).toLocaleString("vi-VN")}đ`;
+}
 
 const platformContent = {
   all: {
@@ -36,6 +53,8 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
   const [productLink, setProductLink] = useState("");
   const [showDemo, setShowDemo] = useState(false);
   const [checkedPlatform, setCheckedPlatform] = useState<"shopee" | "tiktok" | null>(null);
+  const [preview, setPreview] = useState<CashbackPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [email, setEmail] = useState("");
@@ -58,6 +77,7 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
     errorCode?: string;
     errorMessage?: string;
     httpStatus?: number;
+    inputSnapshot?: { email?: string };
   }) {
     void fetch("/api/analytics/registration", {
       method: "POST",
@@ -97,7 +117,7 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
     }
   }
 
-  function startCheck(event: FormEvent) {
+  async function startCheck(event: FormEvent) {
     event.preventDefault();
     setError("");
     const link = classifyShoppingLink(productLink);
@@ -106,8 +126,25 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
       return;
     }
     localStorage.setItem("pending_cashback_link", link.url);
-    setCheckedPlatform(link.platform);
     setShowDemo(false);
+    setCheckedPlatform(null);
+    setPreview(null);
+    setPreviewLoading(true);
+    try {
+      const response = await fetch("/api/cashback/preview", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: link.url })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Chưa thể kiểm tra tiền hoàn.");
+      setCheckedPlatform(link.platform);
+      setPreview(data.preview);
+    } catch (previewError) {
+      setError(previewError instanceof Error ? previewError.message : "Chưa thể kiểm tra tiền hoàn.");
+    } finally {
+      setPreviewLoading(false);
+    }
   }
 
   function continueToRegister() {
@@ -120,20 +157,32 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
     setProductLink("https://shopee.vn/san-pham-mau");
     setShowDemo(true);
     setCheckedPlatform(null);
+    setPreview(null);
   }
 
   function useOwnLink() {
     setProductLink("");
     setShowDemo(false);
     setCheckedPlatform(null);
+    setPreview(null);
     window.setTimeout(() => document.getElementById("product-link")?.focus(), 0);
   }
 
   async function register(event: FormEvent) {
     event.preventDefault();
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setError("Bạn kiểm tra lại địa chỉ email.");
-    if (password.length < 8) return setError("Mật khẩu cần có ít nhất 8 ký tự.");
-    if (password !== confirmation) return setError("Hai mật khẩu chưa giống nhau.");
+    const rejectInput = (message: string) => {
+      setError(message);
+      const category = registrationErrorCategory(message);
+      trackRegistration("FAILED", {
+        errorCategory: category,
+        errorCode: registrationErrorCode(category),
+        errorMessage: message,
+        inputSnapshot: { email }
+      });
+    };
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return rejectInput("Bạn kiểm tra lại địa chỉ email.");
+    if (password.length < 8) return rejectInput("Mật khẩu cần có ít nhất 8 ký tự.");
+    if (password !== confirmation) return rejectInput("Hai mật khẩu chưa giống nhau.");
     if (loading) return;
     setLoading(true);
     setError("");
@@ -173,7 +222,8 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
         errorCategory: category,
         errorCode: registrationErrorCode(category, httpStatus),
         errorMessage: message,
-        httpStatus
+        httpStatus,
+        inputSnapshot: { email }
       });
       setError(message);
     } finally {
@@ -222,10 +272,13 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
                     <div className="mt-2.5 flex flex-col gap-2 sm:flex-row">
                       <div className="relative min-w-0 flex-1">
                         <Link2 className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
-                        <input id="product-link" value={productLink} onChange={(event) => { setProductLink(event.target.value); setShowDemo(false); setCheckedPlatform(null); }} placeholder={`https://... link sản phẩm ${content.label}`} className="h-14 w-full rounded-xl border border-neutral-200 bg-neutral-50 pl-11 pr-20 text-sm outline-none focus:border-[#287a63] focus:bg-white" />
+                        <input id="product-link" value={productLink} onChange={(event) => { setProductLink(event.target.value); setShowDemo(false); setCheckedPlatform(null); setPreview(null); }} placeholder={`https://... link sản phẩm ${content.label}`} className="h-14 w-full rounded-xl border border-neutral-200 bg-neutral-50 pl-11 pr-20 text-sm outline-none focus:border-[#287a63] focus:bg-white" />
                         <button type="button" onClick={() => void pasteProductLink()} className="absolute right-2 top-1/2 inline-flex h-10 -translate-y-1/2 items-center gap-1 rounded-lg bg-[#e8f3ef] px-2.5 text-xs font-bold text-[#287a63] hover:bg-[#dcece6]"><ClipboardPaste className="h-3.5 w-3.5" /> Dán</button>
                       </div>
-                      <button type="submit" className="inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#287a63] px-5 text-sm font-bold text-white hover:bg-[#216653]">Kiểm tra tiền hoàn <ArrowRight className="h-4 w-4" /></button>
+                      <button disabled={previewLoading} type="submit" className="inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#287a63] px-5 text-sm font-bold text-white hover:bg-[#216653] disabled:opacity-60">
+                        {previewLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                        {previewLoading ? "Đang kiểm tra..." : "Kiểm tra tiền hoàn"}
+                      </button>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
                       <button type="button" onClick={openSample} className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100"><Sparkles className="h-3.5 w-3.5" /> Chưa có link? Xem thử mẫu</button>
@@ -234,23 +287,38 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
                     <p className="mt-2 text-[11px] text-neutral-500">Tiền hoàn phụ thuộc điều kiện đơn hàng và kết quả duyệt của đối tác.</p>
                   </form>
 
-                  {checkedPlatform ? (
+                  {checkedPlatform && preview ? (
                     <div className="mt-4 overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50">
                       <div className="flex items-center gap-2 border-b border-emerald-200 bg-white/70 px-4 py-3 text-sm font-bold text-emerald-800">
                         <span className="grid h-6 w-6 place-items-center rounded-full bg-emerald-600 text-white"><Check className="h-4 w-4" /></span>
-                        Link {checkedPlatform === "shopee" ? "Shopee" : "TikTok Shop"} hợp lệ
+                        Đã tìm thấy tiền hoàn
+                        {preview.demo ? <span className="ml-auto rounded-full bg-amber-100 px-2 py-1 text-[10px] uppercase tracking-wide text-amber-800">Bản thử giao diện</span> : null}
                       </div>
                       <div className="p-4">
-                        <h3 className="text-lg font-black text-neutral-800">Sẵn sàng tạo link mua hàng có theo dõi tiền hoàn</h3>
-                        <div className="mt-3 grid gap-2 text-xs leading-5 text-neutral-700 sm:grid-cols-3">
-                          <span className="rounded-xl bg-white/80 px-3 py-2"><strong className="block text-[#287a63]">1. Tạo link</strong>Hệ thống kiểm tra giá và tiền hoàn dự kiến.</span>
-                          <span className="rounded-xl bg-white/80 px-3 py-2"><strong className="block text-[#287a63]">2. Quay lại sàn</strong>Bạn mua và thanh toán như bình thường.</span>
-                          <span className="rounded-xl bg-white/80 px-3 py-2"><strong className="block text-[#287a63]">3. Theo dõi đơn</strong>Tiền hoàn được ghi nhận đúng tài khoản.</span>
+                        <div className="flex items-start gap-3">
+                          {preview.productImage ? <img src={preview.productImage} alt="" className="h-16 w-16 shrink-0 rounded-xl border border-emerald-200 bg-white object-cover" /> : null}
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-neutral-500">{checkedPlatform === "shopee" ? "Shopee" : "TikTok Shop"}</p>
+                            <h3 className="mt-0.5 line-clamp-2 text-sm font-bold leading-5 text-neutral-800">{preview.productName || "Sản phẩm đã kiểm tra"}</h3>
+                          </div>
+                        </div>
+                        <div className="mt-4 grid grid-cols-2 gap-2">
+                          <div className="rounded-xl bg-white/80 px-3 py-3">
+                            <p className="text-[11px] text-neutral-500">Giá sản phẩm</p>
+                            <p className="mt-0.5 text-base font-bold text-neutral-700">{formatPreviewMoney(preview.productPrice)}</p>
+                          </div>
+                          <div className="rounded-xl bg-white px-3 py-3 ring-1 ring-emerald-200">
+                            <p className="text-[11px] text-neutral-500">Tiền hoàn dự kiến</p>
+                            <p className="mt-0.5 text-xl font-black text-emerald-700">{formatPreviewMoney(preview.cashbackAmount)}</p>
+                          </div>
                         </div>
                         <button type="button" onClick={continueToRegister} className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#287a63] px-5 text-sm font-bold text-white hover:bg-[#216653]">
-                          Xem tiền hoàn và lấy link mua <ArrowRight className="h-4 w-4" />
+                          Đăng ký để tạo link mua hàng <ArrowRight className="h-4 w-4" />
                         </button>
-                        <p className="mt-2 text-center text-[11px] text-neutral-500">Tạo tài khoản miễn phí để đối tác gắn link và đơn hàng với đúng người nhận tiền hoàn.</p>
+                        <p className="mt-2 text-center text-[11px] text-neutral-500">
+                          {preview.demo ? "Số liệu đang dùng để minh họa giao diện. " : ""}
+                          Số tiền thực tế phụ thuộc kết quả đối soát của sàn.
+                        </p>
                       </div>
                     </div>
                   ) : null}
