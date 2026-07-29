@@ -72,22 +72,10 @@ export async function POST(request: NextRequest) {
 
     const account = await getPreviewAccount();
     if (!account) {
-      if (process.env.NODE_ENV === "production") {
-        return NextResponse.json(
-          { error: "Tính năng xem trước đang được cấu hình. Vui lòng thử lại sau." },
-          { status: 503 }
-        );
-      }
-
-      return NextResponse.json({
-        preview: {
-          productName: `Sản phẩm mẫu trên ${link.platform === "shopee" ? "Shopee" : "TikTok Shop"}`,
-          productPrice: 500_000,
-          cashbackAmount: 14_700,
-          platform: link.platform,
-          demo: true
-        }
-      });
+      return NextResponse.json(
+        { error: "Tính năng kiểm tra tiền hoàn chưa được bật. Vui lòng liên hệ hỗ trợ." },
+        { status: 503 }
+      );
     }
 
     const result = await createCashbackLink(
@@ -107,8 +95,7 @@ export async function POST(request: NextRequest) {
         productImage: result.data.productImage,
         productPrice: result.data.productPrice,
         cashbackAmount: result.data.cashbackAmount,
-        platform: link.platform,
-        demo: false
+        platform: link.platform
       }
     });
   } catch (error) {

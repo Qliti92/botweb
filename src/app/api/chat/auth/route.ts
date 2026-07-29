@@ -83,7 +83,8 @@ export async function POST(request: NextRequest) {
             device: /iphone|ipad|ipod/i.test(userAgent) ? "iPhone/iPad" : /android/i.test(userAgent) ? "Android" : "Máy tính",
             context: body.registrationContext || "MAIN_REGISTER",
             attemptId: body.registrationAttemptId,
-            inputSnapshot: registrationInputSnapshot(body)
+            inputSnapshot: registrationInputSnapshot(body),
+            apiResponse: JSON.stringify({ success: true, userCreated: true, sessionCreated: true })
           }
         });
       }

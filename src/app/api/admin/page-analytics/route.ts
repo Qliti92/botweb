@@ -91,6 +91,7 @@ export async function GET(request: NextRequest) {
     errorCategory?: string;
     errorCode?: string;
     errorMessage?: string;
+    apiResponse?: string;
     httpStatus?: number;
     inputSnapshot?: { email?: string; name?: string; phone?: string; referralCode?: string };
   };
@@ -139,9 +140,11 @@ export async function GET(request: NextRequest) {
         attempt.errorCategory = metadata.errorCategory ? String(metadata.errorCategory) : undefined;
         attempt.errorCode = metadata.errorCode ? String(metadata.errorCode) : undefined;
         attempt.errorMessage = metadata.errorMessage ? String(metadata.errorMessage) : undefined;
+        attempt.apiResponse = metadata.apiResponse ? String(metadata.apiResponse) : undefined;
         attempt.httpStatus = Number(metadata.httpStatus || 0) || undefined;
       }
     }
+    if (!attempt.apiResponse && metadata.apiResponse) attempt.apiResponse = String(metadata.apiResponse);
     attempts.set(key, attempt);
   }
   const recentRegistrationAttempts = Array.from(attempts.values())
@@ -150,7 +153,7 @@ export async function GET(request: NextRequest) {
       stages: Array.from(attempt.stages),
       status: attempt.stages.has("COMPLETED")
         ? "COMPLETED"
-        : attempt.latestStage === "FAILED"
+        : attempt.stages.has("FAILED")
           ? "FAILED"
           : attempt.latestStage === "ABANDONED"
             ? "ABANDONED"

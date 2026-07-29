@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { ArrowRight, Check, ClipboardPaste, ExternalLink, HelpCircle, Link2, LoaderCircle, LockKeyhole, ShieldCheck, ShoppingBag, Sparkles, X } from "lucide-react";
+import { ArrowRight, Check, ClipboardPaste, HelpCircle, Link2, LoaderCircle, LockKeyhole, ShieldCheck, ShoppingBag, X } from "lucide-react";
 import { classifyShoppingLink } from "@/lib/shopping-link";
 import { registrationErrorCategory, registrationErrorCode } from "@/lib/registration-errors";
 
@@ -12,7 +12,6 @@ type CashbackPreview = {
   productPrice?: number | string;
   cashbackAmount?: number | string;
   platform: "shopee" | "tiktok";
-  demo: boolean;
 };
 
 function formatPreviewMoney(value?: number | string) {
@@ -51,7 +50,6 @@ const platformContent = {
 export function AdConversionLanding({ platform }: { platform: Platform }) {
   const content = platformContent[platform];
   const [productLink, setProductLink] = useState("");
-  const [showDemo, setShowDemo] = useState(false);
   const [checkedPlatform, setCheckedPlatform] = useState<"shopee" | "tiktok" | null>(null);
   const [preview, setPreview] = useState<CashbackPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -77,6 +75,7 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
     errorCode?: string;
     errorMessage?: string;
     httpStatus?: number;
+    apiResponse?: string;
     inputSnapshot?: { email?: string };
   }) {
     void fetch("/api/analytics/registration", {
@@ -110,7 +109,6 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
         return;
       }
       setProductLink(value.trim());
-      setShowDemo(false);
       setCheckedPlatform(null);
     } catch {
       setError("Trình duyệt chưa cho phép đọc clipboard. Bạn có thể nhấn giữ trong ô rồi chọn Dán.");
@@ -126,7 +124,6 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
       return;
     }
     localStorage.setItem("pending_cashback_link", link.url);
-    setShowDemo(false);
     setCheckedPlatform(null);
     setPreview(null);
     setPreviewLoading(true);
@@ -152,22 +149,6 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
     trackRegistration("STARTED");
   }
 
-  function openSample() {
-    setError("");
-    setProductLink("https://shopee.vn/san-pham-mau");
-    setShowDemo(true);
-    setCheckedPlatform(null);
-    setPreview(null);
-  }
-
-  function useOwnLink() {
-    setProductLink("");
-    setShowDemo(false);
-    setCheckedPlatform(null);
-    setPreview(null);
-    window.setTimeout(() => document.getElementById("product-link")?.focus(), 0);
-  }
-
   async function register(event: FormEvent) {
     event.preventDefault();
     const rejectInput = (message: string) => {
@@ -177,6 +158,7 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
         errorCategory: category,
         errorCode: registrationErrorCode(category),
         errorMessage: message,
+        apiResponse: JSON.stringify({ success: false, source: "client_validation", message }),
         inputSnapshot: { email }
       });
     };
@@ -204,7 +186,7 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
       const data = await response.json();
       if (!response.ok) {
         const authError = new Error(data.error || "Chưa thể đăng ký.");
-        Object.assign(authError, { httpStatus: response.status });
+        Object.assign(authError, { httpStatus: response.status, apiResponse: JSON.stringify(data) });
         throw authError;
       }
       if (data.user) {
@@ -217,12 +199,14 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
     } catch (registerError) {
       const message = registerError instanceof Error ? registerError.message : "Chưa thể đăng ký.";
       const httpStatus = Number((registerError as Error & { httpStatus?: number })?.httpStatus || 0) || undefined;
+      const apiResponse = (registerError as Error & { apiResponse?: string })?.apiResponse;
       const category = registrationErrorCategory(message, httpStatus);
       trackRegistration("FAILED", {
         errorCategory: category,
         errorCode: registrationErrorCode(category, httpStatus),
         errorMessage: message,
         httpStatus,
+        apiResponse,
         inputSnapshot: { email }
       });
       setError(message);
@@ -247,16 +231,16 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_8%_10%,rgba(40,122,99,.10),transparent_28%),radial-gradient(circle_at_92%_80%,rgba(198,167,106,.14),transparent_30%)]" />
         <div className="relative mx-auto grid max-w-6xl items-center gap-8 px-4 py-8 sm:px-6 sm:py-14 lg:min-h-[calc(100dvh-4rem)] lg:grid-cols-[1fr_.9fr] lg:py-16">
           <div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
               <span className="rounded-full px-3 py-1.5 text-xs font-bold text-white" style={{ backgroundColor: content.accent }}>{content.shortLabel}</span>
               <span className="rounded-full border border-[#d6e4de] bg-white px-3 py-1.5 text-xs font-semibold text-[#287a63]">Miễn phí đăng ký</span>
             </div>
 
-            <h1 className="mt-5 max-w-2xl text-[32px] font-black leading-[1.14] tracking-[-.03em] sm:text-[42px] lg:text-[50px]">
-              Kiểm tra tiền hoàn trước khi mua hàng
-              <span className="mt-1 block" style={{ color: content.accent }}>trên Shopee &amp; TikTok Shop</span>
+            <h1 className="mx-auto mt-5 max-w-[360px] text-center text-[clamp(30px,8.5vw,36px)] font-black leading-[1.1] tracking-[-.035em] [text-wrap:balance] sm:mx-0 sm:max-w-2xl sm:text-left sm:text-[42px] sm:leading-[1.12] lg:text-[50px]">
+              <span className="block">Mua sắm trên Shopee, TikTok Shop</span>
+              <span className="mt-2 block sm:mt-1" style={{ color: content.accent }}>Có thêm tiền hoàn sau mỗi đơn</span>
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-7 text-neutral-600">Dán link sản phẩm, tạo tài khoản miễn phí và mua hàng trên sàn như bình thường.</p>
+            <p className="mx-auto mt-4 max-w-md text-center text-[15px] leading-6 text-neutral-600 sm:mx-0 sm:mt-5 sm:max-w-xl sm:text-left sm:text-base sm:leading-7">Dán link sản phẩm Shopee hoặc TikTok Shop để xem số tiền hoàn dự kiến trước khi mua.</p>
 
             <div className="mt-6 grid max-w-xl gap-2.5 text-sm text-neutral-700 sm:grid-cols-3">
               <span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 shrink-0 text-[#287a63]" /> Không cần mật khẩu sàn</span>
@@ -272,7 +256,7 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
                     <div className="mt-2.5 flex flex-col gap-2 sm:flex-row">
                       <div className="relative min-w-0 flex-1">
                         <Link2 className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
-                        <input id="product-link" value={productLink} onChange={(event) => { setProductLink(event.target.value); setShowDemo(false); setCheckedPlatform(null); setPreview(null); }} placeholder={`https://... link sản phẩm ${content.label}`} className="h-14 w-full rounded-xl border border-neutral-200 bg-neutral-50 pl-11 pr-20 text-sm outline-none focus:border-[#287a63] focus:bg-white" />
+                        <input id="product-link" value={productLink} onChange={(event) => { setProductLink(event.target.value); setCheckedPlatform(null); setPreview(null); }} placeholder={`https://... link sản phẩm ${content.label}`} className="h-14 w-full rounded-xl border border-neutral-200 bg-neutral-50 pl-11 pr-20 text-sm outline-none focus:border-[#287a63] focus:bg-white" />
                         <button type="button" onClick={() => void pasteProductLink()} className="absolute right-2 top-1/2 inline-flex h-10 -translate-y-1/2 items-center gap-1 rounded-lg bg-[#e8f3ef] px-2.5 text-xs font-bold text-[#287a63] hover:bg-[#dcece6]"><ClipboardPaste className="h-3.5 w-3.5" /> Dán</button>
                       </div>
                       <button disabled={previewLoading} type="submit" className="inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#287a63] px-5 text-sm font-bold text-white hover:bg-[#216653] disabled:opacity-60">
@@ -280,10 +264,9 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
                         {previewLoading ? "Đang kiểm tra..." : "Kiểm tra tiền hoàn"}
                       </button>
                     </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-                      <button type="button" onClick={openSample} className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100"><Sparkles className="h-3.5 w-3.5" /> Chưa có link? Xem thử mẫu</button>
-                      <button type="button" onClick={() => setShowGuide(true)} className="inline-flex items-center gap-1.5 text-xs font-bold text-[#287a63] hover:underline"><HelpCircle className="h-4 w-4" /> Hướng dẫn lấy link</button>
-                    </div>
+                    <button type="button" onClick={() => setShowGuide(true)} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#9ec9b9] bg-[#f1f7f4] px-4 text-sm font-bold text-[#287a63] transition hover:border-[#287a63] hover:bg-[#e4f1ec]">
+                      <HelpCircle className="h-5 w-5" /> Chưa biết lấy link? Xem hướng dẫn
+                    </button>
                     <p className="mt-2 text-[11px] text-neutral-500">Tiền hoàn phụ thuộc điều kiện đơn hàng và kết quả duyệt của đối tác.</p>
                   </form>
 
@@ -292,7 +275,6 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
                       <div className="flex items-center gap-2 border-b border-emerald-200 bg-white/70 px-4 py-3 text-sm font-bold text-emerald-800">
                         <span className="grid h-6 w-6 place-items-center rounded-full bg-emerald-600 text-white"><Check className="h-4 w-4" /></span>
                         Đã tìm thấy tiền hoàn
-                        {preview.demo ? <span className="ml-auto rounded-full bg-amber-100 px-2 py-1 text-[10px] uppercase tracking-wide text-amber-800">Bản thử giao diện</span> : null}
                       </div>
                       <div className="p-4">
                         <div className="flex items-start gap-3">
@@ -313,39 +295,15 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
                           </div>
                         </div>
                         <button type="button" onClick={continueToRegister} className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#287a63] px-5 text-sm font-bold text-white hover:bg-[#216653]">
-                          Đăng ký để tạo link mua hàng <ArrowRight className="h-4 w-4" />
+                          Tiếp tục nhận tiền hoàn <ArrowRight className="h-4 w-4" />
                         </button>
                         <p className="mt-2 text-center text-[11px] text-neutral-500">
-                          {preview.demo ? "Số liệu đang dùng để minh họa giao diện. " : ""}
-                          Số tiền thực tế phụ thuộc kết quả đối soát của sàn.
+                          Cần tài khoản miễn phí để ghi nhận đơn và tiền hoàn đúng cho bạn.
                         </p>
                       </div>
                     </div>
                   ) : null}
 
-                  {showDemo ? (
-                    <div className="mt-4 overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50">
-                      <div className="flex items-center gap-2 border-b border-emerald-200 bg-white/70 px-4 py-3 text-sm font-bold text-emerald-800">
-                        <span className="grid h-6 w-6 place-items-center rounded-full bg-emerald-600 text-white"><Check className="h-4 w-4" /></span>
-                        Đã tìm thấy tiền hoàn
-                        <span className="ml-auto rounded-full bg-amber-100 px-2 py-1 text-[10px] uppercase tracking-wide text-amber-800">Ví dụ minh họa</span>
-                      </div>
-                      <div className="grid gap-4 p-4 sm:grid-cols-[1fr_auto] sm:items-end">
-                        <div>
-                          <p className="text-xs font-medium text-neutral-500">Sản phẩm mẫu trên Shopee</p>
-                          <div className="mt-3 flex flex-wrap gap-x-7 gap-y-2">
-                            <div><p className="text-xs text-neutral-500">Giá sản phẩm</p><p className="mt-0.5 text-lg font-bold text-neutral-700">299.000đ</p></div>
-                            <div><p className="text-xs text-neutral-500">Bạn có thể được hoàn</p><p className="mt-0.5 text-2xl font-black text-emerald-700">23.920đ</p></div>
-                          </div>
-                          <p className="mt-2 text-[11px] leading-4 text-neutral-500">Mức hoàn 8% chỉ dùng để minh họa. Link thật sẽ được hệ thống kiểm tra riêng.</p>
-                        </div>
-                        <button type="button" onClick={useOwnLink} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#287a63] px-4 text-sm font-bold text-white hover:bg-[#216653]">
-                          Kiểm tra link của tôi <ExternalLink className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <p className="border-t border-emerald-200 px-4 py-2.5 text-center text-[11px] font-medium text-emerald-800">Với link thật, sau khi kiểm tra bạn sẽ nhận nút quay lại sàn để mua hàng.</p>
-                    </div>
-                  ) : null}
                 </div>
               ) : success ? (
                 <div className="py-2 text-center">

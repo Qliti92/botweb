@@ -436,7 +436,7 @@ export function ChatApp() {
       const data = await response.json();
       if (!response.ok) {
         const authError = new Error(data.error || "Chưa thể xác thực.");
-        Object.assign(authError, { httpStatus: response.status });
+        Object.assign(authError, { httpStatus: response.status, apiResponse: JSON.stringify(data) });
         throw authError;
       }
       if (!data.user) {
@@ -730,6 +730,7 @@ export function ChatApp() {
       if (authMode === "register") {
         const errorMessage = err instanceof Error ? err.message : "";
         const httpStatus = Number((err as Error & { httpStatus?: number })?.httpStatus || 0) || undefined;
+        const apiResponse = (err as Error & { apiResponse?: string })?.apiResponse;
         const category = registrationErrorCategory(errorMessage, httpStatus);
         void fetch("/api/analytics/registration", {
           method: "POST",
@@ -742,6 +743,7 @@ export function ChatApp() {
             errorCategory: category,
             errorCode: registrationErrorCode(category, httpStatus),
             errorMessage,
+            apiResponse,
             httpStatus,
             context: window.localStorage.getItem("pending_cashback_link") ? "LINK_REGISTER" : "MAIN_REGISTER",
             attemptId: window.sessionStorage.getItem("registration_attempt_id"),

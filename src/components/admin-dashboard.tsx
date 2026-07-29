@@ -424,6 +424,7 @@ type PageAnalyticsDto = {
       errorCategory?: string;
       errorCode?: string;
       errorMessage?: string;
+      apiResponse?: string;
       httpStatus?: number;
       inputSnapshot?: { email?: string; name?: string; phone?: string; referralCode?: string };
     }[];
@@ -670,12 +671,18 @@ function PageAnalyticsPanel() {
                         {item.status === "FAILED"
                           ? item.errorMessage || errorLabels[item.errorCategory || ""] || "Website không trả mô tả lỗi."
                           : item.status === "COMPLETED"
-                            ? "Website xác nhận đăng ký thành công."
+                            ? "API xác nhận đăng ký thành công."
                             : item.status === "ABANDONED"
-                              ? `Khách dừng ở ${reachedStep.toLowerCase()}, chưa gửi đăng ký thành công.`
-                              : "Khách đang thực hiện đăng ký, chưa có kết quả cuối cùng."}
+                              ? "Không có phản hồi API — khách rời form trước khi gửi yêu cầu đăng ký."
+                              : "Chưa có phản hồi API — khách chưa gửi yêu cầu đăng ký."}
                       </p>
                       {(item.errorCode || item.httpStatus) ? <p className="mt-1 font-mono text-[10px] text-neutral-500">{item.errorCode || "UNKNOWN"}{item.httpStatus ? ` · HTTP ${item.httpStatus}` : ""}</p> : null}
+                      {item.apiResponse ? (
+                        <details className="mt-2">
+                          <summary className="cursor-pointer text-[10px] font-bold text-blue-700">Xem payload API đã lọc</summary>
+                          <pre className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap break-all rounded bg-neutral-900 p-2 text-[10px] leading-4 text-neutral-100">{item.apiResponse}</pre>
+                        </details>
+                      ) : null}
                     </div>
                   </div>
                 </article>

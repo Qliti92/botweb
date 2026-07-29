@@ -3,6 +3,7 @@ import { z } from "zod";
 import { writeAuditLog } from "@/lib/audit";
 import { rateLimit } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
+import { safeLogJson } from "@/lib/security";
 
 const schema = z.object({
   stage: z.enum(["STARTED", "STEP_2", "ABANDONED", "FAILED"]),
@@ -11,6 +12,7 @@ const schema = z.object({
   errorCategory: z.enum(["EMAIL_EXISTS", "INVALID_INPUT", "REFERRAL", "NETWORK", "RATE_LIMIT", "SERVER", "OTHER"]).optional(),
   errorCode: z.string().trim().max(80).optional(),
   errorMessage: z.string().trim().max(500).optional(),
+  apiResponse: z.string().trim().max(2_000).optional(),
   httpStatus: z.number().int().min(0).max(599).optional(),
   context: z.enum(["MAIN_REGISTER", "LINK_REGISTER"]).optional(),
   attemptId: z.string().trim().max(80).optional(),
@@ -29,6 +31,15 @@ function sanitizeErrorMessage(value?: string) {
     .replace(/(?:\+?84|0)\d{8,10}/g, "[số điện thoại]")
     .replace(/\b\d{6}\b/g, "[mã]")
     .slice(0, 240);
+}
+
+function sanitizeApiResponse(value?: string) {
+  if (!value) return undefined;
+  try {
+    return sanitizeErrorMessage(safeLogJson(JSON.parse(value), 1_200));
+  } catch {
+    return sanitizeErrorMessage(value)?.slice(0, 1_200);
+  }
 }
 
 function deviceFromUserAgent(value: string) {
@@ -80,6 +91,7 @@ export async function POST(request: NextRequest) {
         errorCategory: body.errorCategory,
         errorCode: body.errorCode,
         errorMessage: sanitizeErrorMessage(body.errorMessage),
+        apiResponse: sanitizeApiResponse(body.apiResponse),
         httpStatus: body.httpStatus,
         context: body.context,
         attemptId: body.attemptId,
