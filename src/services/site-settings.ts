@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
 export type SiteSettings = {
+  homepageMode: "interactive" | "classic";
   siteName: string;
   logoUrl: string;
   avatarUrl: string;
@@ -36,6 +37,7 @@ export type SiteSettings = {
 };
 
 export const defaultSiteSettings: SiteSettings = {
+  homepageMode: "interactive",
   siteName: "Qbot - Kiểm tra tiền hoàn",
   logoUrl: "/logo.png",
   avatarUrl: "/logo.png",

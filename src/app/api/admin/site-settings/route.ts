@@ -7,6 +7,7 @@ import { getSiteSettings, saveSiteSettings } from "@/services/site-settings";
 
 const optionalUrl = z.string().trim().max(500).refine((value) => value.startsWith("/") || /^https?:\/\//i.test(value), "URL ảnh không hợp lệ.");
 const schema = z.object({
+  homepageMode: z.enum(["interactive", "classic"]),
   siteName: z.string().trim().min(2).max(120),
   logoUrl: optionalUrl,
   avatarUrl: optionalUrl,

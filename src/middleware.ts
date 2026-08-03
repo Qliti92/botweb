@@ -1,9 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
-import { securityHeaders } from "@/lib/security";
+import { assertSameOrigin, securityHeaders } from "@/lib/security";
 import { requireServerSecret } from "@/lib/secrets";
 
 const protectedPaths = ["/admin", "/api/admin"];
+const tokenIssuer = "webchat-admin";
+const tokenAudience = "webchat-admin-session";
 
 function finalizeResponse(request: NextRequest, response: NextResponse) {
   const sensitiveResponse =
@@ -25,7 +27,20 @@ export async function middleware(request: NextRequest) {
   const isLogin = request.nextUrl.pathname === "/admin/login" || request.nextUrl.pathname === "/api/admin/login";
   const isAdminApi = request.nextUrl.pathname.startsWith("/api/admin");
 
-  if (!isProtected || isLogin) return finalizeResponse(request, NextResponse.next());
+  if (!isProtected) return finalizeResponse(request, NextResponse.next());
+
+  if (isAdminApi && !["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+    try {
+      assertSameOrigin(request);
+    } catch {
+      return finalizeResponse(
+        request,
+        NextResponse.json({ error: "Nguon yeu cau admin khong hop le." }, { status: 403 })
+      );
+    }
+  }
+
+  if (isLogin) return finalizeResponse(request, NextResponse.next());
 
   const token = request.cookies.get("admin_token")?.value;
   if (!token) {
@@ -36,7 +51,14 @@ export async function middleware(request: NextRequest) {
 
   try {
     const secret = new TextEncoder().encode(requireServerSecret("JWT_SECRET"));
-    await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, secret, {
+      algorithms: ["HS256"],
+      issuer: tokenIssuer,
+      audience: tokenAudience
+    });
+    if (typeof payload.adminId !== "string" || typeof payload.email !== "string" || payload.sub !== payload.adminId) {
+      throw new Error("Invalid admin session claims");
+    }
     return finalizeResponse(request, NextResponse.next());
   } catch {
     return isAdminApi

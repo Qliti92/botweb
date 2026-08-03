@@ -48,8 +48,9 @@ const platformContent = {
   }
 } as const;
 
-export function AdConversionLanding({ platform }: { platform: Platform }) {
+export function AdConversionLanding({ platform, campaign = "organic" }: { platform: Platform; campaign?: "organic" | "facebook" }) {
   const content = platformContent[platform];
+  const isFacebookCampaign = campaign === "facebook";
   const [productLink, setProductLink] = useState("");
   const [checkedPlatform, setCheckedPlatform] = useState<"shopee" | "tiktok" | null>(null);
   const [preview, setPreview] = useState<CashbackPreview | null>(null);
@@ -220,31 +221,38 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
   }
 
   return (
-    <main className="min-h-dvh bg-[#fafaf8] text-[#30343b]">
+    <main className="min-h-dvh overflow-x-hidden bg-[#fafaf8] text-[#30343b]">
       <header className="border-b border-neutral-200 bg-white/90">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <a href="/" className="flex items-center gap-2.5">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+          <a href="/" className="flex min-w-0 items-center gap-2.5">
             <img src="/api/site-assets/logo" alt="Em Ry" className="h-10 w-10 rounded-full border object-cover" />
             <div><strong className="block text-sm">Em Ry</strong><span className="text-[11px] text-neutral-500">Trợ lý hoàn tiền mua hàng</span></div>
           </a>
-          <a href="/?auth=login" className="text-sm font-semibold text-[#287a63]">Đã có tài khoản? Đăng nhập</a>
+          <a href="/?auth=login" className="shrink-0 text-sm font-semibold text-[#287a63]"><span className="hidden sm:inline">Đã có tài khoản? </span>Đăng nhập</a>
         </div>
       </header>
 
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_8%_10%,rgba(40,122,99,.10),transparent_28%),radial-gradient(circle_at_92%_80%,rgba(198,167,106,.14),transparent_30%)]" />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-8 px-4 py-8 sm:px-6 sm:py-14 lg:min-h-[calc(100dvh-4rem)] lg:grid-cols-[1fr_.9fr] lg:py-16">
-          <div>
+        <div className="relative mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] items-center gap-8 px-4 py-8 sm:px-6 sm:py-14 lg:min-h-[calc(100dvh-4rem)] lg:grid-cols-[minmax(0,1fr)_minmax(0,.9fr)] lg:py-16">
+          <div className="min-w-0">
+            {isFacebookCampaign ? (
+              <div className="mb-4 flex justify-center sm:justify-start">
+                <span className="inline-flex max-w-full items-center justify-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-center text-xs font-bold text-emerald-800">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" /> Kiểm tra miễn phí · Biết kết quả trước khi mua
+                </span>
+              </div>
+            ) : null}
             <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
               <span className="rounded-full px-3 py-1.5 text-xs font-bold text-white" style={{ backgroundColor: content.accent }}>{content.shortLabel}</span>
               <span className="rounded-full border border-[#d6e4de] bg-white px-3 py-1.5 text-xs font-semibold text-[#287a63]">Miễn phí đăng ký</span>
             </div>
 
             <h1 className="mx-auto mt-5 max-w-[360px] text-center text-[clamp(30px,8.5vw,36px)] font-black leading-[1.1] tracking-[-.035em] [text-wrap:balance] sm:mx-0 sm:max-w-2xl sm:text-left sm:text-[42px] sm:leading-[1.12] lg:text-[50px]">
-              <span className="block">Mua sắm trên Shopee, TikTok Shop</span>
-              <span className="mt-2 block sm:mt-1" style={{ color: content.accent }}>Có thêm tiền hoàn sau mỗi đơn</span>
+              <span className="block">{isFacebookCampaign ? "Bạn vẫn mua đúng món mình thích" : "Mua sắm trên Shopee, TikTok Shop"}</span>
+              <span className="mt-2 block sm:mt-1" style={{ color: content.accent }}>{isFacebookCampaign ? "Nhưng có thể nhận thêm tiền hoàn" : "Có thêm tiền hoàn sau mỗi đơn"}</span>
             </h1>
-            <p className="mx-auto mt-4 max-w-md text-center text-[15px] leading-6 text-neutral-600 sm:mx-0 sm:mt-5 sm:max-w-xl sm:text-left sm:text-base sm:leading-7">Dán link sản phẩm Shopee hoặc TikTok Shop để xem số tiền hoàn dự kiến trước khi mua.</p>
+            <p className="mx-auto mt-4 max-w-md text-center text-[15px] leading-6 text-neutral-600 sm:mx-0 sm:mt-5 sm:max-w-xl sm:text-left sm:text-base sm:leading-7">{isFacebookCampaign ? "Đừng đăng ký vội. Dán thử một link Shopee hoặc TikTok Shop để xem sản phẩm có tiền hoàn hay không." : "Dán link sản phẩm Shopee hoặc TikTok Shop để xem số tiền hoàn dự kiến trước khi mua."}</p>
 
             <div className="mt-5 grid max-w-xl grid-cols-3 divide-x divide-[#d6e4de] overflow-hidden rounded-xl border border-[#d6e4de] bg-white/80 text-center shadow-sm">
               <span className="flex min-w-0 flex-col items-center justify-center gap-1 px-1.5 py-2.5 text-[10px] font-semibold leading-4 text-neutral-700 sm:flex-row sm:gap-2 sm:px-3 sm:text-xs">
@@ -258,7 +266,7 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
               </span>
             </div>
 
-            <div className="mt-7 rounded-2xl border bg-white p-4 shadow-[0_18px_50px_rgba(48,52,59,.09)] sm:p-5" style={{ borderColor: content.border }}>
+            <div id="kiem-tra" className="mt-7 scroll-mt-4 rounded-2xl border bg-white p-4 shadow-[0_18px_50px_rgba(48,52,59,.09)] sm:p-5" style={{ borderColor: content.border }}>
               {!showRegister ? (
                 <div>
                   <form onSubmit={startCheck}>
@@ -351,7 +359,7 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
             </div>
           </div>
 
-          <aside className="rounded-3xl border border-[#d6e4de] bg-white p-5 shadow-[0_24px_70px_rgba(48,52,59,.10)] sm:p-7">
+          <aside className="min-w-0 rounded-3xl border border-[#d6e4de] bg-white p-5 shadow-[0_24px_70px_rgba(48,52,59,.10)] sm:p-7">
             <p className="text-xs font-bold uppercase tracking-[.12em] text-[#287a63]">Hiểu rõ trước khi dùng</p>
             <h2 className="mt-2 text-2xl font-bold">Tiền hoàn từ đâu, có an toàn không?</h2>
             <p className="mt-2 text-sm leading-6 text-neutral-600">QBot chỉ xử lý link sản phẩm, không đăng nhập hoặc thanh toán thay bạn.</p>
@@ -488,6 +496,14 @@ export function AdConversionLanding({ platform }: { platform: Platform }) {
             </div>
             <button type="button" onClick={() => setShowGuide(false)} className="mt-4 h-12 w-full rounded-xl bg-[#287a63] text-sm font-bold text-white">Tôi đã sao chép link</button>
           </div>
+        </div>
+      ) : null}
+
+      {isFacebookCampaign && !showRegister ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-emerald-100 bg-white/95 p-3 shadow-[0_-10px_30px_rgba(0,0,0,.08)] backdrop-blur sm:hidden">
+          <button type="button" onClick={() => document.getElementById("kiem-tra")?.scrollIntoView({ behavior: "smooth", block: "start" })} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#287a63] text-sm font-black text-white">
+            Kiểm tra thử một sản phẩm <ArrowRight className="h-4 w-4" />
+          </button>
         </div>
       ) : null}
     </main>

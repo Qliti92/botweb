@@ -1,8 +1,11 @@
 import { cookies } from "next/headers";
 import { jwtVerify, SignJWT } from "jose";
 import { requireServerSecret } from "@/lib/secrets";
+import { prisma } from "@/lib/prisma";
 
 const cookieName = "admin_token";
+const tokenIssuer = "webchat-admin";
+const tokenAudience = "webchat-admin-session";
 
 function getSecret() {
   const secret = requireServerSecret("JWT_SECRET");
@@ -12,6 +15,9 @@ function getSecret() {
 export async function createAdminToken(adminId: string, email: string) {
   return new SignJWT({ adminId, email })
     .setProtectedHeader({ alg: "HS256" })
+    .setIssuer(tokenIssuer)
+    .setAudience(tokenAudience)
+    .setSubject(adminId)
     .setIssuedAt()
     .setExpirationTime("8h")
     .sign(getSecret());
@@ -39,10 +45,26 @@ export async function getAdminSession() {
   if (!token) return null;
 
   try {
-    const { payload } = await jwtVerify(token, getSecret());
+    const { payload } = await jwtVerify(token, getSecret(), {
+      algorithms: ["HS256"],
+      issuer: tokenIssuer,
+      audience: tokenAudience
+    });
+    if (
+      typeof payload.adminId !== "string" ||
+      typeof payload.email !== "string" ||
+      payload.sub !== payload.adminId
+    ) return null;
+
+    const admin = await prisma.admin.findUnique({
+      where: { id: payload.adminId },
+      select: { id: true, email: true }
+    });
+    if (!admin || admin.email !== payload.email) return null;
+
     return {
-      adminId: String(payload.adminId),
-      email: String(payload.email)
+      adminId: admin.id,
+      email: admin.email
     };
   } catch {
     return null;
