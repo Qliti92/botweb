@@ -36,6 +36,7 @@ export function FacebookConversionFlow() {
   const [registering, setRegistering] = useState(false);
   const [error, setError] = useState("");
   const lastChecked = useRef("");
+  const registrationStarted = useRef(false);
 
   useEffect(() => {
     try {
@@ -60,6 +61,35 @@ export function FacebookConversionFlow() {
     return next;
   }
 
+  function trackRegistration(stage: "STARTED" | "ABANDONED", inputEmail?: string) {
+    void fetch("/api/analytics/registration", {
+      method: "POST",
+      keepalive: stage === "ABANDONED",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        stage,
+        step: 2,
+        path: window.location.pathname,
+        context: "LINK_REGISTER",
+        attemptId: attemptId(),
+        inputSnapshot: stage === "ABANDONED" ? { email: inputEmail } : undefined
+      })
+    }).catch(() => {});
+  }
+
+  useEffect(() => {
+    if (stage !== "register" || registrationStarted.current) return;
+    registrationStarted.current = true;
+    trackRegistration("STARTED");
+  }, [stage]);
+
+  useEffect(() => {
+    if (stage !== "register") return;
+    const onPageHide = () => trackRegistration("ABANDONED", email);
+    window.addEventListener("pagehide", onPageHide);
+    return () => window.removeEventListener("pagehide", onPageHide);
+  }, [stage, email]);
+
   useEffect(() => {
     if (stage !== "link") return;
     const classified = classifyShoppingLink(productLink.trim());
@@ -81,6 +111,11 @@ export function FacebookConversionFlow() {
         if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Chưa thể kiểm tra tiền hoàn.");
         const nextPreview = data.preview as Preview;
         setPreview(nextPreview);
+        void fetch("/api/analytics/registration", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ stage: "LINK_ENTERED", step: 1, path: window.location.pathname, context: "LINK_REGISTER", attemptId: attemptId() })
+        }).catch(() => {});
         localStorage.setItem(savedPreviewKey, JSON.stringify({ preview: nextPreview, link: classified.url, expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000 }));
         const cashbackValue = Number(String(nextPreview.cashbackAmount ?? "0").replace(/[^\d.-]/g, "")) || 0;
         const trackingWindow = window as typeof window & { fbq?: (...args: unknown[]) => void };

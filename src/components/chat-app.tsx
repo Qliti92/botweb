@@ -1669,7 +1669,8 @@ function AuthScreen({
         step,
         path: window.location.pathname,
         context: window.localStorage.getItem("pending_cashback_link") ? "LINK_REGISTER" : "MAIN_REGISTER",
-        attemptId: registrationAttemptId()
+        attemptId: registrationAttemptId(),
+        inputSnapshot: stage === "ABANDONED" ? { email, name, phone, referralCode } : undefined
       })
     }).catch(() => {});
   }
@@ -1689,7 +1690,7 @@ function AuthScreen({
     const onPageHide = () => trackRegistration("ABANDONED", registerStep);
     window.addEventListener("pagehide", onPageHide);
     return () => window.removeEventListener("pagehide", onPageHide);
-  }, [isRegister, registerStep]);
+  }, [isRegister, registerStep, email, name, phone, referralCode]);
 
   function changeMode(nextMode: AuthMode) {
     if (isRegister && nextMode !== "register") trackRegistration("ABANDONED", registerStep);

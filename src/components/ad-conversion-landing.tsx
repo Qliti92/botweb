@@ -74,7 +74,7 @@ export function AdConversionLanding({ platform, campaign = "organic" }: { platfo
     return next;
   }
 
-  function trackRegistration(stage: "STARTED" | "STEP_2" | "ABANDONED" | "FAILED", details?: {
+  function trackRegistration(stage: "LINK_ENTERED" | "STARTED" | "STEP_2" | "ABANDONED" | "FAILED", details?: {
     errorCategory?: string;
     errorCode?: string;
     errorMessage?: string;
@@ -88,7 +88,7 @@ export function AdConversionLanding({ platform, campaign = "organic" }: { platfo
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         stage,
-        step: stage === "STARTED" ? 1 : 2,
+        step: stage === "LINK_ENTERED" ? 1 : stage === "STARTED" ? 2 : 3,
         path: window.location.pathname,
         ...details,
         context: "LINK_REGISTER",
@@ -99,10 +99,10 @@ export function AdConversionLanding({ platform, campaign = "organic" }: { platfo
 
   useEffect(() => {
     if (!showRegister || success) return;
-    const onPageHide = () => trackRegistration("ABANDONED");
+    const onPageHide = () => trackRegistration("ABANDONED", { inputSnapshot: { email } });
     window.addEventListener("pagehide", onPageHide);
     return () => window.removeEventListener("pagehide", onPageHide);
-  }, [showRegister, success]);
+  }, [showRegister, success, email]);
 
   async function pasteProductLink() {
     setError("");
@@ -141,6 +141,7 @@ export function AdConversionLanding({ platform, campaign = "organic" }: { platfo
       if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Chưa thể kiểm tra tiền hoàn.");
       setCheckedPlatform(link.platform);
       setPreview(data.preview as CashbackPreview);
+      trackRegistration("LINK_ENTERED");
     } catch (previewError) {
       setError(friendlyRequestError(previewError, "Chưa thể kiểm tra tiền hoàn."));
     } finally {

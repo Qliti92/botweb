@@ -408,6 +408,7 @@ function LinkAnalyticsPanel() {
 
 type PageAnalyticsDto = {
   registrationFunnel: {
+    linkEntered: number;
     started: number;
     reachedStepTwo: number;
     completed: number;
@@ -439,6 +440,7 @@ type PageAnalyticsDto = {
       apiResponse?: string;
       httpStatus?: number;
       inputSnapshot?: { email?: string; name?: string; phone?: string; referralCode?: string };
+      abandonmentDetail?: string;
     }[];
   };
   pages: {
@@ -556,13 +558,12 @@ function PageAnalyticsPanel() {
             Hoàn tất {data?.registrationFunnel?.completionRate ?? 0}%
           </span>
         </div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-5">
+        <div className="mt-4 grid gap-2 sm:grid-cols-4">
           {[
-            ["Bắt đầu", data?.registrationFunnel?.started ?? 0, "text-blue-700"],
-            ["Đến bước 2", data?.registrationFunnel?.reachedStepTwo ?? 0, "text-violet-700"],
+            ["Nhập link", data?.registrationFunnel?.linkEntered ?? 0, "text-blue-700"],
+            ["Đăng ký", data?.registrationFunnel?.started ?? 0, "text-violet-700"],
             ["Thành công", data?.registrationFunnel?.completed ?? 0, "text-emerald-700"],
-            ["Bỏ dở", data?.registrationFunnel?.abandoned ?? 0, "text-amber-700"],
-            ["Gặp lỗi", data?.registrationFunnel?.failed ?? 0, "text-red-700"]
+            ["Thất bại", (data?.registrationFunnel?.failed ?? 0) + (data?.registrationFunnel?.abandoned ?? 0), "text-red-700"]
           ].map(([label, value, tone]) => (
             <div key={String(label)} className="rounded-lg bg-neutral-50 p-3 text-center">
               <span className="block text-xs text-neutral-500">{label}</span>
@@ -570,11 +571,9 @@ function PageAnalyticsPanel() {
             </div>
           ))}
         </div>
-        {(data?.registrationFunnel?.failedAttempts ?? 0) > 0 ? (
-          <p className="mt-2 text-right text-xs text-neutral-500">
-            {data?.registrationFunnel?.failed ?? 0} khách gặp lỗi · {data?.registrationFunnel?.failedAttempts ?? 0} lần thử thất bại
-          </p>
-        ) : null}
+        <p className="mt-2 text-right text-xs text-neutral-500">
+          {data?.registrationFunnel?.failed ?? 0} lượt gặp lỗi · {data?.registrationFunnel?.abandoned ?? 0} lượt bỏ dở
+        </p>
         {(data?.registrationFunnel?.started ?? 0) >= 20 && (data?.registrationFunnel?.completionRate ?? 0) < 20 ? (
           <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
             Cảnh báo: tỷ lệ đăng ký thành công đang dưới 20%. Hãy kiểm tra nhóm lỗi và bước khách bỏ dở bên dưới.
@@ -657,7 +656,13 @@ function PageAnalyticsPanel() {
                 SERVER: "Máy chủ hoặc API gặp lỗi",
                 OTHER: "Lỗi chưa phân loại"
               };
-              const reachedStep = item.lastStep === 2 ? "Bước 2 · Thông tin cá nhân" : "Bước 1 · Email và mật khẩu";
+              const reachedStep = item.lastStep === 3
+                ? "Gửi yêu cầu đăng ký"
+                : item.lastStep === 2
+                  ? "Nhập thông tin đăng ký"
+                  : item.stages.includes("LINK_ENTERED")
+                    ? "Nhập link sản phẩm"
+                    : "Mở form đăng ký";
               const submitted = [
                 item.inputSnapshot?.email ? `Email: ${item.inputSnapshot.email}` : "",
                 item.inputSnapshot?.name ? `Tên: ${item.inputSnapshot.name}` : "",
@@ -699,7 +704,7 @@ function PageAnalyticsPanel() {
                           : item.status === "COMPLETED"
                             ? "API xác nhận đăng ký thành công."
                             : item.status === "ABANDONED"
-                              ? "Không có phản hồi API — khách rời form trước khi gửi yêu cầu đăng ký."
+                              ? item.abandonmentDetail || "Khách rời form trước khi gửi yêu cầu đăng ký."
                               : "Chưa có phản hồi API — khách chưa gửi yêu cầu đăng ký."}
                       </p>
                       {(item.errorCode || item.httpStatus) ? <p className="mt-1 font-mono text-[10px] text-neutral-500">{item.errorCode || "UNKNOWN"}{item.httpStatus ? ` · HTTP ${item.httpStatus}` : ""}</p> : null}

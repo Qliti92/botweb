@@ -6,9 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { safeLogJson } from "@/lib/security";
 
 const schema = z.object({
-  stage: z.enum(["STARTED", "STEP_2", "ABANDONED", "FAILED"]),
+  stage: z.enum(["LINK_ENTERED", "STARTED", "STEP_2", "ABANDONED", "FAILED"]),
   path: z.string().trim().max(300).default("/"),
-  step: z.number().int().min(1).max(2).optional(),
+  step: z.number().int().min(1).max(3).optional(),
   errorCategory: z.enum(["EMAIL_EXISTS", "INVALID_INPUT", "REFERRAL", "NETWORK", "RATE_LIMIT", "SERVER", "OTHER"]).optional(),
   errorCode: z.string().trim().max(80).optional(),
   errorMessage: z.string().trim().max(500).optional(),
@@ -51,10 +51,9 @@ function deviceFromUserAgent(value: string) {
 function maskRegistrationInput(input?: { email?: string; name?: string; phone?: string; referralCode?: string }) {
   if (!input) return undefined;
   const email = input.email?.trim().toLowerCase();
-  const [local = "", domain = ""] = email?.split("@") ?? [];
   const phone = input.phone?.replace(/\D/g, "");
   return {
-    email: email ? `${local.slice(0, 2)}***${domain ? `@${domain}` : ""}` : undefined,
+    email: email || undefined,
     name: input.name?.trim() || undefined,
     phone: phone ? `${"*".repeat(Math.max(0, phone.length - 3))}${phone.slice(-3)}` : undefined,
     referralCode: input.referralCode?.trim() || undefined

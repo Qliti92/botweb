@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     }),
     prisma.auditLog.findMany({
       where: {
-        action: { in: ["WEB_REGISTRATION_STARTED", "WEB_REGISTRATION_STEP_2", "WEB_REGISTRATION_COMPLETED", "WEB_REGISTRATION_ABANDONED", "WEB_REGISTRATION_FAILED"] },
+        action: { in: ["WEB_REGISTRATION_LINK_ENTERED", "WEB_REGISTRATION_STARTED", "WEB_REGISTRATION_STEP_2", "WEB_REGISTRATION_COMPLETED", "WEB_REGISTRATION_ABANDONED", "WEB_REGISTRATION_FAILED"] },
         createdAt: dateFilter
       },
       orderBy: { createdAt: "desc" },
@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
   const completedVisitors = new Set(registrations.map((item) => item.actorId).filter(Boolean));
   const funnelActors = (action: string) => new Set(funnelEvents.filter((item) => item.action === action).map((item) => item.actorId).filter(Boolean));
   const startedVisitors = funnelActors("WEB_REGISTRATION_STARTED");
+  const linkEnteredVisitors = funnelActors("WEB_REGISTRATION_LINK_ENTERED");
   const stepTwoVisitors = funnelActors("WEB_REGISTRATION_STEP_2");
   const abandonedVisitors = funnelActors("WEB_REGISTRATION_ABANDONED");
   const failedVisitors = funnelActors("WEB_REGISTRATION_FAILED");
@@ -94,6 +95,7 @@ export async function GET(request: NextRequest) {
     apiResponse?: string;
     httpStatus?: number;
     inputSnapshot?: { email?: string; name?: string; phone?: string; referralCode?: string };
+    abandonmentDetail?: string;
   };
   const attempts = new Map<string, RegistrationAttempt>();
   const completedSessionIds = funnelEvents
@@ -142,13 +144,14 @@ export async function GET(request: NextRequest) {
     }
     attempt.stages.add(stage);
     attempt.lastStep = Math.max(attempt.lastStep ?? 0, step ?? 0) || undefined;
-    if (!attempt.inputSnapshot && metadata.inputSnapshot && typeof metadata.inputSnapshot === "object") {
+    if (metadata.inputSnapshot && typeof metadata.inputSnapshot === "object") {
       const input = metadata.inputSnapshot as Record<string, unknown>;
       attempt.inputSnapshot = {
-        email: input.email ? String(input.email) : undefined,
-        name: input.name ? String(input.name) : undefined,
-        phone: input.phone ? String(input.phone) : undefined,
-        referralCode: input.referralCode ? String(input.referralCode) : undefined
+        ...attempt.inputSnapshot,
+        email: input.email ? String(input.email) : attempt.inputSnapshot?.email,
+        name: input.name ? String(input.name) : attempt.inputSnapshot?.name,
+        phone: input.phone ? String(input.phone) : attempt.inputSnapshot?.phone,
+        referralCode: input.referralCode ? String(input.referralCode) : attempt.inputSnapshot?.referralCode
       };
     }
     if (stage === "FAILED") {
@@ -169,19 +172,39 @@ export async function GET(request: NextRequest) {
     attempts.set(key, attempt);
   }
   const recentRegistrationAttempts = Array.from(attempts.values())
-    .map((attempt) => ({
-      ...attempt,
-      stages: Array.from(attempt.stages),
-      status: attempt.stages.has("COMPLETED")
+    .map((attempt) => {
+      const hasInput = Boolean(attempt.inputSnapshot?.email || attempt.inputSnapshot?.name || attempt.inputSnapshot?.phone || attempt.inputSnapshot?.referralCode);
+      return {
+        ...attempt,
+        stages: Array.from(attempt.stages),
+        abandonmentDetail: attempt.stages.has("ABANDONED")
+          ? attempt.inputSnapshot?.email
+            ? `Bỏ dở sau khi nhập email ${attempt.inputSnapshot.email}`
+            : hasInput
+              ? "Bỏ dở khi đang nhập thông tin đăng ký"
+              : attempt.stages.has("STARTED")
+                ? "Đã mở form nhưng chưa nhập thông tin"
+                : attempt.stages.has("LINK_ENTERED")
+                  ? "Đã nhập link nhưng chưa mở form đăng ký"
+                  : "Chưa nhập thông tin"
+          : undefined,
+        status: attempt.stages.has("COMPLETED")
         ? "COMPLETED"
         : attempt.stages.has("FAILED")
           ? "FAILED"
           : attempt.latestStage === "ABANDONED"
             ? "ABANDONED"
             : "IN_PROGRESS"
-    }))
+      };
+    })
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     .slice(0, 30);
+  const allAttempts = Array.from(attempts.values());
+  const linkEnteredAttempts = allAttempts.filter((attempt) => attempt.stages.has("LINK_ENTERED")).length;
+  const startedAttempts = allAttempts.filter((attempt) => attempt.stages.has("STARTED")).length;
+  const completedAttempts = allAttempts.filter((attempt) => attempt.stages.has("COMPLETED")).length;
+  const failedAttempts = allAttempts.filter((attempt) => attempt.stages.has("FAILED") && !attempt.stages.has("COMPLETED")).length;
+  const abandonedAttempts = allAttempts.filter((attempt) => attempt.stages.has("ABANDONED") && !attempt.stages.has("COMPLETED") && !attempt.stages.has("FAILED")).length;
   const sources = countBy(startedEvents, "source").map((source) => {
     const actors = new Set(startedEvents.filter((item) => String(parseMetadata(item.metadata).source || "Không xác định") === source.name).map((item) => item.actorId));
     const completed = Array.from(actors).filter((actorId) => completedVisitors.has(actorId)).length;
@@ -231,13 +254,14 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     period,
     registrationFunnel: {
-      started: startedVisitors.size,
+      linkEntered: linkEnteredAttempts || linkEnteredVisitors.size,
+      started: startedAttempts,
       reachedStepTwo: stepTwoVisitors.size,
-      completed: completedVisitors.size,
-      abandoned: abandonedWithoutCompletion,
-      failed: failedVisitors.size,
+      completed: completedAttempts,
+      abandoned: abandonedAttempts,
+      failed: failedAttempts,
       failedAttempts: failedEvents.length,
-      completionRate: startedVisitors.size ? Math.round(completedVisitors.size / startedVisitors.size * 100) : 0,
+      completionRate: startedAttempts ? Math.round(completedAttempts / startedAttempts * 100) : 0,
       abandonedByStep: countBy(abandonedEvents, "step"),
       failureReasons: countBy(failedEvents, "errorCategory"),
       sources,
@@ -268,6 +292,7 @@ export async function DELETE() {
       action: {
         in: [
           "PAGE_VISIT",
+          "WEB_REGISTRATION_LINK_ENTERED",
           "WEB_REGISTRATION_STARTED",
           "WEB_REGISTRATION_STEP_2",
           "WEB_REGISTRATION_COMPLETED",
