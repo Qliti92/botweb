@@ -1879,18 +1879,6 @@ sudo nginx -t && sudo systemctl reload nginx`;
   return (
     <form onSubmit={save} className="grid gap-5">
       <section className="rounded-xl border border-brand-line bg-white p-4">
-        <div className="mb-4"><h2 className="font-semibold">Kiểu trang chủ</h2><p className="mt-1 text-xs leading-5 text-neutral-500">Có thể chuyển lại trang chủ cũ bất cứ lúc nào. Trang chatbot luôn mở trực tiếp tại <code>/tro-ly</code>.</p></div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <button type="button" onClick={() => setSettings({ ...settings, homepageMode: "interactive" })} className={`rounded-xl border p-4 text-left transition ${settings.homepageMode === "interactive" ? "border-brand-red bg-brand-soft ring-2 ring-brand-red/10" : "border-brand-line"}`}>
-            <strong className="block text-sm">Tương tác từng bước</strong><span className="mt-1 block text-xs leading-5 text-neutral-500">Lấy link → xem tiền hoàn → đăng ký → chatbot.</span>
-          </button>
-          <button type="button" onClick={() => setSettings({ ...settings, homepageMode: "classic" })} className={`rounded-xl border p-4 text-left transition ${settings.homepageMode === "classic" ? "border-brand-red bg-brand-soft ring-2 ring-brand-red/10" : "border-brand-line"}`}>
-            <strong className="block text-sm">Trang chủ cũ</strong><span className="mt-1 block text-xs leading-5 text-neutral-500">Giao diện landing và chatbot trước đây.</span>
-          </button>
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-brand-line bg-white p-4">
         <div className="mb-4 flex items-center gap-2"><ImageIcon className="h-5 w-5 text-brand-red" /><div><h2 className="font-semibold">Logo & avatar Em Ry</h2><p className="text-xs text-neutral-500">PNG, JPG hoặc WEBP, tối đa 5MB.</p></div></div>
         <TextInput label="Tên website / ứng dụng" value={settings.siteName} onChange={(value) => setSettings({ ...settings, siteName: value })} />
         <div className="grid gap-4 sm:grid-cols-2">

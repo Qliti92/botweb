@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { ChatApp } from "@/components/chat-app";
 import { InstallAppPrompt } from "@/components/install-app-prompt";
-import { FacebookConversionFlow } from "@/components/fb-conversion-flow";
-import { getSiteSettings } from "@/services/site-settings";
 
 export const metadata: Metadata = {
   title: "Qbot – Kiểm tra tiền hoàn Shopee, TikTok Shop",
@@ -24,9 +22,7 @@ export const metadata: Metadata = {
   }
 };
 
-export default async function HomePage() {
-  const settings = await getSiteSettings();
-  if (settings.homepageMode === "interactive") return <FacebookConversionFlow />;
+export default function HomePage() {
   return (
     <>
       <ChatApp />

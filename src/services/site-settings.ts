@@ -37,7 +37,7 @@ export type SiteSettings = {
 };
 
 export const defaultSiteSettings: SiteSettings = {
-  homepageMode: "interactive",
+  homepageMode: "classic",
   siteName: "Qbot - Kiểm tra tiền hoàn",
   logoUrl: "/logo.png",
   avatarUrl: "/logo.png",
