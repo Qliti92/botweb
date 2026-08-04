@@ -128,10 +128,9 @@ export async function POST(request: NextRequest) {
 }
 function registrationInputSnapshot(body: { email?: string; name?: string; phone?: string; referralCode?: string }) {
   const email = body.email?.trim().toLowerCase();
-  const [local = "", domain = ""] = email?.split("@") ?? [];
   const phone = body.phone?.replace(/\D/g, "");
   return {
-    email: email ? `${local.slice(0, 2)}***${domain ? `@${domain}` : ""}` : undefined,
+    email: email || undefined,
     name: body.name?.trim() || undefined,
     phone: phone ? `${"*".repeat(Math.max(0, phone.length - 3))}${phone.slice(-3)}` : undefined,
     referralCode: body.referralCode?.trim() || undefined

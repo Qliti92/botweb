@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       },
       orderBy: { createdAt: "desc" },
       take: 10000,
-      select: { actorId: true, action: true, metadata: true, createdAt: true }
+      select: { actorId: true, action: true, targetId: true, metadata: true, createdAt: true }
     })
   ]);
 
@@ -96,6 +96,23 @@ export async function GET(request: NextRequest) {
     inputSnapshot?: { email?: string; name?: string; phone?: string; referralCode?: string };
   };
   const attempts = new Map<string, RegistrationAttempt>();
+  const completedSessionIds = funnelEvents
+    .filter((item) => item.action === "WEB_REGISTRATION_COMPLETED" && item.targetId)
+    .map((item) => item.targetId as string);
+  const completedSessions = completedSessionIds.length
+    ? await prisma.chatSession.findMany({
+        where: { id: { in: completedSessionIds } },
+        select: { id: true, state: true }
+      })
+    : [];
+  const completedEmails = new Map(completedSessions.map((session) => {
+    try {
+      const state = JSON.parse(session.state || "{}") as { account?: { email?: string } };
+      return [session.id, state.account?.email?.trim().toLowerCase()] as const;
+    } catch {
+      return [session.id, undefined] as const;
+    }
+  }));
   for (const item of funnelEvents) {
     const metadata = parseMetadata(item.metadata);
     const stage = item.action.replace("WEB_REGISTRATION_", "");
@@ -145,6 +162,10 @@ export async function GET(request: NextRequest) {
       }
     }
     if (!attempt.apiResponse && metadata.apiResponse) attempt.apiResponse = String(metadata.apiResponse);
+    if (stage === "COMPLETED") {
+      const completedEmail = item.targetId ? completedEmails.get(item.targetId) : undefined;
+      if (completedEmail) attempt.inputSnapshot = { ...attempt.inputSnapshot, email: completedEmail };
+    }
     attempts.set(key, attempt);
   }
   const recentRegistrationAttempts = Array.from(attempts.values())

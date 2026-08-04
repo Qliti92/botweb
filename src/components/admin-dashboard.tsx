@@ -12,7 +12,18 @@ type ChatDto = {
   updatedAt: string;
 };
 
-type DashboardMetrics = { activeSessions: number; messages24h: number; openTickets: number; urgentTickets: number; unresolved: number; failedJobs: number; apiFailures: number };
+type DashboardMetrics = {
+  generatedAt: string;
+  health: { level: "healthy" | "warning" | "critical"; apiFailureRate: number };
+  metrics: {
+    usage: { totalSessions: number; activeSessions24h: number; newSessions24h: number; previousSessions24h: number; messages24h: number; previousMessages24h: number; messages7d: number; visits24h: number };
+    business: { registrations24h: number; registrations7d: number; registrationFailures24h: number; links24h: number; links7d: number; shopClicks24h: number; shopClicks7d: number; clickThroughRate24h: number; clickThroughRate7d: number };
+    support: { openTickets: number; urgentTickets: number; resolvedTickets7d: number; unresolved: number };
+    system: { apiCalls24h: number; apiFailures24h: number; previousApiFailures24h: number; apiFailureRate: number; failedJobs: number; pendingJobs: number };
+    push: { subscribers: number; activeCampaigns: number; sent24h: number; failed24h: number };
+  };
+  latest: { chat: string | null; registration: string | null; link: string | null; api: string | null; cron: { status: string; startedAt: string; endedAt?: string | null; processed: number; error?: string | null } | null };
+};
 type TicketDto = { id: string; orderId?: string | null; category: string; subject: string; description: string; status: string; priority: string; assignedTo?: string | null; updatedAt: string; messages: { id: string; sender: string; content: string }[] };
 type IntentDto = { id: string; name: string; description?: string | null; examples: string; keywords: string; commandTemplate: string; requiresAuth: boolean; requiresConfirm: boolean; isActive: boolean };
 type PushCampaignDto = { id: string; title: string; message: string; actionUrl?: string | null; recurrence: string; scheduledAt: string; nextRunAt?: string | null; lastSentAt?: string | null; status: string; segment: string; category: string; targetAccountKey?: string | null; maxPerDay: number; sentCount: number; failedCount: number };
@@ -128,7 +139,7 @@ export function AdminDashboard() {
       apiFetch("/api/admin/chats"),
       apiFetch("/api/admin/site-settings")
     ]);
-    setMetrics(dashboardData.metrics);
+    setMetrics(dashboardData);
     setTickets(ticketsData.tickets);
     setKnowledge(knowledgeData.entries);
     setUnrecognized(unrecognizedData.messages);
@@ -455,6 +466,7 @@ function PageAnalyticsPanel() {
   const [deleting, setDeleting] = useState(false);
   const [period, setPeriod] = useState<"day" | "week" | "month" | "all">("month");
   const [error, setError] = useState("");
+  const [registrationPage, setRegistrationPage] = useState(1);
 
   async function load() {
     setLoading(true);
@@ -468,7 +480,10 @@ function PageAnalyticsPanel() {
     }
   }
 
-  useEffect(() => { void load(); }, [period]);
+  useEffect(() => {
+    setRegistrationPage(1);
+    void load();
+  }, [period]);
 
   async function clearAnalytics() {
     if (!window.confirm("Xóa toàn bộ dữ liệu truy cập website và số đăng ký đã thống kê? Thao tác này không thể hoàn tác.")) return;
@@ -491,6 +506,13 @@ function PageAnalyticsPanel() {
     visitors: result.visitors + page.uniqueVisitors,
     registrations: result.registrations + page.registrations
   }), { visits: 0, visitors: 0, registrations: 0 });
+  const registrationAttempts = data?.registrationFunnel?.recentAttempts ?? [];
+  const registrationPageSize = 5;
+  const registrationPageCount = Math.max(1, Math.ceil(registrationAttempts.length / registrationPageSize));
+  const visibleRegistrationAttempts = registrationAttempts.slice(
+    (registrationPage - 1) * registrationPageSize,
+    registrationPage * registrationPageSize
+  );
 
   return (
     <div className="grid gap-5">
@@ -610,12 +632,15 @@ function PageAnalyticsPanel() {
           </div>
         </div>
         <div className="mt-3 overflow-hidden rounded-lg border border-brand-line">
-          <div className="border-b border-brand-line bg-neutral-50 px-3 py-2">
-            <h4 className="text-sm font-bold">Lịch sử đăng ký gần nhất</h4>
-            <p className="mt-0.5 text-xs text-neutral-500">Mỗi thẻ là một lần thử đăng ký; hệ thống tự gom các bước và chỉ rõ lỗi cuối cùng. Không lưu mật khẩu, OTP, email hoặc số điện thoại.</p>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-brand-line bg-neutral-50 px-3 py-2">
+            <div>
+              <h4 className="text-sm font-bold">Lịch sử đăng ký gần nhất</h4>
+              <p className="mt-0.5 text-xs text-neutral-500">Hiển thị đầy đủ email đăng ký; không lưu mật khẩu hoặc OTP.</p>
+            </div>
+            <span className="text-xs font-medium text-neutral-500">{registrationAttempts.length} lượt · Trang {registrationPage}/{registrationPageCount}</span>
           </div>
-          <div className="grid gap-2 p-3">
-            {(data?.registrationFunnel?.recentAttempts ?? []).map((item) => {
+          <div className="grid gap-1.5 p-2">
+            {visibleRegistrationAttempts.map((item) => {
               const status = {
                 COMPLETED: { label: "Đăng ký thành công", icon: Check, box: "border-emerald-200 bg-emerald-50/40", badge: "bg-emerald-100 text-emerald-800", iconTone: "bg-emerald-600 text-white" },
                 FAILED: { label: "Đăng ký lỗi", icon: AlertCircle, box: "border-red-200 bg-red-50/40", badge: "bg-red-100 text-red-800", iconTone: "bg-red-600 text-white" },
@@ -640,7 +665,7 @@ function PageAnalyticsPanel() {
                 item.inputSnapshot?.referralCode ? `Mã GT: ${item.inputSnapshot.referralCode}` : ""
               ].filter(Boolean);
               return (
-                <article key={item.key} className={`min-w-0 rounded-xl border p-3 ${status.box}`}>
+                <article key={item.key} className={`min-w-0 rounded-lg border p-2.5 ${status.box}`}>
                   <div className="grid min-w-0 gap-3 md:grid-cols-[180px_minmax(180px,.85fr)_minmax(180px,.8fr)_minmax(260px,1.3fr)] md:items-start">
                     <div className="flex items-center gap-2.5">
                       <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${status.iconTone}`}><StatusIcon className="h-4 w-4" /></span>
@@ -689,8 +714,19 @@ function PageAnalyticsPanel() {
                 </article>
               );
             })}
-            {!data?.registrationFunnel?.recentAttempts?.length ? <p className="p-4 text-center text-xs text-neutral-400">Chưa có lịch sử đăng ký.</p> : null}
+            {!registrationAttempts.length ? <p className="p-4 text-center text-xs text-neutral-400">Chưa có lịch sử đăng ký.</p> : null}
           </div>
+          {registrationAttempts.length > registrationPageSize ? (
+            <div className="flex items-center justify-between border-t border-brand-line px-3 py-2">
+              <button type="button" disabled={registrationPage === 1} onClick={() => setRegistrationPage((page) => Math.max(1, page - 1))} className="h-8 rounded-lg border border-brand-line bg-white px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40">Trang trước</button>
+              <div className="flex gap-1">
+                {Array.from({ length: registrationPageCount }, (_, index) => index + 1).map((page) => (
+                  <button key={page} type="button" onClick={() => setRegistrationPage(page)} className={`h-8 min-w-8 rounded-lg px-2 text-xs font-bold ${page === registrationPage ? "bg-brand-dark text-white" : "border border-brand-line bg-white text-neutral-600"}`}>{page}</button>
+                ))}
+              </div>
+              <button type="button" disabled={registrationPage === registrationPageCount} onClick={() => setRegistrationPage((page) => Math.min(registrationPageCount, page + 1))} className="h-8 rounded-lg border border-brand-line bg-white px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40">Trang sau</button>
+            </div>
+          ) : null}
         </div>
       </section>
       <section className="overflow-hidden rounded-xl border border-brand-line bg-white shadow-sm">
@@ -1087,16 +1123,102 @@ function PushCampaignsPanel({
 
 function OverviewPanel({ metrics }: { metrics: DashboardMetrics | null }) {
   if (!metrics) return <p className="text-sm text-neutral-500">Đang tải số liệu...</p>;
-  const cards = [
-    ["Phiên hoạt động 24h", metrics.activeSessions],
-    ["Tin nhắn 24h", metrics.messages24h],
-    ["Ticket đang mở", metrics.openTickets],
-    ["Ticket ưu tiên", metrics.urgentTickets],
-    ["Câu Ry chưa hiểu", metrics.unresolved],
-    ["API lỗi 24h", metrics.apiFailures],
-    ["Job thất bại", metrics.failedJobs]
-  ];
-  return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{cards.map(([label, value]) => <article key={String(label)} className="rounded-xl border border-brand-line bg-white p-4 shadow-sm"><p className="text-sm text-neutral-500">{label}</p><strong className="mt-2 block text-3xl text-brand-red">{value}</strong></article>)}</div>;
+  const { usage, business, support, system, push } = metrics.metrics;
+  const health = {
+    healthy: { label: "Hệ thống vận hành tốt", tone: "border-emerald-200 bg-emerald-50 text-emerald-800", dot: "bg-emerald-500" },
+    warning: { label: "Hệ thống cần theo dõi", tone: "border-amber-200 bg-amber-50 text-amber-800", dot: "bg-amber-500" },
+    critical: { label: "Hệ thống cần xử lý", tone: "border-red-200 bg-red-50 text-red-800", dot: "bg-red-500" }
+  }[metrics.health.level];
+  const change = (current: number, previous: number) => previous ? Math.round((current - previous) / previous * 100) : current ? 100 : 0;
+  const metricCard = (label: string, value: number | string, note: string, tone = "text-brand-dark") => (
+    <article key={label} className="rounded-xl border border-brand-line bg-white p-4 shadow-sm">
+      <p className="text-xs font-semibold text-neutral-500">{label}</p>
+      <strong className={`mt-1 block text-2xl ${tone}`}>{value}</strong>
+      <p className="mt-1 text-[11px] leading-4 text-neutral-400">{note}</p>
+    </article>
+  );
+  const activity = [
+    ["Tin nhắn gần nhất", metrics.latest.chat],
+    ["Đăng ký gần nhất", metrics.latest.registration],
+    ["Tạo link gần nhất", metrics.latest.link],
+    ["API gọi gần nhất", metrics.latest.api]
+  ] as const;
+
+  return (
+    <div className="grid gap-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div><h2 className="text-xl font-bold">Báo cáo tổng quan hệ thống</h2><p className="mt-1 text-sm text-neutral-500">Toàn cảnh hoạt động người dùng, kinh doanh, hỗ trợ và hạ tầng.</p></div>
+        <div className={`rounded-xl border px-4 py-2.5 ${health.tone}`}>
+          <div className="flex items-center gap-2 text-sm font-bold"><span className={`h-2.5 w-2.5 rounded-full ${health.dot}`} />{health.label}</div>
+          <p className="mt-0.5 text-[11px] opacity-75">Cập nhật {new Date(metrics.generatedAt).toLocaleString("vi-VN")}</p>
+        </div>
+      </div>
+
+      <section>
+        <div className="mb-2 flex items-center gap-2"><BarChart3 className="h-4 w-4 text-blue-600" /><h3 className="text-sm font-bold">Người dùng và mức độ sử dụng</h3></div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {metricCard("Truy cập website 24h", usage.visits24h, "Tổng lượt mở các trang")}
+          {metricCard("Phiên hoạt động 24h", usage.activeSessions24h, `${usage.newSessions24h} phiên mới · ${usage.totalSessions} toàn thời gian`)}
+          {metricCard("Tin nhắn 24h", usage.messages24h, `${change(usage.messages24h, usage.previousMessages24h) >= 0 ? "+" : ""}${change(usage.messages24h, usage.previousMessages24h)}% so với 24h trước`)}
+          {metricCard("Tin nhắn 7 ngày", usage.messages7d, "Tổng trao đổi người dùng và chatbot")}
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-2 flex items-center gap-2"><ShoppingBag className="h-4 w-4 text-emerald-600" /><h3 className="text-sm font-bold">Đăng ký và tạo link hoàn tiền</h3></div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {metricCard("Đăng ký thành công 24h", business.registrations24h, `${business.registrations7d} lượt trong 7 ngày`, "text-emerald-700")}
+          {metricCard("Đăng ký lỗi 24h", business.registrationFailures24h, business.registrationFailures24h ? "Cần xem báo cáo truy cập để kiểm tra" : "Không ghi nhận lỗi", business.registrationFailures24h ? "text-red-700" : "text-emerald-700")}
+          {metricCard("Lượt lấy link 24h", business.links24h, `${business.links7d} lượt trong 7 ngày`, "text-blue-700")}
+          {metricCard("Click sang sàn 24h", business.shopClicks24h, `${business.shopClicks7d} click trong 7 ngày`, "text-violet-700")}
+          {metricCard("Tỷ lệ click sang sàn 24h", `${business.clickThroughRate24h}%`, `7 ngày: ${business.clickThroughRate7d}%`, "text-violet-700")}
+          {metricCard("Tỷ lệ đăng ký lỗi", business.registrations24h + business.registrationFailures24h ? `${Math.round(business.registrationFailures24h / (business.registrations24h + business.registrationFailures24h) * 100)}%` : "0%", "Trên tổng yêu cầu có kết quả trong 24h")}
+        </div>
+      </section>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section className="rounded-xl border border-brand-line bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center gap-2"><AlertCircle className="h-4 w-4 text-amber-600" /><h3 className="text-sm font-bold">Hỗ trợ và chất lượng chatbot</h3></div>
+          <div className="grid grid-cols-2 gap-2">
+            {metricCard("Ticket đang mở", support.openTickets, "Đang chờ xử lý")}
+            {metricCard("Ticket ưu tiên", support.urgentTickets, support.urgentTickets ? "Cần xử lý sớm" : "Không có", support.urgentTickets ? "text-red-700" : "text-emerald-700")}
+            {metricCard("Đã xử lý 7 ngày", support.resolvedTickets7d, "Ticket hoàn tất")}
+            {metricCard("Ry chưa hiểu", support.unresolved, "Câu hỏi chưa được huấn luyện", support.unresolved ? "text-amber-700" : "text-emerald-700")}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-brand-line bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center gap-2"><Server className="h-4 w-4 text-violet-600" /><h3 className="text-sm font-bold">API và tác vụ nền</h3></div>
+          <div className="grid grid-cols-2 gap-2">
+            {metricCard("Lượt gọi API 24h", system.apiCalls24h, "Tất cả kết nối dịch vụ")}
+            {metricCard("API lỗi 24h", system.apiFailures24h, `Tỷ lệ lỗi ${system.apiFailureRate}%`, system.apiFailures24h ? "text-red-700" : "text-emerald-700")}
+            {metricCard("Job đang chờ", system.pendingJobs, "Tác vụ trong hàng đợi")}
+            {metricCard("Job thất bại", system.failedJobs, system.failedJobs ? "Cần kiểm tra worker" : "Không có", system.failedJobs ? "text-red-700" : "text-emerald-700")}
+          </div>
+        </section>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section className="rounded-xl border border-brand-line bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center gap-2"><Bell className="h-4 w-4 text-blue-600" /><h3 className="text-sm font-bold">Push notification</h3></div>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+            <div><span className="text-neutral-500">Người đăng ký nhận tin</span><strong className="block text-lg">{push.subscribers}</strong></div>
+            <div><span className="text-neutral-500">Chiến dịch đang chạy</span><strong className="block text-lg">{push.activeCampaigns}</strong></div>
+            <div><span className="text-neutral-500">Gửi thành công 24h</span><strong className="block text-lg text-emerald-700">{push.sent24h}</strong></div>
+            <div><span className="text-neutral-500">Gửi lỗi 24h</span><strong className={`block text-lg ${push.failed24h ? "text-red-700" : "text-emerald-700"}`}>{push.failed24h}</strong></div>
+          </div>
+          <div className="mt-3 border-t border-brand-line pt-3 text-xs text-neutral-500">Cron gần nhất: <strong className={metrics.latest.cron?.status === "FAILED" ? "text-red-700" : "text-neutral-700"}>{metrics.latest.cron ? `${metrics.latest.cron.status} · xử lý ${metrics.latest.cron.processed}` : "Chưa có lần chạy"}</strong></div>
+        </section>
+
+        <section className="rounded-xl border border-brand-line bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center gap-2"><Clock3 className="h-4 w-4 text-neutral-600" /><h3 className="text-sm font-bold">Hoạt động gần nhất</h3></div>
+          <div className="divide-y divide-brand-line">
+            {activity.map(([label, date]) => <div key={label} className="flex items-center justify-between gap-3 py-2.5 text-sm"><span className="text-neutral-600">{label}</span><strong className="text-right text-xs">{date ? `${relativeTime(date)} · ${new Date(date).toLocaleString("vi-VN")}` : "Chưa có dữ liệu"}</strong></div>)}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
 }
 
 function TicketsPanel({ tickets, reload, setNotice }: { tickets: TicketDto[]; reload: () => Promise<void>; setNotice: (value: string) => void }) {
