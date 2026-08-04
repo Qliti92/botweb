@@ -4,9 +4,22 @@ import { SeoFooter, SeoHeader } from "@/components/seo-page";
 import { articles, getSeoImage } from "@/lib/seo-content";
 
 export const metadata: Metadata = {
-  title: "Kiến thức hoàn tiền Shopee và TikTok Shop",
+  title: { absolute: "Kiến thức hoàn tiền Shopee và TikTok Shop" },
   description: "Hướng dẫn tạo link, theo dõi đơn, đối soát và rút tiền hoàn khi mua hàng Shopee hoặc TikTok Shop.",
-  alternates: { canonical: "/kien-thuc" }
+  alternates: { canonical: "/kien-thuc" },
+  openGraph: {
+    type: "website",
+    url: "/kien-thuc",
+    title: "Kiến thức hoàn tiền Shopee và TikTok Shop",
+    description: "Hướng dẫn tạo link, theo dõi đơn, đối soát và rút tiền hoàn khi mua hàng Shopee hoặc TikTok Shop.",
+    images: [{ url: "/images/seo/tao-link-hoan-tien.webp", alt: "Hướng dẫn hoàn tiền mua hàng cùng Qbot" }]
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Kiến thức hoàn tiền Shopee và TikTok Shop",
+    description: "Hướng dẫn tạo link, theo dõi đơn, đối soát và rút tiền hoàn khi mua hàng Shopee hoặc TikTok Shop.",
+    images: ["/images/seo/tao-link-hoan-tien.webp"]
+  }
 };
 
 export default function KnowledgeHubPage() {

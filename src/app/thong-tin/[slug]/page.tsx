@@ -77,7 +77,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const canonical = `/thong-tin/${encodeURIComponent(slug)}`;
 
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: { canonical },
     openGraph: {

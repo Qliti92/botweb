@@ -3,7 +3,7 @@ import { ChatApp } from "@/components/chat-app";
 import { InstallAppPrompt } from "@/components/install-app-prompt";
 
 export const metadata: Metadata = {
-  title: "Qbot – Kiểm tra tiền hoàn Shopee, TikTok Shop",
+  title: { absolute: "Qbot – Kiểm tra tiền hoàn Shopee, TikTok Shop" },
   description: "Dán link sản phẩm Shopee hoặc TikTok Shop để Qbot tạo link mua hàng, kiểm tra tiền hoàn dự kiến và theo dõi trạng thái đơn.",
   keywords: ["kiểm tra tiền hoàn", "hoàn tiền Shopee", "hoàn tiền TikTok Shop", "tạo link hoàn tiền", "Qbot"],
   alternates: { canonical: "/" },

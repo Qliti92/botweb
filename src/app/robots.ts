@@ -11,6 +11,9 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     rules: [
       { userAgent: "OAI-SearchBot", ...publicAccess },
       { userAgent: "GPTBot", ...publicAccess },
+      { userAgent: "ChatGPT-User", ...publicAccess },
+      { userAgent: "Google-Extended", ...publicAccess },
+      { userAgent: "Googlebot", ...publicAccess },
       { userAgent: "*", ...publicAccess }
     ],
     sitemap: `${base}/sitemap.xml`,

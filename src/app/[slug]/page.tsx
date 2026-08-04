@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!content) return { robots: { index: false, follow: false } };
   const image = getSeoImage(content);
   return {
-    title: content.title,
+    title: { absolute: content.title },
     description: content.description,
     keywords: [content.keyword, "Qbot", "hoàn tiền mua hàng", "hoàn tiền Shopee", "hoàn tiền TikTok Shop"],
     alternates: { canonical: `/${slug}` },

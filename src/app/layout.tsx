@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const base = settings.canonicalUrl;
   return {
     metadataBase: new URL(base),
-    title: { default: settings.seoTitle, template: `%s | ${settings.siteName}` },
+    title: { default: settings.seoTitle, template: `%s | ${settings.organizationName}` },
     description: settings.seoDescription,
     applicationName: settings.siteName,
     authors: [{ name: settings.organizationName, url: base }],
@@ -83,18 +83,22 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         "@type": "WebSite",
         "@id": `${base}/#website`,
         url: base,
-        name: settings.siteName,
+        name: settings.organizationName,
+        alternateName: settings.siteName,
         inLanguage: "vi-VN",
         publisher: { "@id": `${base}/#organization` }
       },
       {
         "@type": "WebApplication",
+        "@id": `${base}/#webapp`,
         name: settings.siteName,
         url: base,
         applicationCategory: "ShoppingApplication",
         operatingSystem: "Web",
         inLanguage: "vi-VN",
         description: settings.seoDescription,
+        isPartOf: { "@id": `${base}/#website` },
+        provider: { "@id": `${base}/#organization` },
         offers: { "@type": "Offer", price: "0", priceCurrency: "VND" }
       }
     ]

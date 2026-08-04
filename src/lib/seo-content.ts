@@ -282,7 +282,7 @@ export const articles: SeoContent[] = [
     { heading: "Cách tự kiểm tra", body: "Luôn xem tổng tiền trên sàn trước khi xác nhận. Nếu sản phẩm hoặc giá không đúng, dừng lại và mở lại đúng link." },
     { heading: "Không có cam kết hoàn cố định", body: "Mức tiền hoàn phụ thuộc hoa hồng thực tế và có thể thay đổi sau đối soát." }
   ], ["cach-hoat-dong", "cashback-hoat-dong-nhu-the-nao", "tien-hoan-khac-du-kien"]),
-  article("cashback-hoat-dong-nhu-the-nao", "Dịch vụ hoàn tiền mua hàng hoạt động như thế nào?", "Giải thích cashback, link giới thiệu, hoa hồng, đối soát và cách tiền được chia lại cho người mua.", "cashback hoạt động như thế nào", "Cashback là cơ chế chia sẻ lại một phần lợi ích từ giao dịch đủ điều kiện. Người mua không nhận tiền ngay lúc thanh toán mà phải chờ xác nhận.", [
+  article("cashback-hoat-dong-nhu-the-nao", "Cashback hoạt động như thế nào? Giải thích dễ hiểu", "Giải thích cashback, link giới thiệu, hoa hồng, đối soát và cách tiền được chia lại cho người mua.", "cashback hoạt động như thế nào", "Cashback là cơ chế chia sẻ lại một phần lợi ích từ giao dịch đủ điều kiện. Người mua không nhận tiền ngay lúc thanh toán mà phải chờ xác nhận.", [
     { heading: "Vai trò của liên kết", body: "Liên kết giúp đối tác xác định giao dịch bắt nguồn từ Em Ry. Vì vậy phiên mua cần bắt đầu từ đúng link." },
     { heading: "Vai trò của sàn", body: "Sàn bán sản phẩm, nhận thanh toán, giao hàng và quyết định giao dịch có đủ điều kiện hoa hồng hay không." },
     { heading: "Vai trò của Em Ry", body: "Em Ry tạo link, nhận dữ liệu đối soát, hiển thị trạng thái và chia phần hoa hồng theo chính sách." },
