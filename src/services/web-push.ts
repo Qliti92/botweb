@@ -21,7 +21,7 @@ const defaultCampaigns = [
 function configure() {
   const privateKey = process.env.WEB_PUSH_VAPID_PRIVATE_KEY;
   if (!privateKey) throw new Error("Thiếu WEB_PUSH_VAPID_PRIVATE_KEY.");
-  webPush.setVapidDetails(process.env.WEB_PUSH_SUBJECT || "mailto:admin@tranquan.vn", publicKey, privateKey);
+  webPush.setVapidDetails(process.env.WEB_PUSH_SUBJECT || "mailto:admin@qbot.vn", publicKey, privateKey);
 }
 
 function localTime(timezone: string, date: Date) {
@@ -197,7 +197,7 @@ export async function ensureDefaultPushCampaigns() {
       data: {
         title,
         message,
-        actionUrl: "https://tranquan.vn/",
+        actionUrl: "https://qbot.vn/",
         scheduledAt,
         nextRunAt: scheduledAt,
         recurrence: "ONCE",

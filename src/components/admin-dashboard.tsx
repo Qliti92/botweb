@@ -898,7 +898,7 @@ function PushCampaignsPanel({
 }) {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
-  const [actionUrl, setActionUrl] = useState("https://tranquan.vn/");
+  const [actionUrl, setActionUrl] = useState("https://qbot.vn/");
   const [scheduledAt, setScheduledAt] = useState(() => {
     const next = new Date(Date.now() + 10 * 60 * 1000);
     next.setSeconds(0, 0);
@@ -963,12 +963,13 @@ function PushCampaignsPanel({
     }
   }
 
-  async function act(id: string, action: "send-now" | "cancel" | "test-admin") {
+  async function act(id: string, action: "send-now" | "cancel" | "test-admin" | "delete") {
+    if (action === "delete" && !window.confirm("Xóa thông báo này và toàn bộ nhật ký gửi liên quan?")) return;
     setWorkingId(id);
     setNotice("");
     try {
       const data = await fetchJson("/api/admin/push-campaigns", { method: "PATCH", body: JSON.stringify({ id, action }) });
-      setNotice(action === "cancel" ? "Đã hủy lịch gửi." : `Đã gửi: ${data.result?.sent ?? 0} thành công, ${data.result?.failed ?? 0} thất bại, ${data.result?.skipped ?? 0} bỏ qua.`);
+      setNotice(action === "delete" ? "Đã xóa thông báo." : action === "cancel" ? "Đã hủy lịch gửi." : `Đã gửi: ${data.result?.sent ?? 0} thành công, ${data.result?.failed ?? 0} thất bại, ${data.result?.skipped ?? 0} bỏ qua.`);
       await reload();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Không thể xử lý thông báo.");
@@ -1002,7 +1003,7 @@ function PushCampaignsPanel({
   function reuseCampaign(campaign: PushCampaignDto) {
     setTitle(campaign.title);
     setMessage(campaign.message);
-    setActionUrl(campaign.actionUrl || "https://tranquan.vn/");
+    setActionUrl(campaign.actionUrl || "https://qbot.vn/");
     setSegment(campaign.segment as typeof segment);
     setCategory(campaign.category as typeof category);
     setTargetAccountKey(campaign.targetAccountKey || "");
@@ -1103,6 +1104,7 @@ function PushCampaignsPanel({
                   {workingId === campaign.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Gửi ngay
                 </button>
                 {campaign.status === "ACTIVE" ? <button type="button" onClick={() => act(campaign.id, "cancel")} disabled={workingId === campaign.id} className="rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-700 disabled:opacity-50">Hủy</button> : null}
+                <button type="button" onClick={() => act(campaign.id, "delete")} disabled={workingId === campaign.id} title="Xóa thông báo" aria-label={`Xóa ${campaign.title}`} className="inline-flex items-center justify-center rounded-lg border border-red-200 px-3 text-red-700 disabled:opacity-50"><Trash2 className="h-4 w-4" /></button>
               </div>
             </div>
           </article>

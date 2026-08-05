@@ -32,7 +32,7 @@ self.addEventListener("push", (event) => {
     payload = { body: event.data?.text() };
   }
   event.waitUntil(
-    self.registration.showNotification(payload.title || "Hoàn Tiền Mua Hàng", {
+    self.registration.showNotification(payload.title || "Qbot", {
       body: payload.body || "Bạn có thông báo mới.",
       icon: payload.icon || "/api/site-assets/logo",
       badge: "/api/site-assets/logo",

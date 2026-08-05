@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { assertSameOrigin } from "@/lib/security";
-import { ensureDefaultPushCampaigns, sendPush } from "@/services/web-push";
+import { sendPush } from "@/services/web-push";
 
 const createSchema = z.object({
   title: z.string().trim().min(2).max(120),
@@ -19,7 +19,6 @@ const createSchema = z.object({
 
 export async function GET() {
   await requireAdmin();
-  await ensureDefaultPushCampaigns();
   const [campaigns, subscriptions, adminSubscriptions, deliveries, lastCronRun] = await Promise.all([
     prisma.pushCampaign.findMany({ orderBy: { createdAt: "desc" }, take: 200 }),
     prisma.webPushSubscription.count({ where: { enabled: true, isAdmin: false } }),
@@ -59,8 +58,15 @@ export async function PATCH(request: NextRequest) {
   await requireAdmin();
   try {
     assertSameOrigin(request);
-    const body = z.object({ id: z.string().min(1), action: z.enum(["send-now", "cancel", "test-admin"]) }).parse(await request.json());
+    const body = z.object({ id: z.string().min(1), action: z.enum(["send-now", "cancel", "test-admin", "delete"]) }).parse(await request.json());
     const campaign = await prisma.pushCampaign.findUniqueOrThrow({ where: { id: body.id } });
+    if (body.action === "delete") {
+      await prisma.$transaction([
+        prisma.pushDelivery.deleteMany({ where: { campaignId: body.id } }),
+        prisma.pushCampaign.delete({ where: { id: body.id } })
+      ]);
+      return NextResponse.json({ deleted: true });
+    }
     if (body.action === "cancel") {
       return NextResponse.json({ campaign: await prisma.pushCampaign.update({ where: { id: body.id }, data: { status: "CANCELLED", nextRunAt: null } }) });
     }
