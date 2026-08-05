@@ -16,13 +16,23 @@ type PageStat = {
   sources: Map<string, number>;
 };
 
-const periodDays = { day: 1, week: 7, month: 30 } as const;
+const vietnamOffsetMs = 7 * 60 * 60 * 1000;
 
-function periodStart(period: string | null) {
+function periodStart(period: string | null, now = new Date()) {
   if (!period || period === "all") return undefined;
-  const days = periodDays[period as keyof typeof periodDays];
-  if (!days) return undefined;
-  return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const vietnamNow = new Date(now.getTime() + vietnamOffsetMs);
+  const year = vietnamNow.getUTCFullYear();
+  const month = vietnamNow.getUTCMonth();
+  const day = vietnamNow.getUTCDate();
+  const today = new Date(Date.UTC(year, month, day) - vietnamOffsetMs);
+
+  if (period === "day") return today;
+  if (period === "week") {
+    const weekday = vietnamNow.getUTCDay() || 7;
+    return new Date(today.getTime() - (weekday - 1) * 24 * 60 * 60 * 1000);
+  }
+  if (period === "month") return new Date(Date.UTC(year, month, 1) - vietnamOffsetMs);
+  return undefined;
 }
 
 export async function GET(request: NextRequest) {

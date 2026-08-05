@@ -258,9 +258,7 @@ async function main() {
   `);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS push_cron_runs_started_at_idx ON push_cron_runs(started_at)`);
 
-  if ((await prisma.knowledgeEntry.count()) === 0) {
-    await prisma.knowledgeEntry.createMany({
-      data: [
+  const knowledgeEntries = [
         {
           question: "Làm thế nào để đơn hàng được ghi nhận hoàn tiền?",
           answer: "Để đơn dễ được ghi nhận, bạn làm giúp Ry 3 bước nhé:\n1. Để giỏ hàng trống trước khi mở link.\n2. Mua sản phẩm từ đúng link Ry đã tạo.\n3. Hoàn tất mua hàng trên cùng một thiết bị, không mở thêm link quảng cáo khác.",
@@ -278,26 +276,104 @@ async function main() {
         {
           question: "Vì sao đơn hàng không được ghi nhận?",
           answer: "Ry hiểu việc không thấy đơn sẽ khiến bạn lo. Một số nguyên nhân thường gặp là giỏ hàng đã có sản phẩm, bạn mua qua link khác, đổi thiết bị khi mua hoặc sàn chưa gửi dữ liệu. Bạn gửi mã đơn cho đội hỗ trợ nếu cần tra soát nhé.",
-          keywords: "không ghi nhận mất đơn thiếu đơn từ chối",
+          keywords: "không ghi nhận không thấy đâu mất đơn thiếu đơn thất lạc chưa hiện chưa có từ chối",
           category: "Đơn hàng",
           sourceLabel: "Trung tâm trợ giúp"
+        },
+        {
+          question: "Qbot hoàn tiền hoạt động như thế nào?",
+          answer: "Qbot tạo một link mua hàng có thể theo dõi từ link sản phẩm bạn gửi. Bạn vẫn chọn hàng, đăng nhập và thanh toán trực tiếp trên Shopee hoặc TikTok Shop. Khi giao dịch đủ điều kiện được đối tác ghi nhận và đối soát, một phần hoa hồng giới thiệu được chia lại thành tiền hoàn cho bạn.",
+          keywords: "qbot em ry là gì cashback hoạt động tiền hoàn từ đâu hoa hồng giới thiệu",
+          category: "Giới thiệu",
+          sourceLabel: "Cách hoạt động của Qbot"
+        },
+        {
+          question: "Cách tạo link hoàn tiền Shopee hoặc TikTok Shop?",
+          answer: "Bạn mở đúng trang chi tiết sản phẩm trên Shopee hoặc TikTok Shop, chọn Chia sẻ rồi Sao chép liên kết và gửi link đó cho Ry. Khi Ry tạo xong, hãy mở sản phẩm bằng nút quay lại sàn trong kết quả và hoàn tất mua hàng trong cùng phiên.",
+          keywords: "tạo link hoàn tiền cách dùng gửi link sao chép liên kết shopee tiktok shop mua hàng",
+          category: "Tạo link",
+          sourceLabel: "Hướng dẫn sử dụng"
+        },
+        {
+          question: "Qbot hỗ trợ những loại link nào?",
+          answer: "Qbot hỗ trợ link trang chi tiết sản phẩm Shopee và TikTok Shop. Link trang chủ, trang tìm kiếm, gian hàng, video hoặc livestream có thể không đủ thông tin để tạo link; bạn hãy mở sản phẩm cụ thể rồi sao chép lại liên kết.",
+          keywords: "hỗ trợ link nào link hợp lệ video livestream gian hàng trang chủ sản phẩm shopee tiktok",
+          category: "Tạo link",
+          sourceLabel: "Hướng dẫn lấy link"
+        },
+        {
+          question: "Tiền hoàn dự kiến có phải số tiền cuối cùng không?",
+          answer: "Không. Số tiền hiển thị lúc tạo link chỉ là dự kiến. Số cuối cùng phụ thuộc giá trị giao dịch hợp lệ, trạng thái đơn, voucher, sản phẩm bị trả hoặc hoàn, chính sách hoa hồng và kết quả đối soát của đối tác. Chỉ số dư đã duyệt hoặc khả dụng mới có thể rút.",
+          keywords: "tiền hoàn dự kiến cuối cùng chênh lệch ít hơn thay đổi hoa hồng số dư khả dụng",
+          category: "Tiền hoàn",
+          sourceLabel: "Chính sách đối soát"
+        },
+        {
+          question: "Tiền hoàn và hoa hồng được tính như thế nào?",
+          answer: "Mức hiển thị được lấy từ dữ liệu giá và hoa hồng mà đối tác cung cấp cho sản phẩm tại thời điểm tạo link, sau đó áp dụng chính sách chia sẻ của Qbot. Không có một tỷ lệ cố định cho mọi sản phẩm. Voucher, phí vận chuyển, thuế, giá trị hàng hợp lệ và điều chỉnh khi đối soát có thể làm số cuối cùng thay đổi.",
+          keywords: "cách tính tiền hoàn hoa hồng bao nhiêu phần trăm tỷ lệ công thức cashback",
+          category: "Tiền hoàn",
+          sourceLabel: "Cách tính tiền hoàn"
+        },
+        {
+          question: "Hủy đơn hoặc trả hàng có được tiền hoàn không?",
+          answer: "Đơn bị hủy, không nhận hàng hoặc được hoàn lại toàn bộ thường không đủ điều kiện nhận tiền hoàn. Nếu chỉ trả một phần, giá trị hợp lệ và tiền hoàn có thể được điều chỉnh theo dữ liệu đối soát cuối cùng. Nếu đặt lại, bạn nên tạo một link mới từ Qbot.",
+          keywords: "hủy đơn trả hàng hoàn hàng không nhận hàng đặt lại tiền hoàn bị trừ",
+          category: "Đơn hàng",
+          sourceLabel: "Chính sách đối soát"
+        },
+        {
+          question: "Khi nào tôi có thể rút tiền hoàn?",
+          answer: "Bạn chỉ có thể rút phần tiền đã được đối soát và chuyển thành số dư khả dụng. Khoản đang chờ hoặc tạm tính chưa thể rút. Bạn có thể hỏi Ry “số dư của tôi” để kiểm tra, sau đó chọn rút tiền và xác nhận thông tin nhận tiền.",
+          keywords: "khi nào rút tiền số dư khả dụng tối thiểu tài khoản ngân hàng đang chờ tạm tính",
+          category: "Rút tiền",
+          sourceLabel: "Hướng dẫn rút tiền"
+        },
+        {
+          question: "Mua hàng qua Qbot có mất phí hoặc làm tăng giá không?",
+          answer: "Qbot không cộng phí vào giá sản phẩm. Bạn vẫn xem giá, voucher, phí vận chuyển và thanh toán trực tiếp trên Shopee hoặc TikTok Shop. Tiền hoàn hình thành từ một phần hoa hồng của giao dịch đủ điều kiện, không phải khoản cộng thêm vào giá mua.",
+          keywords: "mất phí miễn phí tăng giá đắt hơn phụ phí thanh toán giá sản phẩm",
+          category: "Chi phí",
+          sourceLabel: "Cách hoạt động của Qbot"
+        },
+        {
+          question: "Dùng Qbot có an toàn không và có cần mật khẩu hoặc OTP không?",
+          answer: "Qbot không cần mật khẩu, OTP, mã PIN Shopee, TikTok Shop hoặc ngân hàng của bạn. Bạn chỉ đăng nhập và thanh toán trên ứng dụng hoặc website chính thức của sàn. Khi cần tra soát, chỉ gửi thông tin liên quan như mã đơn và ảnh trạng thái đã che dữ liệu riêng tư.",
+          keywords: "an toàn lừa đảo mật khẩu otp mã pin ngân hàng bảo mật thông tin thanh toán",
+          category: "An toàn",
+          sourceLabel: "Chính sách an toàn"
+        },
+        {
+          question: "Có thể dùng voucher của Shopee hoặc TikTok Shop không?",
+          answer: "Bạn có thể chọn voucher và ưu đãi trực tiếp trên sàn. Tuy nhiên voucher, phí, thuế và giá trị hợp lệ có thể làm số tiền hoàn thực tế khác số dự kiến. Hãy kiểm tra tổng thanh toán trên sàn trước khi đặt hàng.",
+          keywords: "voucher mã giảm giá xu khuyến mãi freeship phí vận chuyển tiền hoàn",
+          category: "Tiền hoàn",
+          sourceLabel: "Cách tính tiền hoàn"
+        },
+        {
+          question: "Mua nhiều sản phẩm trong một đơn có được hoàn tiền không?",
+          answer: "Khả năng ghi nhận từng sản phẩm phụ thuộc dữ liệu đối tác và nguồn giới thiệu của phiên mua. Để giảm rủi ro, hãy tạo link cho sản phẩm chính và mua từ đúng link Qbot. Với nhiều sản phẩm quan trọng, bạn nên tạo link và mua theo các phiên riêng; số cuối cùng vẫn theo kết quả đối soát.",
+          keywords: "nhiều sản phẩm chung đơn giỏ hàng nhiều món mua cùng lúc hoàn tiền",
+          category: "Đơn hàng",
+          sourceLabel: "Hướng dẫn sử dụng"
+        },
+        {
+          question: "Cần cung cấp gì khi tra soát đơn hàng?",
+          answer: "Nếu đơn chưa xuất hiện sau thời gian đồng bộ được hiển thị, bạn hãy chuẩn bị mã đơn, nền tảng mua hàng, ngày giờ mua và ảnh trạng thái đơn. Hãy che địa chỉ, số điện thoại và thông tin thanh toán không liên quan; không gửi mật khẩu hoặc OTP.",
+          keywords: "tra soát khiếu nại hỗ trợ mất đơn thiếu đơn mã đơn ảnh trạng thái ngày mua",
+          category: "Tra soát",
+          sourceLabel: "Trung tâm trợ giúp"
         }
-      ]
-    });
-  }
+  ];
 
-  await prisma.knowledgeEntry.updateMany({
-    where: { question: "Làm thế nào để đơn hàng được ghi nhận hoàn tiền?" },
-    data: { answer: "Để đơn dễ được ghi nhận, bạn làm giúp Ry 3 bước nhé:\n1. Để giỏ hàng trống trước khi mở link.\n2. Mua sản phẩm từ đúng link Ry đã tạo.\n3. Hoàn tất mua hàng trên cùng một thiết bị, không mở thêm link quảng cáo khác." }
-  });
-  await prisma.knowledgeEntry.updateMany({
-    where: { question: "Bao lâu tiền hoàn được duyệt?" },
-    data: { answer: "Mỗi sàn có thời gian đối soát khác nhau nên đơn có thể chưa được duyệt ngay. Bạn hỏi Ry “đơn hàng của tôi” để xem trạng thái mới nhất nhé. Nếu đơn chờ lâu hơn thời gian hiển thị, Ry sẽ hướng dẫn bạn liên hệ hỗ trợ bằng mã đơn." }
-  });
-  await prisma.knowledgeEntry.updateMany({
-    where: { question: "Vì sao đơn hàng không được ghi nhận?" },
-    data: { answer: "Ry hiểu việc không thấy đơn sẽ khiến bạn lo. Một số nguyên nhân thường gặp là giỏ hàng đã có sản phẩm, bạn mua qua link khác, đổi thiết bị khi mua hoặc sàn chưa gửi dữ liệu. Bạn gửi mã đơn cho đội hỗ trợ nếu cần tra soát nhé." }
-  });
+  for (const entry of knowledgeEntries) {
+    const existing = await prisma.knowledgeEntry.findFirst({ where: { question: entry.question }, select: { id: true } });
+    if (existing) {
+      await prisma.knowledgeEntry.update({ where: { id: existing.id }, data: { ...entry, isActive: true } });
+    } else {
+      await prisma.knowledgeEntry.create({ data: entry });
+    }
+  }
 
   const sessions = await prisma.chatSession.findMany({ select: { id: true, state: true } });
   for (const session of sessions) {

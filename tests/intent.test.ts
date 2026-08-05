@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { detectIntent, normalizeVietnamese } from "../src/services/intent";
 import { classifyShoppingLink } from "../src/lib/shopping-link";
+import { redactIntentText } from "../src/services/intent-fallback";
 
 const cases: Array<[string, string, string]> = [
   ["Ví của tôi còn bao nhiêu tiền?", "BALANCE", "/taikhoan"],
@@ -8,6 +9,8 @@ const cases: Array<[string, string, string]> = [
   ["Tôi muốn rút tiền", "WITHDRAW", "/ruttien"],
   ["Các lần rút tiền trước", "WITHDRAWALS", "/lichsurut"],
   ["Tôi cần gặp nhân viên", "SUPPORT", "/hotro"],
+  ["Hỗ trợ tôi", "SUPPORT", "/hotro"],
+  ["Liên hệ với ai?", "SUPPORT", "/hotro"],
   ["Tôi muốn tra soát đơn", "ORDER_DISPUTE", "/trasoat category=MISSING_ORDER"],
   ["Đơn chưa ghi nhận", "ORDER_DISPUTE", "/trasoat category=MISSING_ORDER"],
   ["Tiền hoàn bị sai", "ORDER_DISPUTE", "/trasoat category=WRONG_CASHBACK"],
@@ -69,6 +72,10 @@ assert.equal(classifyShoppingLink("https://shopee.vn.evil.example/product").kind
 assert.equal(classifyShoppingLink("https://").kind, "invalid-url");
 assert.equal(detectIntent("/donhang"), null);
 assert.equal(normalizeVietnamese("Đơn HÀNG đã duyệt"), "don hang da duyet");
+assert.equal(
+  redactIntentText("email abc@example.com, số 0912 345 678, mã DH12345678"),
+  "email [EMAIL ĐÃ ẨN], số [SỐ ĐÃ ẨN], mã [MÃ ĐÃ ẨN]"
+);
 
 const amountCases: Array<[string, number]> = [
   ["rút 200k", 200_000],

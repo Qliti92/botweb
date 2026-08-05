@@ -528,9 +528,9 @@ function PageAnalyticsPanel() {
       {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
       <div className="flex w-fit flex-wrap rounded-xl border border-brand-line bg-white p-1">
         {([
-          ["day", "24 giờ"],
-          ["week", "7 ngày"],
-          ["month", "30 ngày"],
+          ["day", "Hôm nay"],
+          ["week", "Tuần này"],
+          ["month", "Tháng này"],
           ["all", "Tất cả"]
         ] as const).map(([value, label]) => (
           <button

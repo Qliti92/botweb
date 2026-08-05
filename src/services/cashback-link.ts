@@ -5,6 +5,13 @@ import { safeLogJson, safeLogText } from "@/lib/security";
 import { getSiteSettings } from "@/services/site-settings";
 
 const cashbackEndpoint = "https://hoantienmuahang.vn/api/v1/openapi/cashback/link";
+const defaultCashbackTimeoutMs = 30_000;
+
+function cashbackTimeoutMs() {
+  const configured = Number(process.env.CASHBACK_LINK_TIMEOUT_MS);
+  if (!Number.isFinite(configured)) return defaultCashbackTimeoutMs;
+  return Math.min(60_000, Math.max(10_000, Math.trunc(configured)));
+}
 
 export type CashbackLinkResult = {
   transId?: string;
@@ -89,7 +96,7 @@ async function requestCashbackLink(url: string, token: string, tokenType: string
         Authorization: `${tokenType} ${token}`
       },
       body: JSON.stringify(request),
-      signal: AbortSignal.timeout(10_000)
+      signal: AbortSignal.timeout(cashbackTimeoutMs())
     });
     const text = await response.text();
 

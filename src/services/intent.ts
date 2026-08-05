@@ -101,7 +101,10 @@ export function detectIntent(input: string): IntentResult | null {
   }
   if (hasAny(text, ["dang nhap", "vao tai khoan", "login"]) && !hasAny(text, ["thiet bi", "phien", "o dau"])) return { intent: "LOGIN", command: "1", confidence: 0.98 };
   if (hasAny(text, ["dang ky", "tao tai khoan", "mo tai khoan"])) return { intent: "REGISTER", command: "2", confidence: 0.98 };
-  if (hasAny(text, ["can ho tro", "gap nhan vien", "noi chuyen nhan vien", "lien he ho tro"])) return { intent: "SUPPORT", command: "/hotro", confidence: 0.97 };
+  if (hasAny(text, [
+    "can ho tro", "ho tro toi", "giup toi voi", "gap nhan vien", "noi chuyen nhan vien",
+    "lien he ho tro", "thong tin lien he", "lien he voi ai", "lien lac voi ai", "so dien thoai ho tro"
+  ])) return { intent: "SUPPORT", command: "/hotro", confidence: 0.97 };
   if (hasAny(text, ["chinh sach bao mat", "bao mat thong tin", "quyen rieng tu", "privacy policy"])) {
     return { intent: "STATIC_PAGE", command: "/page chinh-sach-bao-mat", confidence: 0.99, parameters: { pageSlug: "chinh-sach-bao-mat" } };
   }
