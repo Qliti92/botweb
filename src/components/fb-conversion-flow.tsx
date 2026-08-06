@@ -240,26 +240,26 @@ export function FacebookConversionFlow() {
     : "bg-[#e8f3ef] text-[#287a63] ring-[#f3f8f5]";
 
   return (
-    <main className="min-h-dvh overflow-x-hidden bg-[#fafaf8] font-sans text-[#30343b] [text-wrap:pretty]">
-      <section className="relative flex min-h-[100svh] flex-col overflow-hidden bg-[radial-gradient(circle_at_88%_18%,rgba(40,122,99,.13),transparent_30%),radial-gradient(circle_at_8%_82%,rgba(198,167,106,.14),transparent_28%),linear-gradient(180deg,#fafaf8_0%,#fff_100%)]">
+    <main className="fb-landing min-h-dvh overflow-x-hidden bg-[#f8f9f6] font-sans text-[#223630] antialiased [text-wrap:pretty]">
+      <section className="relative flex min-h-[100svh] flex-col overflow-hidden bg-[radial-gradient(circle_at_88%_18%,rgba(40,122,99,.10),transparent_30%),radial-gradient(circle_at_8%_82%,rgba(198,167,106,.10),transparent_28%),linear-gradient(180deg,#f8f9f6_0%,#fff_100%)]">
         <header className="relative z-10 mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:h-[72px] sm:px-6">
           <a href="/" className="flex items-center gap-2.5">
             <img src="/api/site-assets/logo" alt="Qbot.vn" className="h-10 w-10 rounded-xl border border-[#d9dde3] bg-white object-cover shadow-sm" />
-            <strong className="text-xl tracking-[-.04em]">Qbot.vn</strong>
+            <strong className="text-xl font-extrabold tracking-[-.025em] text-[#1f302b]">Qbot.vn</strong>
           </a>
           <a href="/tro-ly?auth=login" className="text-xs font-bold text-[#287a63] sm:text-sm">Đã có tài khoản?</a>
         </header>
 
-        <div className="relative z-[1] mx-auto grid w-full max-w-6xl flex-1 items-center gap-9 px-4 pb-14 pt-5 sm:px-6 lg:grid-cols-[1.08fr_.92fr] lg:gap-14 lg:py-12">
-          <div className="min-w-0 text-center lg:text-left">
-            <span className="inline-flex items-center gap-2 rounded-full border border-[#d6e4de] bg-white/80 px-3 py-2 text-[11px] font-bold text-[#287a63] shadow-sm"><Sparkles className="h-4 w-4" /> Mua sắm thông minh hơn cùng Em Ry</span>
-            <h1 className="mt-5 text-[clamp(38px,11vw,68px)] font-extrabold leading-[1.08] tracking-[-.04em]">
-              <span className="block text-[.67em] tracking-[-.035em] text-[#4b5753]">Mua hàng trên</span>
-              <span className="mt-1 block whitespace-nowrap text-[.76em] lg:text-[.84em]"><span className="text-[#ee4d2d]">Shopee</span><span>, TikTok Shop</span></span>
-              <span className="mx-auto mt-2 block w-max max-w-full text-[.92em] text-[#287a63] lg:mx-0">Nhận lại tiền</span>
+        <div className="relative z-[1] mx-auto grid w-full min-w-0 max-w-6xl grid-cols-[minmax(0,1fr)] items-center gap-9 overflow-hidden px-4 pb-14 pt-5 sm:px-6 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,.92fr)] lg:gap-14 lg:py-12">
+          <div className="w-[calc(100vw-32px)] min-w-0 max-w-full overflow-hidden text-center sm:w-auto lg:text-left">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#cfe0da] bg-white/90 px-3 py-2 text-[11px] font-semibold text-[#216653] shadow-sm"><Sparkles className="h-4 w-4" /> Mua sắm thông minh hơn cùng Em Ry</span>
+            <h1 className="mt-5 w-full text-[clamp(37px,10.5vw,66px)] font-extrabold leading-[1.08] tracking-[-.035em] text-[#243832]">
+              <span className="block text-[.67em] font-bold tracking-[-.02em] text-[#40534d]">Mua hàng trên</span>
+              <span className="mt-1 block max-w-full whitespace-nowrap text-[.58em] tracking-[-.035em] sm:text-[.72em] lg:text-[.82em]"><span className="text-[#ee4d2d]">Shopee</span><span className="text-[#202d29]">, TikTok Shop</span></span>
+              <span className="mx-auto mt-2 block w-max max-w-full text-[.9em] text-[#287a63] lg:mx-0">Nhận lại tiền</span>
             </h1>
-            <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-neutral-600 sm:text-lg lg:mx-0">Đăng ký Qbot, gửi link món bạn muốn mua cho Em Ry rồi đặt hàng như bình thường. Khi đơn được xác nhận, bạn nhận lại 70% khoản thưởng từ sàn.</p>
-            <button type="button" onClick={openRegister} className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#287a63] px-6 text-[15px] font-bold text-white shadow-[0_12px_28px_rgba(40,122,99,.25)] transition hover:bg-[#216653] sm:w-auto sm:text-base">Bắt đầu nhận tiền hoàn <ArrowRight className="h-5 w-5" /></button>
+            <p className="mx-auto mt-5 max-w-xl text-[15px] font-normal leading-7 text-[#586963] sm:text-lg lg:mx-0">Đăng ký Qbot, gửi link món bạn muốn mua cho Em Ry rồi đặt hàng như bình thường. Khi đơn được xác nhận, bạn nhận lại 70% khoản thưởng từ sàn.</p>
+            <button type="button" onClick={openRegister} className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#287a63] px-6 text-[15px] font-bold tracking-[-.01em] text-white shadow-[0_12px_28px_rgba(40,122,99,.22)] transition hover:bg-[#216653] sm:w-auto sm:text-base">Bắt đầu nhận tiền hoàn <ArrowRight className="h-5 w-5" /></button>
             <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-neutral-500 lg:justify-start"><Check className="h-4 w-4 text-[#287a63]" /> Đăng ký miễn phí trong 15 giây</p>
             <div className="mt-5 flex flex-wrap justify-center gap-2 lg:justify-start">
               {["Miễn phí", "Không cần mật khẩu sàn", "Bảo mật"].map(item => <span key={item} className="inline-flex items-center gap-1.5 rounded-full border border-[#d9e7e1] bg-white/80 px-3 py-2 text-[11px] font-bold text-[#52625d]"><Check className="h-3.5 w-3.5 text-[#287a63]" />{item}</span>)}

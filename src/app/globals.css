@@ -222,3 +222,25 @@ select {
     letter-spacing: -0.015em;
   }
 }
+
+/* Facebook landing: calmer Vietnamese typography and consistent product tone. */
+.fb-landing {
+  letter-spacing: -0.006em;
+  color: #223630;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+.fb-landing h1,
+.fb-landing h2,
+.fb-landing h3 {
+  color: #223630;
+  text-wrap: balance;
+}
+
+.fb-landing .font-black {
+  font-weight: 700;
+}
+
+.fb-landing button {
+  letter-spacing: -0.01em;
+}
