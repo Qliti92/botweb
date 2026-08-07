@@ -20,7 +20,7 @@ function finalizeResponse(request: NextRequest, response: NextResponse) {
   }
 
   const secured = securityHeaders(response);
-  if (request.nextUrl.pathname.startsWith("/webview") || request.nextUrl.pathname.startsWith("/api/webview")) {
+  if (request.nextUrl.pathname.startsWith("/apps") || request.nextUrl.pathname.startsWith("/api/webview")) {
     const devEval = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
     secured.headers.set("Content-Security-Policy", `default-src 'self'; img-src 'self' data:; script-src 'self' 'unsafe-inline'${devEval}; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'self'`);
     secured.headers.set("Cross-Origin-Opener-Policy", "same-origin");

@@ -9,7 +9,7 @@ export function PageAnalytics() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!pathname || pathname.startsWith("/admin") || pathname.startsWith("/webview")) return;
+    if (!pathname || pathname.startsWith("/admin") || pathname.startsWith("/apps")) return;
 
     let visitorId = localStorage.getItem(visitorKey);
     if (!visitorId) {

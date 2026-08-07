@@ -119,7 +119,7 @@ export function DoiDiemWebView() {
     try { await callApi(`/api/webview/payment-accounts/${id}`, { method: "DELETE" }); await loadData(); } catch (error) { setNotice(error instanceof Error ? error.message : "Không thể xóa."); }
   }
 
-  if (!ready) return <main className="dd-shell dd-wait"><div className="dd-wait-icon"><ShieldCheck /></div><h1>Rút tiền hoàn</h1><p>Đang chờ xác thực từ ứng dụng…</p><span>Vui lòng mở trang này bên trong ứng dụng.</span></main>;
+  if (!ready) return <main className="dd-shell dd-wait"><div className="dd-wait-icon"><ShieldCheck /></div><h1>Rút tiền hoàn</h1><p>Đang xác minh tài khoản...</p><span>Vui lòng chờ một chút nhé.</span></main>;
 
   return <main className="dd-shell">
     <header className="dd-header"><div><span className="dd-eyebrow">QBOT CASHBACK</span><h1>Rút tiền hoàn</h1></div><button aria-label="Tải lại" onClick={() => demo ? undefined : void loadData()}><RefreshCw className={loading ? "dd-spin" : ""} /></button></header>
