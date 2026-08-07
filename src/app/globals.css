@@ -20,6 +20,9 @@ body {
   height: 100%;
 }
 
+/* Standalone mobile WebView: /webview/doidiem */
+.dd-shell{min-height:100dvh;max-width:520px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));background:#f4f7f6;color:#17352d}.dd-header{display:flex;align-items:center;justify-content:space-between;margin:0 2px 18px}.dd-header h1{margin:2px 0 0;font-size:27px;line-height:1.1;letter-spacing:-.04em}.dd-eyebrow{color:#2d7e67;font-size:10px;font-weight:800;letter-spacing:.16em}.dd-header button{display:grid;width:42px;height:42px;place-items:center;border:1px solid #dce7e3;border-radius:14px;background:#fff;color:#35695b}.dd-header svg{width:18px}.dd-demo{margin:-6px 0 12px;padding:8px 10px;border:1px dashed #d7b25f;border-radius:10px;background:#fff9e8;color:#765b1d;font-size:11px;text-align:center}.dd-demo span{margin-right:5px;padding:2px 5px;border-radius:4px;background:#e2b64d;color:#fff;font-weight:800}.dd-balance{position:relative;overflow:hidden;margin-bottom:14px;padding:20px;border-radius:22px;background:linear-gradient(135deg,#205f50,#163e35);box-shadow:0 14px 34px rgba(25,80,65,.22);color:#fff}.dd-balance-top{display:flex;justify-content:space-between;align-items:center;color:#cae2da;font-size:13px}.dd-balance-top svg{width:23px}.dd-balance strong{display:block;margin-top:8px;font-size:34px;letter-spacing:-.045em}.dd-balance small{color:#bdd8cf}.dd-balance-shine{position:absolute;right:-46px;bottom:-80px;width:190px;height:190px;border:35px solid rgba(255,255,255,.055);border-radius:50%}.dd-card{margin-bottom:14px;padding:18px;border:1px solid #e0e9e6;border-radius:22px;background:#fff;box-shadow:0 7px 24px rgba(30,65,55,.055)}.dd-section-title,.dd-section-title>div{display:flex;align-items:center;justify-content:space-between;gap:10px}.dd-section-title>div>span{display:grid;flex:0 0 30px;height:30px;place-items:center;border-radius:10px;background:#e8f4f0;color:#287a63;font-size:11px;font-weight:800}.dd-section-title>div>span svg{width:15px}.dd-section-title h2{margin:0;font-size:15px;letter-spacing:-.01em}.dd-section-title p{margin:1px 0 0;color:#7a8e88;font-size:11px}.dd-amount{display:flex;align-items:center;margin-top:15px;padding:4px 13px;border:1.5px solid #dce7e3;border-radius:15px;background:#f9fbfa}.dd-amount:focus-within{border-color:#2b8269;box-shadow:0 0 0 3px #e4f3ee}.dd-amount input{min-width:0;flex:1;border:0;outline:0;background:transparent;font-size:27px;font-weight:750;color:#17352d}.dd-amount span{color:#658078;font-size:13px;font-weight:650}.dd-quick{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:8px}.dd-quick button{min-height:34px;border:1px solid #dce7e3;border-radius:10px;background:#fff;color:#426b60;font-size:11px;font-weight:700}.dd-divider{height:1px;margin:19px 0;background:#eef2f1}.dd-add-link{display:flex;align-items:center;gap:3px;border:0;background:none;color:#287a63;font-size:12px;font-weight:750}.dd-add-link svg{width:15px}.dd-account-list{display:grid;gap:8px;margin-top:14px}.dd-account{position:relative;display:flex;align-items:center;gap:10px;padding:12px;border:1.5px solid #e2e9e7;border-radius:15px;cursor:pointer}.dd-account.selected{border-color:#31856d;background:#f1faf7;box-shadow:inset 0 0 0 1px #31856d}.dd-account>input{position:absolute;opacity:0}.dd-bank-icon{display:grid;flex:0 0 39px;height:39px;place-items:center;border-radius:12px;background:#eef4f2;color:#2d705e}.dd-bank-icon svg{width:19px}.dd-account-text{min-width:0;flex:1}.dd-account-text strong,.dd-account-text span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dd-account-text strong{font-size:12px}.dd-account-text span{margin-top:2px;color:#71837e;font-size:10px}.dd-account-text em{margin-left:4px;padding:2px 5px;border-radius:5px;background:#dcefe8;color:#25735d;font-size:8px;font-style:normal;text-transform:uppercase}.dd-check{display:none;width:17px;color:#2e8068}.dd-account.selected>.dd-check{display:block}.dd-actions{display:none;gap:1px}.dd-account:hover .dd-actions{display:flex}.dd-actions button{display:grid;width:28px;height:28px;min-height:0;place-items:center;border:0;background:transparent;color:#789089}.dd-actions button:last-child{color:#bd5b5b}.dd-actions svg{width:14px}.dd-empty{width:100%;margin-top:12px;border:1px dashed #9bc3b7;border-radius:14px;background:#f5fbf9;color:#26745e;font-size:12px;font-weight:700}.dd-otp{display:block;margin-top:15px}.dd-otp>span{display:block;margin-bottom:6px;font-size:12px;font-weight:700}.dd-otp small{color:#81938e;font-weight:400}.dd-otp>div{display:flex;gap:7px}.dd-otp input{min-width:0;flex:1;padding:0 12px;border:1px solid #dce7e3;border-radius:12px;outline:none}.dd-otp button{padding:0 12px;border:1px solid #c5ddd6;border-radius:12px;background:#edf7f4;color:#287a63;font-size:11px;font-weight:750}.dd-submit{display:flex;width:100%;min-height:50px;align-items:center;justify-content:center;gap:7px;margin-top:16px;border:0;border-radius:15px;background:linear-gradient(135deg,#2e846b,#20634f);box-shadow:0 8px 18px rgba(38,118,94,.2);color:#fff;font-weight:750}.dd-submit:disabled{box-shadow:none;opacity:.5}.dd-submit svg{width:18px}.dd-secure{display:flex;align-items:center;justify-content:center;gap:5px;margin:11px 0 -2px;color:#869690;font-size:10px}.dd-secure svg{width:13px}.dd-history article{display:flex;align-items:center;justify-content:space-between;padding:13px 1px;border-bottom:1px solid #eef2f0}.dd-history article:last-child{border-bottom:0}.dd-history article>div:last-child{text-align:right}.dd-history article strong,.dd-history article span{display:block;font-size:12px}.dd-history article span{margin-top:2px;color:#8a9995;font-size:10px}.dd-status{display:inline-block!important;padding:2px 7px;border-radius:6px;background:#fff1d7!important;color:#9a6a13!important}.dd-status.completed{background:#e5f5ee!important;color:#25745c!important}.dd-notice{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:10px 12px;border:1px solid #f0d896;border-radius:12px;background:#fff9e7;color:#745b23;font-size:12px}.dd-notice button{border:0;background:none;color:inherit}.dd-notice svg{width:14px}.dd-modal-backdrop{position:fixed;z-index:50;inset:0;display:flex;align-items:flex-end;justify-content:center;padding-top:30px;background:rgba(14,37,31,.55);backdrop-filter:blur(3px)}.dd-modal{width:100%;max-width:520px;max-height:92dvh;overflow:auto;padding:20px 18px calc(22px + env(safe-area-inset-bottom));border-radius:24px 24px 0 0;background:#fff}.dd-modal-head{display:flex;justify-content:space-between;margin-bottom:15px}.dd-modal-head h2{margin:0;font-size:19px}.dd-modal-head p{margin:2px 0;color:#82928e;font-size:11px}.dd-modal-head button{border:0;background:none;color:#61766f}.dd-modal-head svg{width:20px}.dd-modal label{display:block;margin:11px 0;color:#37554d;font-size:12px;font-weight:700}.dd-modal input,.dd-modal select{width:100%;margin-top:5px;padding:0 12px;border:1px solid #dce6e3;border-radius:12px;background:#fff;outline:none}.dd-wait{display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center}.dd-wait-icon{display:grid;width:70px;height:70px;place-items:center;border-radius:24px;background:#e5f2ee;color:#287a63}.dd-wait-icon svg{width:34px}.dd-wait h1{margin:18px 0 3px}.dd-wait p{margin:0;color:#607a72}.dd-wait span{margin-top:6px;color:#99a7a3;font-size:12px}.dd-spin{animation:dd-spin 1s linear infinite}@keyframes dd-spin{to{transform:rotate(360deg)}}
+
 body {
   margin: 0;
   color: var(--brand-black);
@@ -32,6 +35,72 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Narrow WebView guards override the compact rules above. */
+.dd-shell { width: 100%; min-width: 0; overflow-x: hidden; font-family: var(--font-sans); }
+.dd-header h1 { font-family: var(--font-sans); }
+.dd-header button { flex: 0 0 42px; }
+.dd-demo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd-card { min-width: 0; }
+.dd-quick { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.dd-payment-title { align-items: flex-start; }
+.dd-payment-title > div { min-width: 0; }
+.dd-add-link { flex: 0 0 auto; min-height: 34px; padding: 0 10px; border: 1px solid #b9d9cf; border-radius: 10px; background: #f0f8f5; white-space: nowrap; }
+.dd-add-link span { display: inline; }
+.dd-modal-grip { width: 42px; height: 4px; margin: -8px auto 15px; border-radius: 99px; background: #dce5e2; }
+.dd-method { margin: 0 0 14px; padding: 0; border: 0; }
+.dd-method legend { margin-bottom: 7px; color: #37554d; font-size: 12px; font-weight: 700; }
+.dd-method > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.dd-method button { position: relative; display: grid; min-width: 0; min-height: 108px; justify-items: start; align-content: center; padding: 12px; border: 1.5px solid #dfe8e5; border-radius: 15px; background: #fafcfb; color: #587068; text-align: left; }
+.dd-method button.active { border-color: #2e836a; background: #eff9f5; box-shadow: inset 0 0 0 1px #2e836a; color: #1f6754; }
+.dd-method button > span { display: grid; width: 34px; height: 34px; margin-bottom: 8px; place-items: center; border-radius: 10px; background: #e7f1ee; }
+.dd-method button > span svg { width: 17px; }
+.dd-method button > strong { font-size: 12px; }
+.dd-method button > small { overflow: hidden; width: 100%; margin-top: 2px; color: #82938e; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.dd-method button > svg { position: absolute; top: 10px; right: 10px; display: none; width: 16px; }
+.dd-method button.active > svg { display: block; }
+.dd-field-hint { display: block; margin-top: 4px; color: #879792; font-size: 9px; font-weight: 400; }
+.dd-method { margin-bottom: 16px; }
+.dd-method > div { display: flex; width: 100%; gap: 4px; padding: 4px; border-radius: 13px; background: #eef3f1; }
+.dd-method button { display: flex; flex: 1; min-height: 42px; align-items: center; justify-content: center; gap: 7px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; box-shadow: none; color: #71837e; }
+.dd-method button.active { border: 0; background: #fff; box-shadow: 0 2px 8px rgba(31, 73, 61, .1); color: #216b56; }
+.dd-method button > svg { position: static; display: block; width: 16px; }
+.dd-method button > strong { font-size: 11px; white-space: nowrap; }
+.dd-form-fields { display: grid; gap: 12px; }
+.dd-form-fields label { margin: 0; }
+.dd-form-fields label > span { display: block; margin: 0 0 6px 2px; color: #456058; font-size: 11px; font-weight: 700; }
+.dd-control { display: flex; min-height: 50px; align-items: center; overflow: hidden; border: 1.5px solid #dce6e3; border-radius: 13px; background: #fbfcfc; transition: border-color .15s, box-shadow .15s, background .15s; }
+.dd-control:focus-within { border-color: #31846c; background: #fff; box-shadow: 0 0 0 3px rgba(49, 132, 108, .1); }
+.dd-control-icon, .dd-control-prefix { display: grid; flex: 0 0 42px; height: 28px; place-items: center; border-right: 1px solid #e2eae7; color: #3e7969; font-size: 11px; font-weight: 800; }
+.dd-control-icon svg { width: 17px; }
+.dd-control input, .dd-control select { min-width: 0; height: 48px; margin: 0; padding: 0 12px; border: 0; border-radius: 0; background: transparent; color: #1c3c33; font-size: 13px; font-weight: 650; outline: 0; }
+.dd-control input::placeholder { color: #a2afab; font-weight: 400; }
+.dd-field-hint { margin: 5px 0 0 3px; }
+.dd-minimum-note { display: flex; align-items: center; gap: 10px; margin-top: 16px; padding: 12px; border: 1px solid #e7dcc4; border-radius: 13px; background: #faf7f0; color: #735f35; }
+.dd-minimum-note > svg { flex: 0 0 20px; width: 20px; }
+.dd-minimum-note strong, .dd-minimum-note span { display: block; }
+.dd-minimum-note strong { font-size: 11px; }
+.dd-minimum-note span { margin-top: 2px; font-size: 9px; opacity: .8; }
+
+@media (max-width: 420px) {
+  .dd-shell { padding-right: 12px; padding-left: 12px; }
+  .dd-card { padding: 15px; border-radius: 19px; }
+  .dd-balance { padding: 18px; border-radius: 19px; }
+  .dd-balance strong { font-size: 31px; }
+  .dd-section-title { gap: 7px; }
+  .dd-section-title > div { gap: 8px; }
+  .dd-add-link { min-height: 32px; padding: 0 8px; font-size: 10px; }
+  .dd-add-link svg { width: 13px; }
+  .dd-account { gap: 8px; padding: 10px; }
+  .dd-bank-icon { flex-basis: 36px; height: 36px; }
+  .dd-quick { gap: 5px; }
+  .dd-quick button { padding: 0 3px; font-size: 10px; }
+}
+
+@media (max-width: 350px) {
+  .dd-add-link span { display: none; }
+  .dd-add-link { width: 34px; padding: 0; justify-content: center; }
 }
 
 button,

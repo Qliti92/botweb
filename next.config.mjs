@@ -12,6 +12,8 @@ const nextConfig = {
     return [
       { source: "/api/chat/:path*", headers: privateDataHeaders },
       { source: "/api/admin/:path*", headers: privateDataHeaders },
+      { source: "/api/webview/:path*", headers: privateDataHeaders },
+      { source: "/webview/:path*", headers: privateDataHeaders },
       { source: "/admin/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive, nosnippet" }] }
     ];
   }

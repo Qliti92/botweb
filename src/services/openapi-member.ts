@@ -5,6 +5,7 @@ type ApiOptions = {
   tokenType?: string;
   query?: Record<string, string | number | undefined>;
   body?: Record<string, unknown>;
+  idempotencyKey?: string;
 };
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -26,16 +27,55 @@ function buildUrl(path: string, query?: ApiOptions["query"]) {
   return url.toString();
 }
 
-async function requestJson(method: "GET" | "POST" | "DELETE", path: string, options: ApiOptions) {
-  const response = await fetch(buildUrl(path, options.query), {
-    method,
-    headers: authHeaders(options.token, options.tokenType),
-    body: method === "GET" ? undefined : JSON.stringify(options.body ?? {})
+export class OpenApiMemberError extends Error {
+  constructor(message: string, public readonly status: number, public readonly details?: Record<string, unknown>) {
+    super(message);
+    this.name = "OpenApiMemberError";
+  }
+}
+
+function apiErrorMessage(data: Record<string, unknown>) {
+  const nested = asRecord(data.data);
+  const errors = asRecord(data.errors ?? nested.errors);
+  const details = Object.entries(errors).flatMap(([field, value]) => {
+    const entries = Array.isArray(value) ? value : [value];
+    return entries.filter((item) => typeof item === "string" && item.trim()).map(String);
   });
+  if (details.length) return details.join(" ");
+  return String(data.message ?? data.error ?? "Yêu cầu API thất bại.");
+}
+
+async function requestJson(method: "GET" | "POST" | "DELETE", path: string, options: ApiOptions) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path, options.query), {
+      method,
+      headers: {
+        ...authHeaders(options.token, options.tokenType),
+        ...(options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : {})
+      },
+      body: method === "GET" ? undefined : JSON.stringify(options.body ?? {}),
+      signal: controller.signal,
+      cache: "no-store"
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new OpenApiMemberError("Máy chủ xử lý quá lâu. Vui lòng kiểm tra lịch sử trước khi thử lại.", 504);
+    }
+    throw new OpenApiMemberError("Không thể kết nối dịch vụ thành viên. Vui lòng thử lại sau.", 503);
+  } finally {
+    clearTimeout(timeout);
+  }
   const data = asRecord(await response.json().catch(() => ({})));
 
   if (!response.ok || data.success === false) {
-    throw new Error(String(data.message ?? data.error ?? "Yêu cầu API thất bại."));
+    throw new OpenApiMemberError(
+      apiErrorMessage(data),
+      response.status || 502,
+      data
+    );
   }
 
   return asRecord(data.data ?? data);
@@ -102,9 +142,10 @@ export function createWithdrawal(
     account_number: string;
     account_name: string;
     otp_code?: string;
-  }
+  },
+  idempotencyKey?: string
 ) {
-  return requestJson("POST", "/withdrawals", { token, tokenType, body });
+  return requestJson("POST", "/withdrawals", { token, tokenType, body, idempotencyKey });
 }
 
 export function getOrders(token: string, tokenType?: string, query?: { status?: string; platform?: string; search?: string; page?: number; per_page?: number }) {

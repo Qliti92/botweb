@@ -19,7 +19,14 @@ function finalizeResponse(request: NextRequest, response: NextResponse) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive, nosnippet");
   }
 
-  return securityHeaders(response);
+  const secured = securityHeaders(response);
+  if (request.nextUrl.pathname.startsWith("/webview") || request.nextUrl.pathname.startsWith("/api/webview")) {
+    const devEval = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
+    secured.headers.set("Content-Security-Policy", `default-src 'self'; img-src 'self' data:; script-src 'self' 'unsafe-inline'${devEval}; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'self'`);
+    secured.headers.set("Cross-Origin-Opener-Policy", "same-origin");
+    secured.headers.set("Cross-Origin-Resource-Policy", "same-origin");
+  }
+  return secured;
 }
 
 export async function middleware(request: NextRequest) {
